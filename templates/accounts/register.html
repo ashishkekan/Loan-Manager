@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Account — LoanManager{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-container">
+        <div class="auth-left">
+            <a href="/" class="auth-brand">
+                <i class="fas fa-landmark"></i> LoanManager
+            </a>
+            <h1>Start Managing Your Loans</h1>
+            <p>Create a free account and take the first step towards debt freedom.</p>
+            <div class="auth-visual">
+                <div class="auth-shape"></div>
+                <div class="auth-shape-2"></div>
+            </div>
+        </div>
+        <div class="auth-right">
+            <div class="auth-form-wrapper">
+                <h2>Create Account</h2>
+                <p class="auth-subtitle">Fill in your details to get started</p>
+
+                <form method="post" class="auth-form" novalidate>
+                    {% csrf_token %}
+
+                    {% for field in form %}
+                    <div class="form-group {% if field.errors %}has-error{% endif %}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                        {% for error in field.errors %}
+                        <span class="form-error">{{ error }}</span>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+                </form>
+
+                <p class="auth-switch">
+                    Already have an account? <a href="{% url 'login' %}">Log in</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

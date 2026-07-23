@@ -1,0 +1,109 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+
+{% block title %}EMI Schedule — {{ loan.loan_name }}{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'loan_list' %}">My Loans</a>
+            <i class="fas fa-chevron-right"></i>
+            <a href="{% url 'loan_detail' loan.pk %}">{{ loan.loan_name }}</a>
+            <i class="fas fa-chevron-right"></i>
+            <span>Amortization Schedule</span>
+        </div>
+        <h1 class="page-title">Amortization Schedule</h1>
+        <p class="page-subtitle">{{ total_schedule_items }} months · {{ loan.loan_name }}</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-ghost" onclick="window.print()">
+            <i class="fas fa-print"></i> Print Schedule
+        </button>
+        <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline">
+            <i class="fas fa-arrow-left"></i> Back to Loan
+        </a>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="glass-card" style="padding: 16px 24px; margin-bottom: 24px;">
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <label style="font-weight: 500; font-size: 14px;">Filter:</label>
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="paid">Paid</button>
+        <button class="filter-btn" data-filter="projected">Projected</button>
+        <span style="margin-left: auto; font-size: 13px; color: var(--text-secondary);">
+            Showing <span id="rowCount">{{ total_schedule_items }}</span> of {{ total_schedule_items }} months
+        </span>
+    </div>
+</div>
+
+<!-- Schedule Table -->
+<div class="glass-card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="data-table schedule-table" id="scheduleTable">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Due Date</th>
+                    <th>EMI</th>
+                    <th>Principal</th>
+                    <th>Interest</th>
+                    <th>Balance</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in schedule %}
+                <tr class="row-{{ row.status }}" data-status="{{ row.status }}">
+                    <td><strong>{{ row.month }}</strong></td>
+                    <td>{{ row.due_date|date:"M d, Y" }}</td>
+                    <td>₹{{ row.emi|floatformat:0 }}</td>
+                    <td>₹{{ row.principal|floatformat:0 }}</td>
+                    <td>₹{{ row.interest|floatformat:0 }}</td>
+                    <td>₹{{ row.balance|floatformat:0 }}</td>
+                    <td>
+                        {% if row.status == 'paid' %}
+                        <span class="status-badge status-paid">
+                            <i class="fas fa-check"></i> Paid
+                            {% if row.payment_date %}({{ row.payment_date|date:"M d" }}){% endif %}
+                        </span>
+                        {% else %}
+                        <span class="status-badge status-projected">Projected</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Filter logic for amortization schedule
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+
+        const filter = this.dataset.filter;
+        const rows = document.querySelectorAll('#scheduleTable tbody tr');
+        let count = 0;
+
+        rows.forEach(row => {
+            if (filter === 'all' || row.dataset.status === filter) {
+                row.style.display = '';
+                count++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        document.getElementById('rowCount').textContent = count;
+    });
+});
+</script>
+{% endblock %}

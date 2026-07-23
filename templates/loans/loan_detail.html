@@ -1,0 +1,296 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+
+{% block title %}{{ loan.loan_name }}{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'loan_list' %}">My Loans</a>
+            <i class="fas fa-chevron-right"></i>
+            <span>{{ loan.loan_name }}</span>
+        </div>
+        <h1 class="page-title">{{ loan.loan_name }}</h1>
+        <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status|title }}</span>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'emi_schedule' loan.pk %}" class="btn btn-outline">
+            <i class="fas fa-table"></i> Full Schedule
+        </a>
+        <button class="btn btn-ghost" onclick="window.print()">
+            <i class="fas fa-print"></i> Print
+        </button>
+        {% if loan.status == 'active' %}
+        <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline;"
+              onsubmit="return confirm('Delete this loan and all its payment history?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger-ghost"><i class="fas fa-trash"></i></button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon"><i class="fas fa-coins"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Loan Amount</span>
+            <span class="sc-value">₹{{ loan.amount|floatformat:0 }}</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon accent"><i class="fas fa-credit-card"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Monthly EMI</span>
+            <span class="sc-value">₹{{ loan.emi|floatformat:0 }}</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon warn"><i class="fas fa-hourglass-half"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Remaining Balance</span>
+            <span class="sc-value">₹{{ loan.remaining_balance|floatformat:0 }}</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon danger"><i class="fas fa-percent"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Interest Paid</span>
+            <span class="sc-value">₹{{ loan.total_interest_paid|floatformat:0 }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Section -->
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-weight: 600;">Repayment Progress</span>
+        <span style="font-weight: 700; color: var(--accent);">{{ progress }}%</span>
+    </div>
+    <div class="progress-bar-large">
+        <div class="progress-fill" style="width: {{ progress }}%"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: var(--text-secondary);">
+        <span>₹{{ total_principal_paid|floatformat:0 }} paid</span>
+        <span>₹{{ loan.remaining_balance|floatformat:0 }} remaining</span>
+    </div>
+</div>
+
+<!-- Action Buttons (if loan is active) -->
+{% if loan.status == 'active' %}
+<div class="action-grid" style="margin-bottom: 24px;">
+    <form method="post" action="{% url 'pay_emi' loan.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-lg btn-block">
+            <i class="fas fa-check-circle"></i> Pay EMI — ₹{{ loan.emi|floatformat:0 }}
+        </button>
+    </form>
+</div>
+
+<!-- Prepayment Section -->
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <h3 style="margin-bottom: 16px;"><i class="fas fa-bolt" style="color: var(--accent);"></i> Make Prepayment</h3>
+    <form method="post" action="{% url 'make_prepayment' loan.pk %}" class="prepay-form" novalidate>
+        {% csrf_token %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+                <label>Prepayment Amount (₹)</label>
+                <input type="number" name="amount" class="form-input" placeholder="e.g. 50000" min="1" step="0.01"
+                       max="{{ loan.remaining_balance }}" required>
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" name="prepayment_date" class="form-input" required
+                       value="{% now 'Y-m-d' %}">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-outline" style="margin-top: 8px;">
+            <i class="fas fa-bolt"></i> Apply Prepayment
+        </button>
+        <span style="font-size: 13px; color: var(--text-secondary); margin-left: 12px;">
+            Max: ₹{{ loan.remaining_balance|floatformat:0 }}
+        </span>
+    </form>
+</div>
+{% endif %}
+
+<!-- Charts Section -->
+<div class="charts-grid">
+    <div class="glass-card chart-card">
+        <h3>Balance Over Time</h3>
+        <canvas id="balanceChart"></canvas>
+    </div>
+    <div class="glass-card chart-card">
+        <h3>Principal vs Interest</h3>
+        <canvas id="pieChart"></canvas>
+    </div>
+</div>
+
+<!-- Recent Payments -->
+<div class="glass-card" style="padding: 24px; margin-top: 24px;">
+    <h3 style="margin-bottom: 16px;">Payment History</h3>
+    {% if paid_payments %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>EMI</th>
+                    <th>Principal</th>
+                    <th>Interest</th>
+                    <th>Balance After</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in paid_payments reversed %}
+                <tr>
+                    <td>{{ p.payment_number }}</td>
+                    <td>{{ p.payment_date|date:"M d, Y" }}</td>
+                    <td>₹{{ p.amount|floatformat:0 }}</td>
+                    <td>₹{{ p.principal_component|floatformat:0 }}</td>
+                    <td>₹{{ p.interest_component|floatformat:0 }}</td>
+                    <td>₹{{ p.balance_after|floatformat:0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">No payments recorded yet.</p>
+    {% endif %}
+</div>
+
+<!-- Prepayments History -->
+{% if prepayments %}
+<div class="glass-card" style="padding: 24px; margin-top: 24px;">
+    <h3 style="margin-bottom: 16px;"><i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayment History</h3>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Months Saved</th>
+                    <th>Interest Saved</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prep in prepayments %}
+                <tr>
+                    <td>{{ prep.prepayment_date|date:"M d, Y" }}</td>
+                    <td>₹{{ prep.amount|floatformat:0 }}</td>
+                    <td>{{ prep.months_reduced }} months</td>
+                    <td style="color: var(--accent);">₹{{ prep.interest_saved|floatformat:0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Balance Over Time — Line Chart
+(function() {
+    const data = {{ projected_schedule_json|safe }};
+    if (!data || !data.labels.length) return;
+
+    const ctx = document.getElementById('balanceChart').getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(40, 167, 69, 0.25)');
+    gradient.addColorStop(1, 'rgba(40, 167, 69, 0.01)');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Remaining Balance',
+                data: data.balances,
+                borderColor: '#28a745',
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                borderWidth: 2.5,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1a1a2e',
+                    titleColor: '#fff',
+                    bodyColor: '#e2e8f0',
+                    padding: 12,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: ctx => '₹' + ctx.parsed.y.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 12, color: '#94a3b8', font: { size: 11 } }
+                },
+                y: {
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    ticks: {
+                        color: '#94a3b8', font: { size: 11 },
+                        callback: v => '₹' + (v / 100000).toFixed(1) + 'L'
+                    }
+                }
+            }
+        }
+    });
+})();
+
+// Principal vs Interest — Doughnut Chart
+(function() {
+    const data = {{ pie_data_json|safe }};
+    const ctx = document.getElementById('pieChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Principal Paid', 'Interest Paid'],
+            datasets: [{
+                data: [data.principal, data.interest],
+                backgroundColor: ['#28a745', '#f59e0b'],
+                borderColor: ['rgba(40,167,69,0.3)', 'rgba(245,158,11,0.3)'],
+                borderWidth: 2,
+                hoverOffset: 8,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 20, usePointStyle: true, pointStyle: 'circle', color: '#64748b' }
+                },
+                tooltip: {
+                    backgroundColor: '#1a1a2e',
+                    padding: 12,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: ctx => ctx.label + ': ₹' + ctx.parsed.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}
