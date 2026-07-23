@@ -79,6 +79,13 @@
         </table>
     </div>
 </div>
+
+{% if page_obj.has_other_pages %}
+<div style="margin-top: 24px;">
+    {% include "includes/pagination.html" %}
+</div>
+{% endif %}
+{% endblock %}
 {% endblock %}
 
 {% block extra_scripts %}

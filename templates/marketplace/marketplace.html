@@ -1,0 +1,79 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+
+{% block title %}Investment Marketplace{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Marketplace</h1>
+        <p class="page-subtitle">Discover high-yield loan opportunities</p>
+    </div>
+    {% if not profile_complete %}
+    <a href="{% url 'setup_profile' %}" class="btn btn-primary"><i class="fas fa-user-check"></i> Complete Profile</a>
+    {% endif %}
+</div>
+
+{% if not is_lender and profile_complete %}
+<div class="overdue-alert" style="background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.25);">
+    <div class="oa-icon" style="color: var(--accent);"><i class="fas fa-shield-halved"></i></div>
+    <div class="oa-info">
+        <strong>KYC Pending.</strong> Admin needs to verify your PAN to activate investing capabilities.
+    </div>
+</div>
+{% endif %}
+
+<div class="opportunities-grid">
+    {% for loan in opportunities %}
+    <div class="opp-card glass-card reveal">
+        <div class="opp-header">
+            <div class="opp-type" style="color: {{ loan.type_color }};">
+                <i class="fas {{ loan.type_icon }}"></i> {{ loan.get_loan_type_display }}
+            </div>
+            <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status }}</span>
+        </div>
+        
+        <h3 class="opp-title">{{ loan.loan_name }}</h3>
+        
+        <div class="opp-rate">
+            <span class="opp-rate-val">{{ loan.interest_rate }}%</span>
+            <span class="opp-rate-label">Annual Returns</span>
+        </div>
+
+        <div class="opp-details">
+            <div><span>Seeking:</span> <strong>₹{{ loan.amount|floatformat:0 }}</strong></div>
+            <div><span>Funded:</span> <strong>₹{{ loan.funded_amount|floatformat:0 }}</strong></div>
+            <div><span>Tenure:</span> <strong>{{ loan.tenure_years }} Years</strong></div>
+        </div>
+
+        <div class="opp-progress">
+            <div class="opp-progress-bar">
+                <div class="opp-progress-fill" style="width: {% widthratio loan.funded_amount loan.amount 100 %}%"></div>
+            </div>
+            <span>{% widthratio loan.funded_amount loan.amount 100 %}% Funded</span>
+        </div>
+
+        <div class="opp-actions">
+            <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline btn-block">View Details</a>
+            {% if is_lender %}
+            <form method="post" action="{% url 'invest_in_loan' loan.pk %}" style="flex:1;" onsubmit="return confirm('Invest in this loan?')">
+                {% csrf_token %}
+                <input type="number" name="amount" class="form-input" placeholder="Amount" required style="margin-bottom:0; height: 44px;">
+                <button type="submit" class="btn btn-primary" style="height: 44px; border-radius: 0 10px 10px 0;">Invest</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-icon"><i class="fas fa-store"></i></div>
+        <h3>No Opportunities Right Now</h3>
+        <p>Check back soon for new listings.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% if is_paginated %}
+{% include "includes/pagination.html" %}
+{% endif %}
+{% endblock %}
