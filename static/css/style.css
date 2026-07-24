@@ -382,16 +382,19 @@ input, select, textarea { font-family: inherit; }
     left: 0;
     right: 0;
     z-index: 1000;
-    padding: 16px 0;
+    padding: 14px 0;
     transition: all var(--transition);
-}
-.landing-nav.scrolled {
+    /* Solid background from start */
     background: var(--bg-glass-strong);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border-bottom: var(--glass-border);
-    padding: 10px 0;
+    /* Subtle border underneath */
+    border-bottom: 1px solid var(--border);
+}
+.landing-nav.scrolled {
+    /* Only slight shadow added on scroll */
     box-shadow: var(--shadow-sm);
+    padding: 10px 0;
 }
 
 .nav-container {
