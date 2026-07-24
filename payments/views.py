@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView
 
 from loans.models import Loan
-from loans.utils import add_months, calculate_remaining_months
+from loans.utils import add_months, calculate_remaining_months, generate_full_schedule
 
 from .forms import PrepaymentForm
 from .models import Payment, Prepayment
@@ -148,12 +148,17 @@ def make_prepayment(request, loan_id):
 
 
 class EMIScheduleView(LoginRequiredMixin, TemplateView):
-    # Inside get_context_data, change the schedule line to:
-    # (We handle pagination manually in template via JS for performance,
-    # or slice it here. Slicing is easier for pure Django):
+    """Display the full amortization schedule for a loan."""
+
+    template_name = "payments/emi_schedule.html"
 
     def get_context_data(self, **kwargs):
-        # ... existing code ...
+        context = super().get_context_data(**kwargs)
+        loan_id = kwargs.get("loan_id")
+        loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
+
+        from loans.utils import generate_full_schedule
+
         schedule = generate_full_schedule(loan)
 
         # Add Pagination manually for tables
@@ -163,6 +168,7 @@ class EMIScheduleView(LoginRequiredMixin, TemplateView):
         page_number = self.request.GET.get("page", 1)
         page_obj = paginator.get_page(page_number)
 
+        context["loan"] = loan
         context["schedule"] = page_obj.object_list
         context["page_obj"] = page_obj
         context["total_schedule_items"] = paginator.count

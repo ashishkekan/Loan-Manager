@@ -86,31 +86,29 @@
 </div>
 {% endif %}
 {% endblock %}
-{% endblock %}
 
 {% block extra_scripts %}
 <script>
-// Filter logic for amortization schedule
-document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
 
-        const filter = this.dataset.filter;
-        const rows = document.querySelectorAll('#scheduleTable tbody tr');
-        let count = 0;
+            const filter = this.dataset.filter;
+            const rows = document.querySelectorAll('#scheduleTable tbody tr');
+            let count = 0;
 
-        rows.forEach(row => {
-            if (filter === 'all' || row.dataset.status === filter) {
-                row.style.display = '';
-                count++;
-            } else {
-                row.style.display = 'none';
-            }
+            rows.forEach(row => {
+                if (filter === 'all' || row.dataset.status === filter) {
+                    row.style.display = '';
+                    count++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            document.getElementById('rowCount').textContent = count;
         });
-
-        document.getElementById('rowCount').textContent = count;
     });
-});
 </script>
 {% endblock %}
