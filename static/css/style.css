@@ -2717,3 +2717,12 @@ input, select, textarea { font-family: inherit; }
 [data-theme="dark"] .proc-tab { border-color: #374151 !important; color: #94a3b8 !important; }
 [data-theme="dark"] .mc-details strong { color: #f1f5f9 !important; }
 [data-theme="dark"] .mc-title { color: #f1f5f9 !important; }
+
+/* User Info Link Hover */
+.user-info:hover .user-avatar {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px var(--primary-glow);
+}
+.user-info:hover .user-name {
+    color: var(--primary);
+}

@@ -5,7 +5,6 @@
 
 {% block content %}
 <!-- NAVIGATION BAR -->
-<!-- NAVIGATION BAR -->
 <nav class="landing-nav" id="landingNav">
     <div class="nav-container">
         <a href="/" class="nav-brand"><i class="fas fa-landmark"></i> LoanManager</a>
@@ -373,144 +372,140 @@
 
 {% block extra_scripts %}
 <script>
-// ──────────────────────────────────────
-// FOOLPROOF EMI CALCULATOR
-// ──────────────────────────────────────
-document.addEventListener("DOMContentLoaded", function() {
-    const amountInput = document.getElementById("calcAmount");
-    const rateInput = document.getElementById("calcRate");
-    const tenureInput = document.getElementById("calcTenure");
-    const amountRange = document.getElementById("calcAmountRange");
-    const rateRange = document.getElementById("calcRateRange");
-    const tenureRange = document.getElementById("calcTenureRange");
-    const emiValue = document.getElementById("calcEmiValue");
-    const principalEl = document.getElementById("calcPrincipal");
-    const interestEl = document.getElementById("calcInterest");
-    const totalEl = document.getElementById("calcTotal");
-    
-    let pieChart = null;
+    document.addEventListener("DOMContentLoaded", function() {
+        const amountInput = document.getElementById("calcAmount");
+        const rateInput = document.getElementById("calcRate");
+        const tenureInput = document.getElementById("calcTenure");
+        const amountRange = document.getElementById("calcAmountRange");
+        const rateRange = document.getElementById("calcRateRange");
+        const tenureRange = document.getElementById("calcTenureRange");
+        const emiValue = document.getElementById("calcEmiValue");
+        const principalEl = document.getElementById("calcPrincipal");
+        const interestEl = document.getElementById("calcInterest");
+        const totalEl = document.getElementById("calcTotal");
+        
+        let pieChart = null;
 
-    function formatCurrency(num) {
-        return '₹' + Math.round(num).toLocaleString('en-IN');
-    }
-
-    function updateRangeStyle(range) {
-        const min = parseFloat(range.min);
-        const max = parseFloat(range.max);
-        const val = parseFloat(range.value);
-        const progress = ((val - min) / (max - min)) * 100;
-        range.style.setProperty('--progress', progress + '%');
-    }
-
-    function calculateEMI() {
-        const P = parseFloat(amountInput.value) || 0;
-        const annualRate = parseFloat(rateInput.value) || 0;
-        const years = parseInt(tenureInput.value) || 0;
-
-        if (P <= 0 || annualRate <= 0 || years <= 0) return;
-
-        const R = annualRate / 12 / 100;
-        const N = years * 12;
-        let emi = 0;
-
-        if (R === 0) {
-            emi = P / N;
-        } else {
-            const factor = Math.pow(1 + R, N);
-            emi = (P * R * factor) / (factor - 1);
+        function formatCurrency(num) {
+            return '₹' + Math.round(num).toLocaleString('en-IN');
         }
 
-        const totalPayment = emi * N;
-        const totalInterest = totalPayment - P;
+        function updateRangeStyle(range) {
+            const min = parseFloat(range.min);
+            const max = parseFloat(range.max);
+            const val = parseFloat(range.value);
+            const progress = ((val - min) / (max - min)) * 100;
+            range.style.setProperty('--progress', progress + '%');
+        }
 
-        // Update Text
-        emiValue.textContent = formatCurrency(emi);
-        principalEl.textContent = formatCurrency(P);
-        interestEl.textContent = formatCurrency(totalInterest);
-        totalEl.textContent = formatCurrency(totalPayment);
+        function calculateEMI() {
+            const P = parseFloat(amountInput.value) || 0;
+            const annualRate = parseFloat(rateInput.value) || 0;
+            const years = parseInt(tenureInput.value) || 0;
 
-        // Animate EMI value
-        emiValue.style.transform = 'scale(1.05)';
-        setTimeout(() => { emiValue.style.transform = 'scale(1)'; }, 200);
+            if (P <= 0 || annualRate <= 0 || years <= 0) return;
 
-        // Update Chart
-        updateChart(P, totalInterest);
-    }
+            const R = annualRate / 12 / 100;
+            const N = years * 12;
+            let emi = 0;
 
-    function updateChart(principal, interest) {
-        const canvas = document.getElementById("calcPieChart");
-        if (!canvas) return;
+            if (R === 0) {
+                emi = P / N;
+            } else {
+                const factor = Math.pow(1 + R, N);
+                emi = (P * R * factor) / (factor - 1);
+            }
 
-        const chartData = {
-            labels: ['Principal', 'Interest'],
-            datasets: [{
-                data: [principal, interest],
-                backgroundColor: ['#28a745', '#f59e0b'],
-                borderColor: ['rgba(40,167,69,0.4)', 'rgba(245,158,11,0.4)'],
-                borderWidth: 2,
-                hoverOffset: 6
-            }]
-        };
+            const totalPayment = emi * N;
+            const totalInterest = totalPayment - P;
 
-        if (pieChart) {
-            pieChart.data = chartData;
-            pieChart.update('active');
-        } else {
-            pieChart = new Chart(canvas, {
-                type: 'doughnut',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    cutout: '68%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', color: '#64748b', font: { size: 12 } }
-                        },
-                        tooltip: {
-                            backgroundColor: '#1a1a2e',
-                            padding: 10,
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(ctx) {
-                                    return ctx.label + ': ' + formatCurrency(ctx.parsed);
+            // Update Text
+            emiValue.textContent = formatCurrency(emi);
+            principalEl.textContent = formatCurrency(P);
+            interestEl.textContent = formatCurrency(totalInterest);
+            totalEl.textContent = formatCurrency(totalPayment);
+
+            // Animate EMI value
+            emiValue.style.transform = 'scale(1.05)';
+            setTimeout(() => { emiValue.style.transform = 'scale(1)'; }, 200);
+
+            // Update Chart
+            updateChart(P, totalInterest);
+        }
+
+        function updateChart(principal, interest) {
+            const canvas = document.getElementById("calcPieChart");
+            if (!canvas) return;
+
+            const chartData = {
+                labels: ['Principal', 'Interest'],
+                datasets: [{
+                    data: [principal, interest],
+                    backgroundColor: ['#28a745', '#f59e0b'],
+                    borderColor: ['rgba(40,167,69,0.4)', 'rgba(245,158,11,0.4)'],
+                    borderWidth: 2,
+                    hoverOffset: 6
+                }]
+            };
+
+            if (pieChart) {
+                pieChart.data = chartData;
+                pieChart.update('active');
+            } else {
+                pieChart = new Chart(canvas, {
+                    type: 'doughnut',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        cutout: '68%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', color: '#64748b', font: { size: 12 } }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1a1a2e',
+                                padding: 10,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: function(ctx) {
+                                        return ctx.label + ': ' + formatCurrency(ctx.parsed);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         }
-    }
 
-    // Sync Inputs with Range Sliders
-    function syncInputs(numInput, rangeInput) {
-        numInput.addEventListener('input', function() {
-            rangeInput.value = this.value;
+        // Sync Inputs with Range Sliders
+        function syncInputs(numInput, rangeInput) {
+            numInput.addEventListener('input', function() {
+                rangeInput.value = this.value;
+                updateRangeStyle(rangeInput);
+                calculateEMI();
+            });
+            rangeInput.addEventListener('input', function() {
+                numInput.value = this.value;
+                updateRangeStyle(rangeInput);
+                calculateEMI();
+            });
+            // Initialize range style on load
             updateRangeStyle(rangeInput);
-            calculateEMI();
-        });
-        rangeInput.addEventListener('input', function() {
-            numInput.value = this.value;
-            updateRangeStyle(rangeInput);
-            calculateEMI();
-        });
-        // Initialize range style on load
-        updateRangeStyle(rangeInput);
-    }
+        }
 
-    // Bind Events
-    if (amountInput && amountRange) syncInputs(amountInput, amountRange);
-    if (rateInput && rateRange) syncInputs(rateInput, rateRange);
-    if (tenureInput && tenureRange) syncInputs(tenureInput, tenureRange);
+        // Bind Events
+        if (amountInput && amountRange) syncInputs(amountInput, amountRange);
+        if (rateInput && rateRange) syncInputs(rateInput, rateRange);
+        if (tenureInput && tenureRange) syncInputs(tenureInput, tenureRange);
 
-    // Initial Calculation on page load
-    calculateEMI();
-});
-// YE 3 LINES ADD KARO SCRIPT KE ANDAR
-document.querySelectorAll('a[href*="/accounts/"], a[href*="/dashboard/"], a[href*="/logout/"]').forEach(link => {
-    link.addEventListener('click', function(e) { /* Force normal browser navigation */ });
-});
+        // Initial Calculation on page load
+        calculateEMI();
+    });
+    document.querySelectorAll('a[href*="/accounts/"], a[href*="/dashboard/"], a[href*="/logout/"]').forEach(link => {
+        link.addEventListener('click', function(e) { /* Force normal browser navigation */ });
+    });
 </script>
 {% endblock %}
