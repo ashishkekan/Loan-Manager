@@ -1,33 +1,39 @@
-"""Views for the loans app — CRUD operations on Loan objects."""
+import csv
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.storage import default_storage
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, DeleteView, DetailView, ListView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    TemplateView,
+)
 
-from .forms import LoanForm
-from .models import Loan, LoanDocument
-from .utils import calculate_emi
+from .forms import LoanForm, LoanNoteForm
+from .models import Loan, LoanDocument, LoanNote
+from .utils import calculate_emi, compare_loans
 
 
 class LoanListView(LoginRequiredMixin, ListView):
-    """Display all loans for the logged-in user."""
-
     model = Loan
     template_name = "loans/loan_list.html"
     context_object_name = "loans"
-    paginate_by = 10
 
     def get_queryset(self):
-        return Loan.objects.filter(user=self.request.user).order_by("-created_at")
+        return (
+            Loan.objects.filter(user=self.request.user)
+            .select_related("user")
+            .order_by("-created_at")
+        )
 
 
 class LoanCreateView(LoginRequiredMixin, CreateView):
-    """Create a new loan with automatic EMI calculation."""
-
     model = Loan
     form_class = LoanForm
     template_name = "loans/create_loan.html"
@@ -37,80 +43,71 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
-
         form.instance.emi = calculate_emi(amount, rate, tenure)
         form.instance.remaining_balance = amount
+        messages.success(self.request, f'"{form.instance.loan_name}" created!')
         return super().form_valid(form)
 
     def get_success_url(self):
-        messages.success(
-            self.request, f'"{self.object.loan_name}" created successfully!'
-        )
         return reverse_lazy("loan_detail", kwargs={"pk": self.object.pk})
 
 
 class LoanDetailView(LoginRequiredMixin, DetailView):
-    """Detailed view of a single loan with payments, progress, and charts."""
-
     model = Loan
     template_name = "loans/loan_detail.html"
     context_object_name = "loan"
 
     def get_queryset(self):
-        return Loan.objects.filter(user=self.request.user)
+        return Loan.objects.filter(user=self.request.user).prefetch_related(
+            "payments", "prepayments", "notes"
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan = self.object
 
-        # Paid EMI payments
         context["paid_payments"] = loan.payments.filter(status="paid").order_by(
-            "payment_number"
-        )
+            "-payment_number"
+        )[:20]
 
-        # Prepayments
         context["prepayments"] = loan.prepayments.all().order_by("-prepayment_date")
+        context["notes"] = loan.notes.all()[:10]
+        context["note_form"] = LoanNoteForm()
 
-        # Calculate totals
         total_principal_paid = loan.amount - loan.remaining_balance
         context["total_principal_paid"] = total_principal_paid
         context["total_paid"] = total_principal_paid + loan.total_interest_paid
         context["progress"] = loan.progress_percent
+        context["health_score"] = loan.health_score
+        context["health_label"] = loan.health_label
+        context["is_overdue"] = loan.is_overdue
+        context["overdue_days"] = loan.overdue_days
 
-        # Projected schedule for charts (from current balance)
+        # Next EMI info
+        if loan.status == "active":
+            from .utils import add_months
+
+            next_num = loan.months_elapsed + 1
+            context["next_emi_num"] = next_num
+            context["next_emi_date"] = add_months(loan.start_date, next_num - 1)
+
         from .utils import generate_projected_schedule
 
         projected = generate_projected_schedule(loan)
-        context["projected_schedule_json"] = self._schedule_to_chart_data(projected)
+        context["projected_schedule_json"] = {
+            "labels": [f"M{r['month']}" for r in projected[:60]],
+            "balances": [float(r["balance"]) for r in projected[:60]],
+        }
 
-        # Pie chart: principal vs interest (from actual payments)
-        context["pie_data_json"] = self._pie_chart_data(loan)
-
-        context["documents"] = loan.documents.all().order_by("-uploaded_at")
+        context["pie_data_json"] = {
+            "principal": round(float(total_principal_paid), 2),
+            "interest": round(float(loan.total_interest_paid), 2),
+        }
 
         return context
 
-    def _schedule_to_chart_data(self, schedule):
-        """Convert amortization schedule to JSON-friendly chart data."""
-        labels = [
-            f"M{r['month']}" for r in schedule[:60]
-        ]  # Cap at 60 months for readability
-        balances = [float(r["balance"]) for r in schedule[:60]]
-        return {"labels": labels, "balances": balances}
-
-    def _pie_chart_data(self, loan):
-        """Prepare principal vs interest data for pie chart."""
-        principal_paid = float(loan.amount - loan.remaining_balance)
-        interest_paid = float(loan.total_interest_paid)
-        return {
-            "principal": round(principal_paid, 2),
-            "interest": round(interest_paid, 2),
-        }
-
 
 class LoanDeleteView(LoginRequiredMixin, DeleteView):
-    """Delete a loan and all associated data."""
-
     model = Loan
     success_url = reverse_lazy("loan_list")
 
@@ -118,8 +115,86 @@ class LoanDeleteView(LoginRequiredMixin, DeleteView):
         return Loan.objects.filter(user=self.request.user)
 
     def delete(self, request, *args, **kwargs):
-        messages.success(request, "Loan deleted successfully.")
+        messages.success(request, "Loan deleted.")
         return super().delete(request, *args, **kwargs)
+
+
+def add_note(request, loan_id):
+    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    if request.method == "POST":
+        form = LoanNoteForm(request.POST)
+        if form.is_valid():
+            note = form.save(commit=False)
+            note.loan = loan
+            note.save()
+            messages.success(request, "Note added.")
+    return redirect("loan_detail", pk=loan_id)
+
+
+def delete_note(request, loan_id, note_id):
+    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    LoanNote.objects.filter(pk=note_id, loan=loan).delete()
+    messages.success(request, "Note removed.")
+    return redirect("loan_detail", pk=loan_id)
+
+
+class LoanCompareView(LoginRequiredMixin, TemplateView):
+    template_name = "loans/loan_compare.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        loans = Loan.objects.filter(user=self.request.user).select_related("user")
+        if loans.count() >= 2:
+            context["comparison"] = compare_loans(loans)
+        context["loans"] = loans
+        return context
+
+
+def export_loan_csv(request, loan_id):
+    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    from .utils import generate_full_schedule
+
+    schedule = generate_full_schedule(loan)
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="{loan.loan_name}_schedule.csv"'
+    )
+
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            f"Amortization Schedule — {loan.loan_name}",
+            f"Amount: ₹{loan.amount}",
+            f"Rate: {loan.interest_rate}%",
+            f"Tenure: {loan.tenure_years} years",
+            f"EMI: ₹{loan.emi}",
+            "",
+            "Month",
+            "Due Date",
+            "EMI",
+            "Principal",
+            "Interest",
+            "Balance",
+            "Status",
+        ]
+    )
+
+    for row in schedule:
+        writer.writerow(
+            [
+                "",
+                row["month"],
+                row["due_date"],
+                row["emi"],
+                row["principal"],
+                row["interest"],
+                row["balance"],
+                row["status"],
+            ]
+        )
+
+    return response
 
 
 @login_required

@@ -1,6 +1,7 @@
 from django import forms
 
 from accounts.models import Profile
+from loans.models import Investment
 
 
 class ProfileSetupForm(forms.ModelForm):

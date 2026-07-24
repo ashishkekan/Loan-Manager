@@ -2,7 +2,14 @@
 
 from django.urls import path
 
-from .views import LoanCreateView, LoanDeleteView, LoanDetailView, LoanListView
+from .views import (
+    LoanCreateView,
+    LoanDeleteView,
+    LoanDetailView,
+    LoanListView,
+    delete_document,
+    upload_document,
+)
 
 urlpatterns = [
     path("loans/", LoanListView.as_view(), name="loan_list"),

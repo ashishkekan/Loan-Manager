@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Investment, Loan, LoanDocument
+from .models import Investment, Loan, LoanDocument, LoanNote
 
 
 @admin.register(Loan)
@@ -61,3 +61,11 @@ class LoanDocumentAdmin(admin.ModelAdmin):
 class InvestmentAdmin(admin.ModelAdmin):
     list_display = ("loan", "lender", "amount", "status", "created_at")
     list_filter = ("status", "created_at")
+
+
+@admin.register(LoanNote)
+class LoanNoteAdmin(admin.ModelAdmin):
+    list_display = ("loan", "content_preview", "created_at")
+
+    def content_preview(self, obj):
+        return obj.content[:50] + "..." if len(obj.content) > 50 else obj.content

@@ -3,10 +3,10 @@ Utility functions for EMI calculation and amortization scheduling.
 These are pure functions with no side effects — easy to test and reuse.
 """
 
-import math
-from decimal import Decimal, getcontext, ROUND_HALF_UP
-from datetime import date
 import calendar
+import math
+from datetime import date
+from decimal import ROUND_HALF_UP, Decimal, getcontext
 
 # High precision for financial calculations
 getcontext().prec = 50
@@ -27,16 +27,16 @@ def calculate_emi(principal, annual_rate, tenure_years):
         Decimal: Monthly EMI rounded to 2 decimal places
     """
     P = Decimal(str(principal))
-    R = Decimal(str(annual_rate)) / Decimal('12') / Decimal('100')
+    R = Decimal(str(annual_rate)) / Decimal("12") / Decimal("100")
     N = Decimal(str(tenure_years * 12))
 
     # Handle zero interest rate edge case
     if R == 0:
-        return (P / N).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return (P / N).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    factor = (Decimal('1') + R) ** N
-    emi = (P * R * factor) / (factor - Decimal('1'))
-    return emi.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    factor = (Decimal("1") + R) ** N
+    emi = (P * R * factor) / (factor - Decimal("1"))
+    return emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def calculate_remaining_months(remaining_balance, annual_rate, emi):
@@ -46,10 +46,10 @@ def calculate_remaining_months(remaining_balance, annual_rate, emi):
     Derived by inverting the EMI formula to solve for N.
     """
     balance = Decimal(str(remaining_balance))
-    R = Decimal(str(annual_rate)) / Decimal('12') / Decimal('100')
+    R = Decimal(str(annual_rate)) / Decimal("12") / Decimal("100")
     E = Decimal(str(emi))
 
-    if balance <= Decimal('0.01') or E <= 0:
+    if balance <= Decimal("0.01") or E <= 0:
         return 0
 
     if R == 0:
@@ -84,12 +84,13 @@ def generate_full_schedule(loan):
 
     Returns a list of dicts with monthly breakdown.
     """
-    R = Decimal(str(loan.interest_rate)) / Decimal('12') / Decimal('100')
+    R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
     emi = Decimal(str(loan.emi))
 
     # Build a map of past payments by payment_number
     paid_payments = {
-        p.payment_number: p for p in loan.payments.filter(status='paid').order_by('payment_number')
+        p.payment_number: p
+        for p in loan.payments.filter(status="paid").order_by("payment_number")
     }
 
     schedule = []
@@ -97,7 +98,7 @@ def generate_full_schedule(loan):
     max_months = loan.tenure_years * 12 + 120  # Extra buffer for prepayment extension
 
     for month_num in range(1, max_months + 1):
-        if balance <= Decimal('0.01'):
+        if balance <= Decimal("0.01"):
             break
 
         interest = balance * R
@@ -112,7 +113,7 @@ def generate_full_schedule(loan):
 
         new_balance = balance - principal
         if new_balance < 0:
-            new_balance = Decimal('0.00')
+            new_balance = Decimal("0.00")
 
         due_date = add_months(loan.start_date, month_num - 1)
 
@@ -123,24 +124,24 @@ def generate_full_schedule(loan):
         # If there's a prepayment before this month, adjust balance
         prepayments_before = loan.prepayments.filter(
             prepayment_date__lte=due_date
-        ).order_by('prepayment_date')
+        ).order_by("prepayment_date")
 
         # Simple approach: subtract prepayments from projected balance
         for prep in prepayments_before:
             # Only count prepayments not already factored in
-            if not hasattr(prep, '_applied'):
-                new_balance = max(new_balance - prep.amount, Decimal('0.00'))
+            if not hasattr(prep, "_applied"):
+                new_balance = max(new_balance - prep.amount, Decimal("0.00"))
                 prep._applied = True  # Temporary flag, won't persist
 
         row = {
-            'month': month_num,
-            'emi': actual_emi.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'principal': principal.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'interest': interest.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'balance': new_balance.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'due_date': due_date,
-            'status': 'paid' if is_paid else 'projected',
-            'payment_date': actual_payment.payment_date if is_paid else None,
+            "month": month_num,
+            "emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "principal": principal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "interest": interest.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "balance": new_balance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "due_date": due_date,
+            "status": "paid" if is_paid else "projected",
+            "payment_date": actual_payment.payment_date if is_paid else None,
         }
         schedule.append(row)
 
@@ -155,15 +156,15 @@ def generate_projected_schedule(loan):
     Used for charts and future projections.
     """
     balance = Decimal(str(loan.remaining_balance))
-    R = Decimal(str(loan.interest_rate)) / Decimal('12') / Decimal('100')
+    R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
     emi = Decimal(str(loan.emi))
-    start_month = loan.payments.filter(status='paid').count()
+    start_month = loan.payments.filter(status="paid").count()
 
     schedule = []
     month_num = start_month + 1
 
     for _ in range(600):  # Safety limit
-        if balance <= Decimal('0.01'):
+        if balance <= Decimal("0.01"):
             break
 
         interest = balance * R
@@ -175,17 +176,53 @@ def generate_projected_schedule(loan):
         else:
             actual_emi = emi
 
-        balance = max(balance - principal, Decimal('0.00'))
+        balance = max(balance - principal, Decimal("0.00"))
         due_date = add_months(loan.start_date, month_num - 1)
 
-        schedule.append({
-            'month': month_num,
-            'emi': actual_emi.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'principal': principal.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'interest': interest.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'balance': balance.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'due_date': due_date,
-        })
+        schedule.append(
+            {
+                "month": month_num,
+                "emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+                "principal": principal.quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                ),
+                "interest": interest.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+                "balance": balance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+                "due_date": due_date,
+            }
+        )
         month_num += 1
 
     return schedule
+
+
+def compare_loans(loans):
+    """
+    Compare multiple loans side by side.
+    Returns a list of dicts with key metrics for each loan.
+    """
+    comparison = []
+    for loan in loans:
+        comparison.append(
+            {
+                "loan": loan,
+                "emi": float(loan.emi),
+                "total_interest": float(loan.total_interest_projected),
+                "total_payable": float(loan.total_payable),
+                "interest_ratio": (
+                    round(
+                        float(loan.total_interest_projected / loan.total_payable * 100),
+                        1,
+                    )
+                    if loan.total_payable > 0
+                    else 0
+                ),
+                "months_remaining": loan.months_remaining,
+                "health_score": loan.health_score,
+                "progress": loan.progress_percent,
+                "effective_rate": round(float(loan.interest_rate), 1),
+            }
+        )
+    # Sort by total interest (worst first)
+    comparison.sort(key=lambda x: x["total_interest"], reverse=True)
+    return comparison

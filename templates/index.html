@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}LoanManager — Smart Loan Tracking{% endblock %}
+{% block title %}LoanManager — Smart P2P Lending & Loan Tracking{% endblock %}
 
 {% block content %}
-<!-- Landing Page Navbar -->
-<nav class="landing-nav">
+<!-- ════════════════════════════════════════
+     NAVIGATION BAR
+     ════════════════════════════════════════ -->
+<nav class="landing-nav" id="landingNav">
     <div class="nav-container">
         <a href="/" class="nav-brand">
             <i class="fas fa-landmark"></i>
@@ -13,19 +15,20 @@
         </a>
         <div class="nav-links" id="navLinks">
             <a href="#features">Features</a>
-            <a href="#calculator">Calculator</a>
             <a href="#how-it-works">How It Works</a>
-            <a href="#benefits">Benefits</a>
+            <a href="#marketplace">Marketplace</a>
+            <a href="#calculator">Calculator</a>
+            <a href="#contact">Contact</a>
         </div>
-        <div class="nav-actions">
+        <div class="nav-actions" id="navActions">
             <button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle theme">
                 <i class="fas fa-moon" id="themeIconNav"></i>
             </button>
             {% if user.is_authenticated %}
-            <a href="{% url 'dashboard' %}" class="btn btn-primary">Dashboard</a>
+            <a href="{% url 'dashboard' %}" class="btn btn-primary btn-sm-nav">Dashboard</a>
             {% else %}
-            <a href="{% url 'login' %}" class="btn btn-ghost">Log In</a>
-            <a href="{% url 'register' %}" class="btn btn-primary">Get Started</a>
+            <a href="{% url 'login' %}" class="btn btn-ghost btn-sm-nav">Log In</a>
+            <a href="{% url 'register' %}" class="btn btn-primary btn-sm-nav">Get Started</a>
             {% endif %}
         </div>
         <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">
@@ -34,7 +37,9 @@
     </div>
 </nav>
 
-<!-- Hero Section -->
+<!-- ════════════════════════════════════════
+     HERO SECTION
+     ════════════════════════════════════════ -->
 <section class="hero">
     <div class="hero-bg">
         <div class="hero-shape shape-1"></div>
@@ -45,16 +50,16 @@
     <div class="hero-container">
         <div class="hero-content">
             <div class="hero-badge">
-                <i class="fas fa-sparkles"></i>
-                Trusted by 10,000+ borrowers
+                <i class="fas fa-bolt"></i>
+                India's Smartest P2P Lending Platform
             </div>
             <h1 class="hero-title">
-                Take Control of<br>
-                <span class="gradient-text">Your Loans</span>
+                Track, Borrow &<br>
+                <span class="gradient-text">Invest Smartly</span>
             </h1>
             <p class="hero-subtitle">
-                Track EMIs, visualize amortization, make prepayments, and see exactly
-                how much interest you can save. Smart loan management starts here.
+                Whether you are paying EMIs, looking for funding, or wanting to earn high yields 
+                by investing in verified loans — LoanManager is your ultimate financial companion.
             </p>
             <div class="hero-cta">
                 {% if user.is_authenticated %}
@@ -67,7 +72,7 @@
                 </a>
                 {% endif %}
                 <a href="#calculator" class="btn btn-outline btn-lg">
-                    <i class="fas fa-calculator"></i> Try Calculator
+                    <i class="fas fa-calculator"></i> EMI Calculator
                 </a>
             </div>
             <div class="hero-stats">
@@ -76,8 +81,8 @@
                     <span class="stat-label">Loans Tracked</span>
                 </div>
                 <div class="hero-stat">
-                    <span class="stat-value">₹8Cr+</span>
-                    <span class="stat-label">Interest Saved</span>
+                    <span class="stat-value">12-14%</span>
+                    <span class="stat-label">Avg. Lender Returns</span>
                 </div>
                 <div class="hero-stat">
                     <span class="stat-value">4.9/5</span>
@@ -92,9 +97,9 @@
                     <span>Loan Overview</span>
                 </div>
                 <div class="card-balance">₹24,50,000</div>
-                <div class="card-label">Remaining Balance</div>
+                <div class="card-label">Outstanding Balance</div>
                 <div class="card-progress-bar">
-                    <div class="card-progress-fill" style="width: 35%"></div>
+                    <div class="card-progress-fill" style="width: 65%"></div>
                 </div>
                 <div class="card-meta">
                     <div><span class="meta-label">EMI</span><span class="meta-value">₹28,750</span></div>
@@ -103,10 +108,8 @@
                 </div>
                 <div class="card-mini-chart">
                     <svg viewBox="0 0 200 50" class="sparkline">
-                        <polyline fill="none" stroke="#28a745" stroke-width="2"
-                            points="0,40 20,38 40,35 60,32 80,28 100,24 120,20 140,18 160,15 180,12 200,8"/>
-                        <polyline fill="url(#sparkGrad)" stroke="none"
-                            points="0,40 20,38 40,35 60,32 80,28 100,24 120,20 140,18 160,15 180,12 200,8 200,50 0,50"/>
+                        <polyline fill="none" stroke="#28a745" stroke-width="2" points="0,40 20,38 40,35 60,32 80,28 100,24 120,20 140,18 160,15 180,12 200,8"/>
+                        <polyline fill="url(#sparkGrad)" stroke="none" points="0,40 20,38 40,35 60,32 80,28 100,24 120,20 140,18 160,15 180,12 200,8 200,50 0,50"/>
                         <defs>
                             <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stop-color="#28a745" stop-opacity="0.3"/>
@@ -120,54 +123,231 @@
     </div>
 </section>
 
-<!-- Features Section -->
+<!-- ════════════════════════════════════════
+     TRUSTED BY / BRAND LOGOS
+     ════════════════════════════════════════ -->
+<section class="trust-bar">
+    <div class="container">
+        <p class="trust-label">Trusted by borrowers & lenders across India</p>
+        <div class="trust-logos">
+            <div class="trust-logo"><i class="fas fa-shield-halved"></i> 256-bit SSL</div>
+            <div class="trust-logo"><i class="fas fa-user-check"></i> KYC/AML Compliant</div>
+            <div class="trust-logo"><i class="fas fa-lock"></i> Secure Payments</div>
+            <div class="trust-logo"><i class="fas fa-headset"></i> 24/7 Support</div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     FEATURES SECTION
+     ════════════════════════════════════════ -->
 <section class="section" id="features">
     <div class="container">
         <div class="section-header">
             <span class="section-tag">Features</span>
-            <h2 class="section-title">Everything You Need to Manage Loans</h2>
-            <p class="section-desc">Powerful tools designed to give you complete visibility and control over your financial commitments.</p>
+            <h2 class="section-title">Everything You Need to Manage Money</h2>
+            <p class="section-desc">Powerful tools designed to give you complete visibility over your loans and investments.</p>
         </div>
         <div class="features-grid">
             <div class="feature-card glass-card reveal">
-                <div class="feature-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
+                <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
                 <h3>EMI Tracking</h3>
-                <p>Track every EMI payment with detailed principal and interest breakdowns. Never miss a due date.</p>
+                <p>Track every EMI with detailed principal vs interest breakdowns. Never miss a due date again.</p>
             </div>
             <div class="feature-card glass-card reveal">
-                <div class="feature-icon">
-                    <i class="fas fa-table"></i>
-                </div>
+                <div class="feature-icon"><i class="fas fa-table"></i></div>
                 <h3>Amortization Schedule</h3>
-                <p>View the complete month-by-month repayment schedule showing how each payment reduces your balance.</p>
+                <p>View the complete month-by-month repayment roadmap showing exactly how your balance decreases.</p>
             </div>
             <div class="feature-card glass-card reveal">
-                <div class="feature-icon">
-                    <i class="fas fa-bolt"></i>
-                </div>
-                <h3>Prepayment Analysis</h3>
-                <p>See exactly how much interest you save and how many months you reduce with every prepayment.</p>
+                <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                <h3>Smart Prepayments</h3>
+                <p>See exactly how much interest you save and how many months you reduce with every extra payment.</p>
             </div>
             <div class="feature-card glass-card reveal">
-                <div class="feature-icon">
-                    <i class="fas fa-chart-pie"></i>
-                </div>
-                <h3>Visual Analytics</h3>
-                <p>Interactive charts showing balance trends, principal vs interest ratios, and repayment progress.</p>
+                <div class="feature-icon"><i class="fas fa-hand-holding-dollar"></i></div>
+                <h3>P2P Marketplace</h3>
+                <p>Borrowers list loans, Lenders invest and earn high yields. A complete peer-to-peer ecosystem.</p>
+            </div>
+            <div class="feature-card glass-card reveal">
+                <div class="feature-icon"><i class="fas fa-file-shield"></i></div>
+                <h3>Doc Management</h3>
+                <p>Upload agreements, KYC docs, and income proofs securely. Access them anytime, anywhere.</p>
+            </div>
+            <div class="feature-card glass-card reveal">
+                <div class="feature-icon"><i class="fas fa-heart-pulse"></i></div>
+                <h3>Health Scores</h3>
+                <p>AI-driven health scores for your loans based on payment history, overdue status, and interest rates.</p>
             </div>
         </div>
     </div>
 </section>
 
-<!-- EMI Calculator Section -->
+<!-- ════════════════════════════════════════
+     HOW IT WORKS
+     ════════════════════════════════════════ -->
+<section class="section section-alt" id="how-it-works">
+    <div class="container">
+        <div class="section-header">
+            <span class="section-tag">Process</span>
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-desc">Get started in under 2 minutes. Choose your journey.</p>
+        </div>
+        
+        <!-- Tabs for Borrower / Lender -->
+        <div class="process-tabs">
+            <button class="proc-tab active" data-tab="borrower">For Borrowers</button>
+            <button class="proc-tab" data-tab="lender">For Lenders</button>
+        </div>
+
+        <!-- Borrower Steps -->
+        <div class="steps-grid tab-content active" id="tab-borrower">
+            <div class="step-card reveal">
+                <div class="step-number">01</div>
+                <div class="step-icon"><i class="fas fa-user-plus"></i></div>
+                <h3>Sign Up & Setup</h3>
+                <p>Create account and set your profile as a Borrower.</p>
+            </div>
+            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
+            <div class="step-card reveal">
+                <div class="step-number">02</div>
+                <div class="step-icon"><i class="fas fa-file-invoice"></i></div>
+                <h3>List Your Loan</h3>
+                <p>Enter loan details, upload docs. EMI is calculated instantly.</p>
+            </div>
+            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
+            <div class="step-card reveal">
+                <div class="step-number">03</div>
+                <div class="step-icon"><i class="fas fa-users"></i></div>
+                <h3>Get Funded</h3>
+                <p>Lenders invest in your loan through the P2P marketplace.</p>
+            </div>
+            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
+            <div class="step-card reveal">
+                <div class="step-number">04</div>
+                <div class="step-icon"><i class="fas fa-check-double"></i></div>
+                <h3>Track & Repay</h3>
+                <p>Track EMIs, make prepayments, and close your loan stress-free.</p>
+            </div>
+        </div>
+
+        <!-- Lender Steps -->
+        <div class="steps-grid tab-content" id="tab-lender" style="display: none;">
+            <div class="step-card reveal">
+                <div class="step-number">01</div>
+                <div class="step-icon"><i class="fas fa-id-card"></i></div>
+                <h3>KYC Verification</h3>
+                <p>Complete KYC by submitting PAN and basic details.</p>
+            </div>
+            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
+            <div class="step-card reveal">
+                <div class="step-number">02</div>
+                <div class="step-icon"><i class="fas fa-magnifying-glass-dollar"></i></div>
+                <h3>Browse Deals</h3>
+                <p>Explore verified loans on the marketplace with varying interest rates.</p>
+            </div>
+            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
+            <div class="step-card reveal">
+                <div class="step-number">03</div>
+                <div class="step-icon"><i class="fas fa-coins"></i></div>
+                <h3>Invest Funds</h3>
+                <p>Choose an amount to invest and start earning monthly interest.</p>
+            </div>
+            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
+            <div class="step-card reveal">
+                <div class="step-number">04</div>
+                <div class="step-icon"><i class="fas fa-chart-pie"></i></div>
+                <h3>Earn Returns</h3>
+                <p>Receive repayments directly in your dashboard with full analytics.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     MARKETPLACE PREVIEW
+     ════════════════════════════════════════ -->
+<section class="section" id="marketplace">
+    <div class="container">
+        <div class="section-header">
+            <span class="section-tag">Marketplace</span>
+            <h2 class="section-title">High-Yield Investment Opportunities</h2>
+            <p class="section-desc">Browse verified loans listed by borrowers and invest to earn 12-15% annual returns.</p>
+        </div>
+        
+        <div class="market-preview-grid">
+            <div class="market-card glass-card reveal">
+                <div class="mc-top">
+                    <span class="mc-type" style="color: #28a745;"><i class="fas fa-house"></i> Home Loan</span>
+                    <span class="badge-active" style="font-size:11px; padding: 4px 10px;">Active</span>
+                </div>
+                <h3 class="mc-title">Metro City Property Funding</h3>
+                <div class="mc-rate">11.5% <span>Returns</span></div>
+                <div class="mc-details">
+                    <div><span>Goal:</span> <strong>₹25,00,000</strong></div>
+                    <div><span>Funded:</span> <strong>₹18,50,000</strong></div>
+                    <div><span>Left:</span> <strong>₹6,50,000</strong></div>
+                </div>
+                <div class="mc-bar"><div class="mc-bar-fill" style="width: 74%;"></div></div>
+                <span class="mc-percent">74% Funded</span>
+            </div>
+
+            <div class="market-card glass-card reveal">
+                <div class="mc-top">
+                    <span class="mc-type" style="color: #3b82f6;"><i class="fas fa-briefcase"></i> Business</span>
+                    <span class="badge-active" style="font-size:11px; padding: 4px 10px;">Active</span>
+                </div>
+                <h3 class="mc-title">Small Business Expansion</h3>
+                <div class="mc-rate">14.2% <span>Returns</span></div>
+                <div class="mc-details">
+                    <div><span>Goal:</span> <strong>₹10,00,000</strong></div>
+                    <div><span>Funded:</span> <strong>₹4,20,000</strong></div>
+                    <div><span>Left:</span> <strong>₹5,80,000</strong></div>
+                </div>
+                <div class="mc-bar"><div class="mc-bar-fill" style="width: 42%; background: #3b82f6;"></div></div>
+                <span class="mc-percent">42% Funded</span>
+            </div>
+
+            <div class="market-card glass-card reveal">
+                <div class="mc-top">
+                    <span class="mc-type" style="color: #f59e0b;"><i class="fas fa-graduation-cap"></i> Education</span>
+                    <span class="badge-active" style="font-size:11px; padding: 4px 10px;">Active</span>
+                </div>
+                <h3 class="mc-title">Higher Studies Abroad</h3>
+                <div class="mc-rate">10.5% <span>Returns</span></div>
+                <div class="mc-details">
+                    <div><span>Goal:</span> <strong>₹8,00,000</strong></div>
+                    <div><span>Funded:</span> <strong>₹7,60,000</strong></div>
+                    <div><span>Left:</span> <strong>₹40,000</strong></div>
+                </div>
+                <div class="mc-bar"><div class="mc-bar-fill" style="width: 95%; background: #f59e0b;"></div></div>
+                <span class="mc-percent">95% Funded</span>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            {% if user.is_authenticated %}
+            <a href="{% url 'marketplace' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-store"></i> Open Marketplace
+            </a>
+            {% else %}
+            <a href="{% url 'register' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-user-plus"></i> Sign Up to Invest
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     EMI CALCULATOR
+     ════════════════════════════════════════ -->
 <section class="section section-alt" id="calculator">
     <div class="container">
         <div class="section-header">
             <span class="section-tag">Calculator</span>
             <h2 class="section-title">Calculate Your EMI Instantly</h2>
-            <p class="section-desc">Use our precise EMI calculator to plan your loan before you apply.</p>
+            <p class="section-desc">Plan your finances before you borrow.</p>
         </div>
         <div class="calculator-wrapper glass-card reveal">
             <div class="calc-inputs">
@@ -223,135 +403,78 @@
     </div>
 </section>
 
-<!-- How It Works Section -->
-<section class="section" id="how-it-works">
-    <div class="container">
-        <div class="section-header">
-            <span class="section-tag">Process</span>
-            <h2 class="section-title">How It Works</h2>
-            <p class="section-desc">Get started in under 2 minutes. No complex setup required.</p>
-        </div>
-        <div class="steps-grid">
-            <div class="step-card reveal">
-                <div class="step-number">01</div>
-                <div class="step-icon"><i class="fas fa-user-plus"></i></div>
-                <h3>Create Account</h3>
-                <p>Sign up with your email and set up your profile in seconds.</p>
-            </div>
-            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
-            <div class="step-card reveal">
-                <div class="step-number">02</div>
-                <div class="step-icon"><i class="fas fa-file-invoice"></i></div>
-                <h3>Add Your Loan</h3>
-                <p>Enter loan details — amount, rate, tenure. EMI is calculated automatically.</p>
-            </div>
-            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
-            <div class="step-card reveal">
-                <div class="step-number">03</div>
-                <div class="step-icon"><i class="fas fa-credit-card"></i></div>
-                <h3>Track Payments</h3>
-                <p>Record EMIs as you pay them. See your balance decrease in real-time.</p>
-            </div>
-            <div class="step-connector"><i class="fas fa-arrow-right"></i></div>
-            <div class="step-card reveal">
-                <div class="step-number">04</div>
-                <div class="step-icon"><i class="fas fa-piggy-bank"></i></div>
-                <h3>Save Interest</h3>
-                <p>Make prepayments and watch your interest savings grow. Be debt-free faster.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Benefits Section -->
-<section class="section section-alt" id="benefits">
-    <div class="container">
-        <div class="section-header">
-            <span class="section-tag">Benefits</span>
-            <h2 class="section-title">Why Choose LoanManager</h2>
-        </div>
-        <div class="benefits-grid">
-            <div class="benefit-card reveal">
-                <i class="fas fa-shield-halved"></i>
-                <h3>100% Secure</h3>
-                <p>Your financial data is encrypted and never shared with third parties.</p>
-            </div>
-            <div class="benefit-card reveal">
-                <i class="fas fa-mobile-screen"></i>
-                <h3>Mobile Friendly</h3>
-                <p>Full functionality on any device — phone, tablet, or desktop.</p>
-            </div>
-            <div class="benefit-card reveal">
-                <i class="fas fa-clock"></i>
-                <h3>Real-Time Updates</h3>
-                <p>See your loan status update instantly when you record a payment.</p>
-            </div>
-            <div class="benefit-card reveal">
-                <i class="fas fa-download"></i>
-                <h3>Export Reports</h3>
-                <p>Print or export your loan report for records or tax filing.</p>
-            </div>
-            <div class="benefit-card reveal">
-                <i class="fas fa-moon"></i>
-                <h3>Dark Mode</h3>
-                <p>Easy on the eyes with a built-in dark mode toggle.</p>
-            </div>
-            <div class="benefit-card reveal">
-                <i class="fas fa-infinity"></i>
-                <h3>Unlimited Loans</h3>
-                <p>Track as many loans as you want — home, car, education, personal.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- CTA Section -->
+<!-- ════════════════════════════════════════
+     CTA SECTION
+     ════════════════════════════════════════ -->
 <section class="section cta-section">
     <div class="container">
         <div class="cta-card reveal">
-            <h2>Ready to Take Control of Your Loans?</h2>
-            <p>Join thousands of smart borrowers who are saving lakhs in interest.</p>
+            <h2>Ready to Take Control of Your Finances?</h2>
+            <p>Join thousands of smart borrowers and lenders on India's fastest-growing P2P platform.</p>
             {% if user.is_authenticated %}
-            <a href="{% url 'create_loan' %}" class="btn btn-white btn-lg">
-                <i class="fas fa-plus"></i> Add Your First Loan
+            <a href="{% url 'dashboard' %}" class="btn btn-white btn-lg">
+                <i class="fas fa-arrow-right"></i> Go to Dashboard
             </a>
             {% else %}
             <a href="{% url 'register' %}" class="btn btn-white btn-lg">
-                <i class="fas fa-rocket"></i> Get Started Free
+                <i class="fas fa-rocket"></i> Create Free Account
             </a>
             {% endif %}
         </div>
     </div>
 </section>
 
-<!-- Footer -->
-<footer class="landing-footer">
+<!-- ════════════════════════════════════════
+     FOOTER
+     ════════════════════════════════════════ -->
+<footer class="landing-footer" id="contact">
     <div class="container">
         <div class="footer-grid">
             <div class="footer-brand">
-                <div class="nav-brand"><i class="fas fa-landmark"></i> LoanManager</div>
-                <p>Smart loan tracking for smart borrowers. Take control of your debt journey.</p>
+                <a href="/" class="nav-brand" style="color: var(--text);">
+                    <i class="fas fa-landmark"></i> LoanManager
+                </a>
+                <p>India's smartest P2P lending and loan tracking platform. Empowering borrowers and lenders with transparency, analytics, and high yields.</p>
+                <div class="footer-socials">
+                    <a href="#" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
+                    <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                    <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                    <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                </div>
             </div>
             <div class="footer-links">
                 <h4>Product</h4>
                 <a href="#features">Features</a>
                 <a href="#calculator">EMI Calculator</a>
-                <a href="#how-it-works">How It Works</a>
+                <a href="#marketplace">P2P Marketplace</a>
+                <a href="#">Pricing</a>
             </div>
             <div class="footer-links">
                 <h4>Company</h4>
-                <a href="#">About</a>
+                <a href="#">About Us</a>
+                <a href="#">Careers</a>
                 <a href="#">Blog</a>
-                <a href="#">Contact</a>
+                <a href="#">Press Kit</a>
             </div>
             <div class="footer-links">
-                <h4>Legal</h4>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Terms of Service</a>
+                <h4>Support</h4>
+                <a href="#">Help Center</a>
+                <a href="#">Contact Us</a>
+                <a href="#">Status Page</a>
+                <a href="#">API Docs</a>
             </div>
         </div>
+        
+        <!-- Footer Bottom / Copyright -->
         <div class="footer-bottom">
-            <p>&copy; 2025 LoanManager. All rights reserved.</p>
+            <div class="footer-copyright">
+                <p>&copy; 2025 LoanManager. All rights reserved.</p>
+            </div>
+            <div class="footer-legal">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Cookie Policy</a>
+            </div>
         </div>
     </div>
 </footer>

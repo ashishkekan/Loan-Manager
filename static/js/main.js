@@ -88,3 +88,23 @@
             dropZone.innerHTML = `<i class="fas fa-file-circle-check" style="font-size:32px;color:var(--primary);margin-bottom:8px;display:block;"></i> <strong>${name}</strong><br><small>Click to change</small>`;
         }
     }
+    // ──────────────────────────────────────
+    // LANDING PAGE — PROCESS TABS (Borrower/Lender)
+    // ──────────────────────────────────────
+    const procTabs = document.querySelectorAll('.proc-tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    procTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Remove active from all tabs
+            procTabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            
+            // Add active to clicked tab
+            this.classList.add('active');
+            
+            // Show corresponding content
+            const targetId = 'tab-' + this.dataset.tab;
+            document.getElementById(targetId)?.classList.add('active');
+        });
+    });
