@@ -7,11 +7,9 @@
 <div class="auth-page">
     <div class="auth-container">
         <div class="auth-left">
-            <a href="/" class="auth-brand">
-                <i class="fas fa-landmark"></i> LoanManager
-            </a>
+            <a href="/" class="auth-brand"><i class="fas fa-landmark"></i> LoanManager</a>
             <h1>Start Managing Your Loans</h1>
-            <p>Create a free account and take the first step towards debt freedom.</p>
+            <p>Create a free account and take the first step towards financial freedom.</p>
             <div class="auth-visual">
                 <div class="auth-shape"></div>
                 <div class="auth-shape-2"></div>
@@ -25,19 +23,43 @@
                 <form method="post" class="auth-form" novalidate>
                     {% csrf_token %}
 
-                    {% for field in form %}
-                    <div class="form-group {% if field.errors %}has-error{% endif %}">
-                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                        {% for error in field.errors %}
-                        <span class="form-error">{{ error }}</span>
-                        {% endfor %}
-                        {% endif %}
+                    <div class="form-group {% if form.username.errors %}has-error{% endif %}">
+                        <label for="id_username">Username</label>
+                        <input type="text" name="username" id="id_username" class="form-input" value="{{ form.username.value|default:'' }}" placeholder="Choose a username" required>
+                        {% for error in form.username.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
                     </div>
-                    {% endfor %}
 
-                    <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+                    <div class="form-group {% if form.first_name.errors %}has-error{% endif %}">
+                        <label for="id_first_name">First Name</label>
+                        <input type="text" name="first_name" id="id_first_name" class="form-input" value="{{ form.first_name.value|default:'' }}" placeholder="John" required>
+                        {% for error in form.first_name.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+                    </div>
+
+                    <div class="form-group {% if form.last_name.errors %}has-error{% endif %}">
+                        <label for="id_last_name">Last Name</label>
+                        <input type="text" name="last_name" id="id_last_name" class="form-input" value="{{ form.last_name.value|default:'' }}" placeholder="Doe" required>
+                        {% for error in form.last_name.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+                    </div>
+
+                    <div class="form-group {% if form.email.errors %}has-error{% endif %}">
+                        <label for="id_email">Email Address</label>
+                        <input type="email" name="email" id="id_email" class="form-input" value="{{ form.email.value|default:'' }}" placeholder="you@example.com" required>
+                        {% for error in form.email.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+                    </div>
+
+                    <div class="form-group {% if form.password1.errors %}has-error{% endif %}">
+                        <label for="id_password1">Password</label>
+                        <input type="password" name="password1" id="id_password1" class="form-input" placeholder="Create a strong password" required>
+                        {% for error in form.password1.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+                    </div>
+
+                    <div class="form-group {% if form.password2.errors %}has-error{% endif %}">
+                        <label for="id_password2">Confirm Password</label>
+                        <input type="password" name="password2" id="id_password2" class="form-input" placeholder="Repeat your password" required>
+                        {% for error in form.password2.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 8px;">Create Account</button>
                 </form>
 
                 <p class="auth-switch">

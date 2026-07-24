@@ -36,12 +36,7 @@ class Profile(models.Model):
         return f"{self.user.get_full_name()} ({self.get_role_display()})"
 
 
+# FOOLPROOF SIGNAL: get_or_create ensures no crash even for old users
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        Profile.objects.create(user=instance)
-
-
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def save_user_profile(sender, instance, **kwargs):
-    instance.profile.save()
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    Profile.objects.get_or_create(user=instance)
