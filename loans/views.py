@@ -104,6 +104,12 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             "interest": round(float(loan.total_interest_paid), 2),
         }
 
+        # Foreclosure calculation
+        if loan.status == "active":
+            from .utils import calculate_foreclosure
+
+            context["foreclosure"] = calculate_foreclosure(loan)
+
         return context
 
 

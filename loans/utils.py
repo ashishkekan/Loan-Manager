@@ -226,3 +226,44 @@ def compare_loans(loans):
     # Sort by total interest (worst first)
     comparison.sort(key=lambda x: x["total_interest"], reverse=True)
     return comparison
+
+
+def calculate_foreclosure(loan):
+    """
+    Calculate the exact amount needed to close the loan today.
+    Includes standard 2% foreclosure penalty and projects interest saved.
+    """
+    balance = Decimal(str(loan.remaining_balance))
+
+    # Standard foreclosure penalty is 2% of remaining principal
+    penalty = balance * Decimal("0.02")
+    total_foreclosure_amount = balance + penalty
+
+    # Calculate interest saved if closed today vs waiting for full tenure
+    R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
+    emi = Decimal(str(loan.emi))
+
+    projected_interest = Decimal("0")
+    temp_balance = balance
+    for _ in range(600):
+        if temp_balance <= Decimal("0.01"):
+            break
+        interest = temp_balance * R
+        projected_interest += interest
+        principal = emi - interest
+        if principal >= temp_balance:
+            break
+        temp_balance -= principal
+
+    return {
+        "outstanding_balance": balance.quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        ),
+        "penalty": penalty.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        "total_amount": total_foreclosure_amount.quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        ),
+        "interest_saved": projected_interest.quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        ),
+    }

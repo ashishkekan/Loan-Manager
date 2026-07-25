@@ -20,6 +20,9 @@
         <button class="btn btn-ghost" onclick="window.print()">
             <i class="fas fa-print"></i> Print Schedule
         </button>
+        <a href="{% url 'export_excel' loan.pk %}" class="btn btn-primary">
+            <i class="fas fa-file-excel"></i> Download Excel
+        </a>
         <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline">
             <i class="fas fa-arrow-left"></i> Back to Loan
         </a>

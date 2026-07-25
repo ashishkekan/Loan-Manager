@@ -2729,3 +2729,112 @@ input, select, textarea { font-family: inherit; }
 .user-info:hover .user-name {
     color: var(--primary);
 }
+
+/* ============================================
+FORECLOSURE CALCULATOR STYLES
+============================================ */
+.foreclosure-card {
+    border: 1px solid rgba(245, 158, 11, 0.25) !important;
+    background: linear-gradient(135deg, var(--bg-glass), rgba(245, 158, 11, 0.04)) !important;
+}
+.foreclosure-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.fc-item {
+    padding: 18px;
+    background: var(--primary-50);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: transform var(--transition-fast);
+}
+.fc-item:hover { transform: translateY(-2px); }
+.fc-total {
+    background: var(--primary-subtle);
+    border: 1px solid var(--border-strong);
+}
+.fc-saved {
+    background: rgba(40, 167, 69, 0.08);
+    border: 1px solid rgba(40, 167, 69, 0.25);
+}
+.fc-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.fc-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+}
+.fc-value.warn { color: var(--accent); }
+
+@media (max-width: 640px) {
+    .foreclosure-grid { grid-template-columns: 1fr; }
+}
+
+/* Dark Mode Fixes */
+[data-theme="dark"] .foreclosure-card {
+    border-color: rgba(245, 158, 11, 0.3) !important;
+    background: linear-gradient(135deg, rgba(17,24,39,0.8), rgba(245, 158, 11, 0.05)) !important;
+}
+[data-theme="dark"] .fc-item { background: rgba(40,167,69,0.06) !important; }
+[data-theme="dark"] .fc-total { background: rgba(40,167,69,0.12) !important; border-color: rgba(40,167,69,0.3) !important; }
+[data-theme="dark"] .fc-saved { background: rgba(40,167,69,0.08) !important; }
+[data-theme="dark"] .fc-value { color: #f1f5f9 !important; }
+
+/* ============================================
+   PREPAYMENT SIMULATOR STYLES
+   ============================================ */
+.sim-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.sim-item {
+    padding: 18px;
+    background: var(--primary-50);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all var(--transition-fast);
+}
+.sim-item.sim-highlight {
+    background: rgba(40, 167, 69, 0.08);
+    border: 1px solid rgba(40, 167, 69, 0.2);
+}
+.sim-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.sim-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    transition: all 0.3s ease;
+}
+
+@media (max-width: 640px) {
+    .sim-grid { grid-template-columns: 1fr; }
+}
+
+/* Dark mode fixes */
+[data-theme="dark"] .sim-item {
+    background: rgba(30,41,59,0.8) !important;
+}
+[data-theme="dark"] .sim-highlight {
+    background: rgba(40,167,69,0.1) !important;
+    border-color: rgba(40,167,69,0.3) !important;
+}
+[data-theme="dark"] .sim-value {
+    color: #f1f5f9 !important;
+}
