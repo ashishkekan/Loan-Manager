@@ -1,9 +1,7 @@
 {% extends 'app_layout.html' %}
 {% load loan_tags %}
 {% load static %}
-
 {% block title %}{{ loan.loan_name }}{% endblock %}
-
 {% block app_content %}
 <div class="page-header">
     <div>
@@ -40,26 +38,21 @@
             <i class="fas fa-print"></i>
         </button>
         {% if loan.status == 'active' %}
-        <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline;"
-              onsubmit="return confirm('Delete this loan and all its payment history?')">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger-ghost" title="Delete Loan"><i class="fas fa-trash"></i></button>
-        </form>
+            <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline;" onsubmit="return confirm('Delete this loan and all its payment history?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan"><i class="fas fa-trash"></i></button>
+            </form>
         {% endif %}
     </div>
 </div>
-
-<!-- Overdue Warning -->
 {% if is_overdue %}
-<div class="overdue-alert">
-    <div class="oa-icon"><i class="fas fa-exclamation-triangle"></i></div>
-    <div class="oa-info">
-        <strong>EMI Overdue!</strong> Payment #{{ next_emi_num }} was due on {{ next_emi_date|date:"M d, Y" }} — {{ overdue_days }} day{{ overdue_days|pluralize }} overdue
+    <div class="overdue-alert">
+        <div class="oa-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="oa-info">
+            <strong>EMI Overdue!</strong> Payment #{{ next_emi_num }} was due on {{ next_emi_date|date:"M d, Y" }} — {{ overdue_days }} day{{ overdue_days|pluralize }} overdue
+        </div>
     </div>
-</div>
 {% endif %}
-
-<!-- Summary Cards -->
 <div class="summary-grid">
     <div class="summary-card glass-card">
         <div class="sc-icon"><i class="fas fa-coins"></i></div>
@@ -94,7 +87,6 @@
     </div>
 </div>
 
-<!-- Progress Section -->
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <span style="font-weight: 600;">Repayment Progress</span>
@@ -109,117 +101,105 @@
     </div>
 </div>
 
-<!-- Advanced Prepayment Simulator & Action -->
 {% if loan.status == 'active' %}
-<div class="action-grid" style="margin-bottom: 24px;">
-    <form method="post" action="{% url 'pay_emi' loan.pk %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary btn-lg btn-block action-btn-emi">
-            <i class="fas fa-check-circle"></i>
-            <div class="abi-text">
-                <span>Pay EMI</span>
-                <small>₹{{ loan.emi|floatformat:0 }} — #{{ next_emi_num }}</small>
-            </div>
-        </button>
-    </form>
-</div>
-
-<div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
-    <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-        <i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayment Simulator
-    </h3>
-    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-        Enter an amount below to see exactly how much time and interest you will save before making the payment.
-    </p>
-
-    <!-- Simulator Input -->
-    <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px;">
-        <div class="form-group" style="flex: 1; margin: 0;">
-            <label style="font-size: 13px; font-weight: 600;">Simulation Amount (₹)</label>
-            <input type="number" id="simAmount" class="form-input" placeholder="e.g. 50000" min="1" step="1000" max="{{ loan.remaining_balance }}" style="font-size: 18px; font-weight: 700; color: var(--primary);">
-        </div>
-    </div>
-
-    <!-- Simulator Results (Hidden by default) -->
-    <div id="simResults" style="display: none;">
-        <div class="sim-grid">
-            <div class="sim-item sim-highlight">
-                <span class="sim-label">Interest Saved</span>
-                <span class="sim-value" id="simInterestSaved" style="color: var(--primary);">₹0</span>
-            </div>
-            <div class="sim-item sim-highlight">
-                <span class="sim-label">Time Reduced</span>
-                <span class="sim-value" id="simTimeReduced">0 Months</span>
-            </div>
-            <div class="sim-item">
-                <span class="sim-label">New Loan Closure</span>
-                <span class="sim-value" id="simNewTenure">0 Months</span>
-            </div>
-            <div class="sim-item">
-                <span class="sim-label">Total Amount To Pay Now</span>
-                <span class="sim-value" id="simTotalPay">₹0</span>
-            </div>
-        </div>
-    </div>
-
-    <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
-
-    <!-- Actual Prepayment Form -->
-    <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">Confirm & Make Payment</h4>
-    <form method="post" action="{% url 'make_prepayment' loan.pk %}" class="prepay-form" novalidate>
-        {% csrf_token %}
-        <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 12px; align-items: flex-end;">
-            <div class="form-group" style="margin:0;">
-                <label>Actual Amount (₹)</label>
-                <input type="number" name="amount" id="actualPrepayAmount" class="form-input" placeholder="50000" min="1" step="0.01"
-                       max="{{ loan.remaining_balance }}" required>
-            </div>
-            <div class="form-group" style="margin:0;">
-                <label>Date</label>
-                <input type="date" name="prepayment_date" class="form-input" required value="{% now 'Y-m-d' %}">
-            </div>
-            <button type="submit" class="btn btn-primary" style="height: 44px; margin: 0; background: linear-gradient(135deg, var(--accent), #d97706);">
-                <i class="fas fa-bolt"></i> Pay Now
+    <div class="action-grid" style="margin-bottom: 24px;">
+        <form method="post" action="{% url 'pay_emi' loan.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-lg btn-block action-btn-emi">
+                <i class="fas fa-check-circle"></i>
+                <div class="abi-text">
+                    <span>Pay EMI</span>
+                    <small>₹{{ loan.emi|floatformat:0 }} — #{{ next_emi_num }}</small>
+                </div>
             </button>
+        </form>
+    </div>
+    <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
+        <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayment Simulator
+        </h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+            Enter an amount below to see exactly how much time and interest you will save before making the payment.
+        </p>
+        <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px;">
+            <div class="form-group" style="flex: 1; margin: 0;">
+                <label style="font-size: 13px; font-weight: 600;">Simulation Amount (₹)</label>
+                <input type="number" id="simAmount" class="form-input" placeholder="e.g. 50000" min="1" step="1000" max="{{ loan.remaining_balance }}" style="font-size: 18px; font-weight: 700; color: var(--primary);">
+            </div>
         </div>
-        <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block;">
-            Max: ₹{{ loan.remaining_balance|floatformat:0 }}
-        </span>
-    </form>
-</div>
+        <div id="simResults" style="display: none;">
+            <div class="sim-grid">
+                <div class="sim-item sim-highlight">
+                    <span class="sim-label">Interest Saved</span>
+                    <span class="sim-value" id="simInterestSaved" style="color: var(--primary);">₹0</span>
+                </div>
+                <div class="sim-item sim-highlight">
+                    <span class="sim-label">Time Reduced</span>
+                    <span class="sim-value" id="simTimeReduced">0 Months</span>
+                </div>
+                <div class="sim-item">
+                    <span class="sim-label">New Loan Closure</span>
+                    <span class="sim-value" id="simNewTenure">0 Months</span>
+                </div>
+                <div class="sim-item">
+                    <span class="sim-label">Total Amount To Pay Now</span>
+                    <span class="sim-value" id="simTotalPay">₹0</span>
+                </div>
+            </div>
+        </div>
+        <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+        <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">Confirm & Make Payment</h4>
+        <form method="post" action="{% url 'make_prepayment' loan.pk %}" class="prepay-form" novalidate>
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 12px; align-items: flex-end;">
+                <div class="form-group" style="margin:0;">
+                    <label>Actual Amount (₹)</label>
+                    <input type="number" name="amount" id="actualPrepayAmount" class="form-input" placeholder="50000" min="1" step="0.01"
+                        max="{{ loan.remaining_balance }}" required>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Date</label>
+                    <input type="date" name="prepayment_date" class="form-input" required value="{% now 'Y-m-d' %}">
+                </div>
+                <button type="submit" class="btn btn-primary" style="height: 44px; margin: 0; background: linear-gradient(135deg, var(--accent), #d97706);">
+                    <i class="fas fa-bolt"></i> Pay Now
+                </button>
+            </div>
+            <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block;">
+                Max: ₹{{ loan.remaining_balance|floatformat:0 }}
+            </span>
+        </form>
+    </div>
 {% endif %}
 
-<!-- Foreclosure Calculator -->
 {% if loan.status == 'active' and foreclosure %}
-<div class="glass-card foreclosure-card" style="padding: 24px; margin-bottom: 24px;">
-    <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-        <i class="fas fa-gavel" style="color: var(--accent);"></i> Foreclosure Calculator
-    </h3>
-    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
-        Want to close your loan today? Here is the exact amount you need to pay.
-    </p>
-    <div class="foreclosure-grid">
-        <div class="fc-item">
-            <span class="fc-label">Outstanding Balance</span>
-            <span class="fc-value">₹{{ foreclosure.outstanding_balance|floatformat:0 }}</span>
-        </div>
-        <div class="fc-item">
-            <span class="fc-label">Foreclosure Penalty (2%)</span>
-            <span class="fc-value warn">₹{{ foreclosure.penalty|floatformat:0 }}</span>
-        </div>
-        <div class="fc-item fc-total">
-            <span class="fc-label">Total Foreclosure Amount</span>
-            <span class="fc-value">₹{{ foreclosure.total_amount|floatformat:0 }}</span>
-        </div>
-        <div class="fc-item fc-saved">
-            <span class="fc-label">Total Interest You Will Save</span>
-            <span class="fc-value" style="color: var(--primary);">₹{{ foreclosure.interest_saved|floatformat:0 }}</span>
+    <div class="glass-card foreclosure-card" style="padding: 24px; margin-bottom: 24px;">
+        <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-gavel" style="color: var(--accent);"></i> Foreclosure Calculator
+        </h3>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+            Want to close your loan today? Here is the exact amount you need to pay.
+        </p>
+        <div class="foreclosure-grid">
+            <div class="fc-item">
+                <span class="fc-label">Outstanding Balance</span>
+                <span class="fc-value">₹{{ foreclosure.outstanding_balance|floatformat:0 }}</span>
+            </div>
+            <div class="fc-item">
+                <span class="fc-label">Foreclosure Penalty (2%)</span>
+                <span class="fc-value warn">₹{{ foreclosure.penalty|floatformat:0 }}</span>
+            </div>
+            <div class="fc-item fc-total">
+                <span class="fc-label">Total Foreclosure Amount</span>
+                <span class="fc-value">₹{{ foreclosure.total_amount|floatformat:0 }}</span>
+            </div>
+            <div class="fc-item fc-saved">
+                <span class="fc-label">Total Interest You Will Save</span>
+                <span class="fc-value" style="color: var(--primary);">₹{{ foreclosure.interest_saved|floatformat:0 }}</span>
+            </div>
         </div>
     </div>
-</div>
 {% endif %}
-
-<!-- Charts Section (Fixed height container added) -->
 <div class="charts-grid">
     <div class="glass-card chart-card">
         <div class="chart-header">
@@ -232,18 +212,14 @@
         <div class="chart-container chart-container-pie"><canvas id="pieChart"></canvas></div>
     </div>
 </div>
-
-<!-- Documents Section -->
 <div class="glass-card" style="padding:24px; margin-top:24px;">
     <h3 style="margin-bottom:16px;"><i class="fas fa-folder-open" style="color:var(--accent);"></i> Documents</h3>
-    
     <div id="docDropZone">
         <i class="fas fa-cloud-arrow-up" style="font-size:32px;margin-bottom:8px;display:block;"></i>
         <strong>Drag & Drop files here</strong><br>
         <small>or click to browse</small>
         <input type="file" id="id_file" name="file">
     </div>
-
     <form method="post" action="{% url 'upload_document' loan.pk %}" enctype="multipart/form-data" id="docForm">
         {% csrf_token %}
         <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:20px;">
@@ -260,23 +236,20 @@
         </div>
         <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Upload</button>
     </form>
-
     {% if documents %}
-    <div style="margin-top:16px;">
-        {% for doc in documents %}
-        <div class="doc-item">
-            <a href="{{ doc.file.url }}" target="_blank"><i class="fas fa-file-pdf"></i> {{ doc.title }} <small style="color:var(--text-muted);">({{ doc.get_doc_type_display }})</small></a>
-            <form method="post" action="{% url 'delete_document' loan.pk doc.pk %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="doc-delete"><i class="fas fa-trash"></i></button>
-            </form>
+        <div style="margin-top:16px;">
+            {% for doc in documents %}
+            <div class="doc-item">
+                <a href="{{ doc.file.url }}" target="_blank"><i class="fas fa-file-pdf"></i> {{ doc.title }} <small style="color:var(--text-muted);">({{ doc.get_doc_type_display }})</small></a>
+                <form method="post" action="{% url 'delete_document' loan.pk doc.pk %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="doc-delete"><i class="fas fa-trash"></i></button>
+                </form>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
     {% endif %}
 </div>
-
-<!-- Notes Section -->
 <div class="glass-card" style="padding:24px; margin-top:24px;">
     <h3 style="margin-bottom:16px;"><i class="fas fa-sticky-note" style="color:var(--accent);"></i> Notes</h3>
     <form method="post" action="{% url 'add_note' loan.pk %}" style="margin-bottom:16px;">
@@ -306,8 +279,6 @@
     <p style="color:var(--text-muted);font-size:14px;">No notes yet.</p>
     {% endif %}
 </div>
-
-<!-- Payment History -->
 <div class="glass-card" style="padding: 24px; margin-top: 24px;">
     <h3 style="margin-bottom: 16px;">Payment History</h3>
     {% if paid_payments %}
@@ -341,216 +312,210 @@
     <p style="color: var(--text-secondary);">No payments recorded yet.</p>
     {% endif %}
 </div>
-
-<!-- Prepayments History -->
 {% if prepayments %}
-<div class="glass-card" style="padding: 24px; margin-top: 24px;">
-    <h3 style="margin-bottom: 16px;"><i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayments</h3>
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Months Saved</th>
-                    <th>Interest Saved</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for prep in prepayments %}
-                <tr>
-                    <td>{{ prep.prepayment_date|date:"M d, Y" }}</td>
-                    <td>₹{{ prep.amount|floatformat:0 }}</td>
-                    <td>{{ prep.months_reduced }} months</td>
-                    <td style="color: var(--primary); font-weight: 600;">₹{{ prep.interest_saved|floatformat:0 }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="glass-card" style="padding: 24px; margin-top: 24px;">
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayments</h3>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Months Saved</th>
+                        <th>Interest Saved</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prep in prepayments %}
+                    <tr>
+                        <td>{{ prep.prepayment_date|date:"M d, Y" }}</td>
+                        <td>₹{{ prep.amount|floatformat:0 }}</td>
+                        <td>{{ prep.months_reduced }} months</td>
+                        <td style="color: var(--primary); font-weight: 600;">₹{{ prep.interest_saved|floatformat:0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
 {% endif %}
 {% endblock %}
-
 {% block extra_scripts %}
 <script>
-    // ──────────────────────────────────────
-// REAL-TIME PREPAYMENT SIMULATOR
-// ──────────────────────────────────────
-(function() {
-    const simInput = document.getElementById('simAmount');
-    const simResults = document.getElementById('simResults');
-    const actualInput = document.getElementById('actualPrepayAmount');
-    
-    // Data from Django backend
-    const balance = parseFloat("{{ loan.remaining_balance }}");
-    const rate = parseFloat("{{ loan.interest_rate }}");
-    const emi = parseFloat("{{ loan.emi }}");
-    const currentMonthsLeft = {{ loan.months_remaining }};
-
-    if (!simInput) return;
-
-    function formatINR(num) {
-        return '₹' + Math.round(num).toLocaleString('en-IN');
-    }
-
-    function calculateSimulation(amount) {
-        if (amount <= 0 || amount >= balance) {
-            simResults.style.display = 'none';
-            return;
-        }
-
-        const newBalance = balance - amount;
-        const R = (rate / 12) / 100;
-        let newMonths;
-
-        if (R === 0) {
-            newMonths = Math.ceil(newBalance / emi);
-        } else {
-            const ratio = (newBalance * R) / emi;
-            if (ratio >= 1) {
-                simResults.style.display = 'none';
-                return; // EMI too small
-            }
-            newMonths = Math.ceil(-Math.log(1 - ratio) / Math.log(1 + R));
-        }
-
-        // Old interest that would have been paid
-        const oldTotalInterest = (currentMonthsLeft * emi) - balance;
-        // New interest that will be paid
-        const newTotalInterest = (newMonths * emi) - newBalance;
+    (function() {
+        const simInput = document.getElementById('simAmount');
+        const simResults = document.getElementById('simResults');
+        const actualInput = document.getElementById('actualPrepayAmount');
         
-        const interestSaved = oldTotalInterest - newTotalInterest;
-        const timeReduced = currentMonthsLeft - newMonths;
-        const totalToPay = (newMonths * emi) + amount;
+        // Data from Django backend
+        const balance = parseFloat("{{ loan.remaining_balance }}");
+        const rate = parseFloat("{{ loan.interest_rate }}");
+        const emi = parseFloat("{{ loan.emi }}");
+        const currentMonthsLeft = {{ loan.months_remaining }};
 
-        // Convert months to Years and Months for better readability
-        const yrs = Math.floor(newMonths / 12);
-        const mos = newMonths % 12;
-        let newTenureStr = "";
-        if (yrs > 0) newTenureStr += yrs + " Y ";
-        if (mos > 0 || yrs === 0) newTenureStr += mos + " M";
+        if (!simInput) return;
 
-        let timeReducedStr = "";
-        const trYrs = Math.floor(timeReduced / 12);
-        const trMos = timeReduced % 12;
-        if (trYrs > 0) timeReducedStr += trYrs + " Y ";
-        if (trMos > 0 || trYrs === 0) timeReducedStr += trMos + " M";
+        function formatINR(num) {
+            return '₹' + Math.round(num).toLocaleString('en-IN');
+        }
 
-        // Update DOM
-        document.getElementById('simInterestSaved').textContent = formatINR(interestSaved);
-        document.getElementById('simTimeReduced').textContent = timeReducedStr;
-        document.getElementById('simNewTenure').textContent = newTenureStr;
-        document.getElementById('simTotalPay').textContent = formatINR(totalToPay);
+        function calculateSimulation(amount) {
+            if (amount <= 0 || amount >= balance) {
+                simResults.style.display = 'none';
+                return;
+            }
 
-        simResults.style.display = 'block';
-    }
+            const newBalance = balance - amount;
+            const R = (rate / 12) / 100;
+            let newMonths;
 
-    // Listen to input events
-    simInput.addEventListener('input', function() {
-        calculateSimulation(parseFloat(this.value) || 0);
-    });
+            if (R === 0) {
+                newMonths = Math.ceil(newBalance / emi);
+            } else {
+                const ratio = (newBalance * R) / emi;
+                if (ratio >= 1) {
+                    simResults.style.display = 'none';
+                    return; // EMI too small
+                }
+                newMonths = Math.ceil(-Math.log(1 - ratio) / Math.log(1 + R));
+            }
 
-    // Sync Simulator with Actual Form (Optional UX boost)
-    if (actualInput) {
-        simInput.addEventListener('change', function() {
-            if (parseFloat(this.value) > 0) {
-                actualInput.value = this.value;
+            // Old interest that would have been paid
+            const oldTotalInterest = (currentMonthsLeft * emi) - balance;
+            // New interest that will be paid
+            const newTotalInterest = (newMonths * emi) - newBalance;
+            
+            const interestSaved = oldTotalInterest - newTotalInterest;
+            const timeReduced = currentMonthsLeft - newMonths;
+            const totalToPay = (newMonths * emi) + amount;
+
+            // Convert months to Years and Months for better readability
+            const yrs = Math.floor(newMonths / 12);
+            const mos = newMonths % 12;
+            let newTenureStr = "";
+            if (yrs > 0) newTenureStr += yrs + " Y ";
+            if (mos > 0 || yrs === 0) newTenureStr += mos + " M";
+
+            let timeReducedStr = "";
+            const trYrs = Math.floor(timeReduced / 12);
+            const trMos = timeReduced % 12;
+            if (trYrs > 0) timeReducedStr += trYrs + " Y ";
+            if (trMos > 0 || trYrs === 0) timeReducedStr += trMos + " M";
+
+            // Update DOM
+            document.getElementById('simInterestSaved').textContent = formatINR(interestSaved);
+            document.getElementById('simTimeReduced').textContent = timeReducedStr;
+            document.getElementById('simNewTenure').textContent = newTenureStr;
+            document.getElementById('simTotalPay').textContent = formatINR(totalToPay);
+
+            simResults.style.display = 'block';
+        }
+
+        // Listen to input events
+        simInput.addEventListener('input', function() {
+            calculateSimulation(parseFloat(this.value) || 0);
+        });
+
+        // Sync Simulator with Actual Form (Optional UX boost)
+        if (actualInput) {
+            simInput.addEventListener('change', function() {
+                if (parseFloat(this.value) > 0) {
+                    actualInput.value = this.value;
+                }
+            });
+        }
+
+        // Calculate on load if value exists (e.g., browser autofill)
+        if (simInput.value) calculateSimulation(parseFloat(simInput.value));
+    })();
+    // Balance Over Time — Line Chart
+    (function() {
+        const data = {{ projected_schedule_json|safe }};
+        if (!data || !data.labels.length) return;
+
+        const ctx = document.getElementById('balanceChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+        gradient.addColorStop(0, 'rgba(40, 167, 69, 0.22)');
+        gradient.addColorStop(1, 'rgba(40, 167, 69, 0.01)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Remaining Balance',
+                    data: data.balances,
+                    borderColor: '#28a745',
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: '#28a745',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 3,
+                    borderWidth: 2.5,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        padding: 14,
+                        cornerRadius: 10,
+                        callbacks: {
+                            label: ctx => '₹' + ctx.parsed.y.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { maxTicksLimit: 12, color: '#94a3b8', font: { size: 11 } }, border: { display: false } },
+                    y: { grid: { color: 'rgba(148, 163, 184, 0.08)' }, ticks: { color: '#94a3b8', font: { size: 11 }, callback: v => v >= 100000 ? '₹'+(v/100000).toFixed(1)+'L' : '₹'+(v/1000).toFixed(0)+'K', maxTicksLimit: 6 }, border: { display: false } }
+                }
             }
         });
-    }
+    })();
 
-    // Calculate on load if value exists (e.g., browser autofill)
-    if (simInput.value) calculateSimulation(parseFloat(simInput.value));
-})();
-// Balance Over Time — Line Chart
-(function() {
-    const data = {{ projected_schedule_json|safe }};
-    if (!data || !data.labels.length) return;
+    // Principal vs Interest — Doughnut Chart
+    (function() {
+        const data = {{ pie_data_json|safe }};
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        const has = data.principal > 0 || data.interest > 0;
 
-    const ctx = document.getElementById('balanceChart').getContext('2d');
-    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, 'rgba(40, 167, 69, 0.22)');
-    gradient.addColorStop(1, 'rgba(40, 167, 69, 0.01)');
-
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.labels,
-            datasets: [{
-                label: 'Remaining Balance',
-                data: data.balances,
-                borderColor: '#28a745',
-                backgroundColor: gradient,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 0,
-                pointHoverRadius: 6,
-                pointHoverBackgroundColor: '#28a745',
-                pointHoverBorderColor: '#fff',
-                pointHoverBorderWidth: 3,
-                borderWidth: 2.5,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    padding: 14,
-                    cornerRadius: 10,
-                    callbacks: {
-                        label: ctx => '₹' + ctx.parsed.y.toLocaleString('en-IN', { maximumFractionDigits: 0 })
-                    }
-                }
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Principal Paid', 'Interest Paid'],
+                datasets: [{
+                    data: has ? [data.principal, data.interest] : [1, 0],
+                    backgroundColor: has ? ['#28a745', '#f59e0b'] : ['rgba(148,163,184,0.15)', 'rgba(148,163,184,0.08)'],
+                    borderColor: has ? ['rgba(40,167,69,0.4)', 'rgba(245,158,11,0.4)'] : ['rgba(148,163,184,0.1)', 'rgba(148,163,184,0.05)'],
+                    borderWidth: 2,
+                    hoverOffset: 8,
+                }]
             },
-            scales: {
-                x: { grid: { display: false }, ticks: { maxTicksLimit: 12, color: '#94a3b8', font: { size: 11 } }, border: { display: false } },
-                y: { grid: { color: 'rgba(148, 163, 184, 0.08)' }, ticks: { color: '#94a3b8', font: { size: 11 }, callback: v => v >= 100000 ? '₹'+(v/100000).toFixed(1)+'L' : '₹'+(v/1000).toFixed(0)+'K', maxTicksLimit: 6 }, border: { display: false } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, pointStyle: 'circle', color: '#64748b' } },
+                    tooltip: { enabled: has, backgroundColor: 'rgba(15, 23, 42, 0.95)', padding: 12, cornerRadius: 8, callbacks: { label: c => c.label + ': ₹' + c.parsed.toLocaleString('en-IN', {maximumFractionDigits:0}) } }
+                },
+                animation: { duration: 1200, easing: 'easeOutQuart' }
             }
-        }
+        });
+    })();
+
+    // Progress bars animation
+    document.querySelectorAll('.progress-fill, .loan-progress-fill').forEach(b => {
+        const w = b.style.width;
+        b.style.width = '0%';
+        requestAnimationFrame(() => requestAnimationFrame(() => { b.style.width = w }));
     });
-})();
-
-// Principal vs Interest — Doughnut Chart
-(function() {
-    const data = {{ pie_data_json|safe }};
-    const ctx = document.getElementById('pieChart').getContext('2d');
-    const has = data.principal > 0 || data.interest > 0;
-
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Principal Paid', 'Interest Paid'],
-            datasets: [{
-                data: has ? [data.principal, data.interest] : [1, 0],
-                backgroundColor: has ? ['#28a745', '#f59e0b'] : ['rgba(148,163,184,0.15)', 'rgba(148,163,184,0.08)'],
-                borderColor: has ? ['rgba(40,167,69,0.4)', 'rgba(245,158,11,0.4)'] : ['rgba(148,163,184,0.1)', 'rgba(148,163,184,0.05)'],
-                borderWidth: 2,
-                hoverOffset: 8,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '68%',
-            plugins: {
-                legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, pointStyle: 'circle', color: '#64748b' } },
-                tooltip: { enabled: has, backgroundColor: 'rgba(15, 23, 42, 0.95)', padding: 12, cornerRadius: 8, callbacks: { label: c => c.label + ': ₹' + c.parsed.toLocaleString('en-IN', {maximumFractionDigits:0}) } }
-            },
-            animation: { duration: 1200, easing: 'easeOutQuart' }
-        }
-    });
-})();
-
-// Progress bars animation
-document.querySelectorAll('.progress-fill, .loan-progress-fill').forEach(b => {
-    const w = b.style.width;
-    b.style.width = '0%';
-    requestAnimationFrame(() => requestAnimationFrame(() => { b.style.width = w }));
-});
 </script>
 {% endblock %}

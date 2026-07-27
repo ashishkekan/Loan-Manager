@@ -1,14 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block title %}LoanManager — Smart P2P Lending & Loan Tracking{% endblock %}
-
 {% block content %}
-<!-- NAVIGATION BAR -->
 <nav class="landing-nav" id="landingNav">
     <div class="nav-container">
         <a href="/" class="nav-brand"><i class="fas fa-landmark"></i> LoanManager</a>
-        
         <div class="nav-links" id="navLinks">
             <a href="#features">Features</a>
             <a href="#how-it-works">How It Works</a>
@@ -16,39 +12,31 @@
             <a href="#calculator">Calculator</a>
             <a href="#contact">Contact</a>
         </div>
-
         <div class="nav-actions" id="navActions">
-            <!-- Dark Mode Toggle -->
             <button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle theme">
                 <i class="fas fa-moon" id="themeIconNav"></i>
             </button>
             {% if user.is_authenticated %}
-            <!-- LOGGED IN USER BUTTONS -->
-            <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm-nav">
-                <i class="fas fa-th-large"></i> Dashboard
-            </a>
-            <a href="{% url 'logout' %}" class="btn btn-outline btn-sm-nav" style="border-color: var(--danger); color: var(--danger);">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </a>
+                <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm-nav">
+                    <i class="fas fa-th-large"></i> Dashboard
+                </a>
+                <a href="{% url 'logout' %}" class="btn btn-outline btn-sm-nav" style="border-color: var(--danger); color: var(--danger);">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
             {% else %}
-            <!-- GUEST USER BUTTONS -->
-            <a href="{% url 'login' %}" class="btn btn-ghost btn-sm-nav">
-                Log In
-            </a>
-            <a href="{% url 'register' %}" class="btn btn-primary btn-sm-nav">
-                <i class="fas fa-user-plus"></i> Sign Up Free
-            </a>
+                <a href="{% url 'login' %}" class="btn btn-ghost btn-sm-nav">
+                    Log In
+                </a>
+                <a href="{% url 'register' %}" class="btn btn-primary btn-sm-nav">
+                    <i class="fas fa-user-plus"></i> Sign Up Free
+                </a>
             {% endif %}
-
-            <!-- Mobile Menu Button -->
             <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">
                 <i class="fas fa-bars"></i>
             </button>
         </div>
     </div>
 </nav>
-
-<!-- HERO SECTION -->
 <section class="hero">
     <div class="hero-bg">
         <div class="hero-shape shape-1"></div>
@@ -63,9 +51,9 @@
             <p class="hero-subtitle">Whether you are paying EMIs, looking for funding, or wanting to earn high yields by investing in verified loans — LoanManager is your ultimate financial companion.</p>
             <div class="hero-cta">
                 {% if user.is_authenticated %}
-                <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg"><i class="fas fa-arrow-right"></i> Go to Dashboard</a>
+                    <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg"><i class="fas fa-arrow-right"></i> Go to Dashboard</a>
                 {% else %}
-                <a href="{% url 'register' %}" class="btn btn-primary btn-lg"><i class="fas fa-rocket"></i> Start Free</a>
+                    <a href="{% url 'register' %}" class="btn btn-primary btn-lg"><i class="fas fa-rocket"></i> Start Free</a>
                 {% endif %}
                 <a href="#calculator" class="btn btn-outline btn-lg"><i class="fas fa-calculator"></i> EMI Calculator</a>
             </div>
@@ -97,8 +85,6 @@
         </div>
     </div>
 </section>
-
-<!-- TRUST BAR -->
 <section class="trust-bar">
     <div class="container">
         <p class="trust-label">Trusted by borrowers & lenders across India</p>
@@ -110,8 +96,6 @@
         </div>
     </div>
 </section>
-
-<!-- FEATURES SECTION -->
 <section class="section" id="features">
     <div class="container">
         <div class="section-header">
@@ -129,8 +113,6 @@
         </div>
     </div>
 </section>
-
-<!-- HOW IT WORKS (TABS) -->
 <section class="section section-alt" id="how-it-works">
     <div class="container">
         <div class="section-header">
@@ -138,13 +120,10 @@
             <h2 class="section-title">How It Works</h2>
             <p class="section-desc">Get started in under 2 minutes. Choose your journey.</p>
         </div>
-        
         <div class="process-tabs">
             <button class="proc-tab active" data-tab="borrower">For Borrowers</button>
             <button class="proc-tab" data-tab="lender">For Lenders</button>
         </div>
-
-        <!-- Borrower Steps -->
         <div class="steps-grid tab-content active" id="tab-borrower">
             <div class="step-card">
                 <div class="step-number">01</div>
@@ -174,8 +153,6 @@
                 <p>Track EMIs, make prepayments, close loan stress-free.</p>
             </div>
         </div>
-
-        <!-- Lender Steps -->
         <div class="steps-grid tab-content" id="tab-lender">
             <div class="step-card">
                 <div class="step-number">01</div>
@@ -207,8 +184,6 @@
         </div>
     </div>
 </section>
-
-<!-- MARKETPLACE PREVIEW -->
 <section class="section" id="marketplace">
     <div class="container">
         <div class="section-header">
@@ -251,8 +226,6 @@
         </div>
     </div>
 </section>
-
-<!-- EMI CALCULATOR (Removed 'reveal' class to prevent blank issue) -->
 <section class="section section-alt" id="calculator">
     <div class="container">
         <div class="section-header">
@@ -311,8 +284,6 @@
         </div>
     </div>
 </section>
-
-<!-- CTA SECTION -->
 <section class="section cta-section">
     <div class="container">
         <div class="cta-card">
@@ -326,8 +297,6 @@
         </div>
     </div>
 </section>
-
-<!-- FOOTER -->
 <footer class="landing-footer" id="contact">
     <div class="container">
         <div class="footer-grid">
@@ -369,7 +338,6 @@
     </div>
 </footer>
 {% endblock %}
-
 {% block extra_scripts %}
 <script>
     document.addEventListener("DOMContentLoaded", function() {

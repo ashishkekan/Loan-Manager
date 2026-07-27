@@ -1,11 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block title %}{{ page_title|default:"Dashboard" }} — LoanManager{% endblock %}
-
 {% block content %}
 <div class="app-layout">
-    <!-- Mobile Header -->
     <header class="mobile-header">
         <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
             <i class="fas fa-bars"></i>
@@ -15,11 +12,7 @@
             <i class="fas fa-moon"></i>
         </button>
     </header>
-
-    <!-- Sidebar Overlay (mobile) -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">
@@ -29,7 +22,6 @@
                 <span class="logo-text">LoanManager</span>
             </div>
         </div>
-
         <nav class="sidebar-nav">
             <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <i class="fas fa-th-large"></i>
@@ -43,21 +35,19 @@
                 <i class="fas fa-plus-circle"></i>
                 <span>New Loan</span>
             </a>
-
             {% if loans %}
-            <div class="nav-divider"></div>
-            <span class="nav-label">Active Loans</span>
-            {% for loan in loans %}
-            {% if loan.status == 'active' %}
-            <a href="{% url 'loan_detail' loan.pk %}" class="nav-item nav-sub {% if request.resolver_match.url_name == 'loan_detail' and request.resolver_match.kwargs.pk|slugify == loan.pk|slugify %}active{% endif %}">
-                <i class="fas fa-circle" style="font-size:6px; color: var(--accent);"></i>
-                <span>{{ loan.loan_name|truncatechars:18 }}</span>
-            </a>
-            {% endif %}
-            {% endfor %}
+                <div class="nav-divider"></div>
+                <span class="nav-label">Active Loans</span>
+                {% for loan in loans %}
+                    {% if loan.status == 'active' %}
+                        <a href="{% url 'loan_detail' loan.pk %}" class="nav-item nav-sub {% if request.resolver_match.url_name == 'loan_detail' and request.resolver_match.kwargs.pk|slugify == loan.pk|slugify %}active{% endif %}">
+                            <i class="fas fa-circle" style="font-size:6px; color: var(--accent);"></i>
+                            <span>{{ loan.loan_name|truncatechars:18 }}</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
             {% endif %}
         </nav>
-
         <div class="sidebar-footer">
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
                 <i class="fas fa-moon" id="themeIcon"></i>
@@ -76,8 +66,6 @@
             </div>
         </div>
     </aside>
-
-    <!-- Main Content -->
     <main class="main-content">
         {% block app_content %}{% endblock %}
     </main>

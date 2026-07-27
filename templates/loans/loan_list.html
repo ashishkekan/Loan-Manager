@@ -1,8 +1,6 @@
 {% extends 'app_layout.html' %}
 {% load static %}
-
 {% block title %}My Loans{% endblock %}
-
 {% block app_content %}
 <div class="page-header">
     <div>
@@ -13,55 +11,53 @@
         <i class="fas fa-plus"></i> New Loan
     </a>
 </div>
-
 {% if loans %}
-<div class="loans-grid">
-    {% for loan in loans %}
-    <a href="{% url 'loan_detail' loan.pk %}" class="loan-card glass-card">
-        <div class="loan-card-header">
-            <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status|title }}</span>
-            <span class="loan-type"><i class="fas fa-file-invoice-dollar"></i></span>
-        </div>
-        <h3 class="loan-card-title">{{ loan.loan_name }}</h3>
-        <div class="loan-card-amount">₹{{ loan.amount|floatformat:0 }}</div>
-        <div class="loan-card-meta">
-            <div>
-                <span class="lcm-label">EMI</span>
-                <span class="lcm-value">₹{{ loan.emi|floatformat:0 }}/mo</span>
+    <div class="loans-grid">
+        {% for loan in loans %}
+        <a href="{% url 'loan_detail' loan.pk %}" class="loan-card glass-card">
+            <div class="loan-card-header">
+                <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status|title }}</span>
+                <span class="loan-type"><i class="fas fa-file-invoice-dollar"></i></span>
             </div>
-            <div>
-                <span class="lcm-label">Rate</span>
-                <span class="lcm-value">{{ loan.interest_rate }}%</span>
+            <h3 class="loan-card-title">{{ loan.loan_name }}</h3>
+            <div class="loan-card-amount">₹{{ loan.amount|floatformat:0 }}</div>
+            <div class="loan-card-meta">
+                <div>
+                    <span class="lcm-label">EMI</span>
+                    <span class="lcm-value">₹{{ loan.emi|floatformat:0 }}/mo</span>
+                </div>
+                <div>
+                    <span class="lcm-label">Rate</span>
+                    <span class="lcm-value">{{ loan.interest_rate }}%</span>
+                </div>
+                <div>
+                    <span class="lcm-label">Tenure</span>
+                    <span class="lcm-value">{{ loan.tenure_years }} yrs</span>
+                </div>
             </div>
-            <div>
-                <span class="lcm-label">Tenure</span>
-                <span class="lcm-value">{{ loan.tenure_years }} yrs</span>
+            <div class="loan-progress-section">
+                <div class="loan-progress-bar">
+                    <div class="loan-progress-fill" style="width: {{ loan.progress_percent }}%"></div>
+                </div>
+                <div class="loan-progress-info">
+                    <span>{{ loan.progress_percent }}% repaid</span>
+                    <span>₹{{ loan.remaining_balance|floatformat:0 }} left</span>
+                </div>
             </div>
-        </div>
-        <div class="loan-progress-section">
-            <div class="loan-progress-bar">
-                <div class="loan-progress-fill" style="width: {{ loan.progress_percent }}%"></div>
-            </div>
-            <div class="loan-progress-info">
-                <span>{{ loan.progress_percent }}% repaid</span>
-                <span>₹{{ loan.remaining_balance|floatformat:0 }} left</span>
-            </div>
-        </div>
-    </a>
-    {% endfor %}
-</div>
-
+        </a>
+        {% endfor %}
+    </div>
 {% else %}
-<div class="empty-state">
-    <div class="empty-icon"><i class="fas fa-file-circle-plus"></i></div>
-    <h3>No Loans Yet</h3>
-    <p>Add your first loan to start tracking your repayment journey.</p>
-    <a href="{% url 'create_loan' %}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Add First Loan
-    </a>
-</div>
+    <div class="empty-state">
+        <div class="empty-icon"><i class="fas fa-file-circle-plus"></i></div>
+        <h3>No Loans Yet</h3>
+        <p>Add your first loan to start tracking your repayment journey.</p>
+        <a href="{% url 'create_loan' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add First Loan
+        </a>
+    </div>
 {% if is_paginated %}
-{% include "includes/pagination.html" %}
+    {% include "includes/pagination.html" %}
 {% endif %}
 {% endif %}
 {% endblock %}

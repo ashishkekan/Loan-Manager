@@ -1,8 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block title %}Log In — LoanManager{% endblock %}
-
 {% block content %}
 <div class="auth-page">
     <div class="auth-container">
@@ -19,14 +17,12 @@
             <div class="auth-form-wrapper">
                 <h2>Log In</h2>
                 <p class="auth-subtitle">Enter your credentials to continue</p>
-
                 {% if form.errors %}
                 <div class="form-error-banner">
                     <i class="fas fa-exclamation-circle"></i>
                     Invalid username or password. Please try again.
                 </div>
                 {% endif %}
-
                 <form method="post" class="auth-form" novalidate>
                     {% csrf_token %}
                     <div class="form-group">
@@ -39,10 +35,7 @@
                     </div>
                     <button type="submit" class="btn btn-primary btn-block" style="margin-top: 8px;">Log In</button>
                 </form>
-
-                <p class="auth-switch">
-                    Don't have an account? <a href="{% url 'register' %}">Create one</a>
-                </p>
+                <p class="auth-switch">Don't have an account? <a href="{% url 'register' %}">Create one</a></p>
             </div>
         </div>
     </div>

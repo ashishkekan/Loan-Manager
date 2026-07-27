@@ -1,7 +1,5 @@
 {% extends 'app_layout.html' %}
-
 {% block title %}Setup Profile{% endblock %}
-
 {% block app_content %}
 <div class="page-header">
     <div>
@@ -9,9 +7,7 @@
         <p class="page-subtitle">Choose your role to access the platform features</p>
     </div>
 </div>
-
 <div class="form-card glass-card" style="max-width: 600px;">
-    <!-- Role Selection Cards -->
     <div class="role-grid">
         <label class="role-card {% if form.role.value == 'borrower' %}selected{% endif %}">
             <input type="radio" name="role" value="borrower" style="display:none;" {% if form.role.value == 'borrower' %}checked{% endif %}>
@@ -26,11 +22,8 @@
             <p>Invest in loans and earn interest returns</p>
         </label>
     </div>
-
     <form method="post" class="loan-form" style="margin-top: 24px;" novalidate>
         {% csrf_token %}
-        
-        <!-- Conditional Fields handled via JS, but we render all and hide -->
         <div id="borrower-fields" style="display: {% if form.role.value != 'borrower' %}none{% else %}block{% endif %};">
             <div class="form-group">
                 <label>Annual Income (₹)</label>
@@ -41,7 +34,6 @@
                 {{ form.credit_score }}
             </div>
         </div>
-
         <div id="lender-fields" style="display: {% if form.role.value != 'lender' %}none{% else %}block{% endif %};">
             <div class="form-group">
                 <label>Phone Number</label>
@@ -52,26 +44,24 @@
                 {{ form.pan_number }}
             </div>
         </div>
-
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Save & Continue <i class="fas fa-arrow-right"></i></button>
         </div>
     </form>
 </div>
 {% endblock %}
-
 {% block extra_scripts %}
 <script>
-document.querySelectorAll('.role-card').forEach(card => {
-    card.addEventListener('click', function() {
-        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
-        this.classList.add('selected');
-        this.querySelector('input').checked = true;
-        
-        const role = this.querySelector('input').value;
-        document.getElementById('borrower-fields').style.display = role === 'borrower' ? 'block' : 'none';
-        document.getElementById('lender-fields').style.display = role === 'lender' ? 'block' : 'none';
+    document.querySelectorAll('.role-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            this.querySelector('input').checked = true;
+            
+            const role = this.querySelector('input').value;
+            document.getElementById('borrower-fields').style.display = role === 'borrower' ? 'block' : 'none';
+            document.getElementById('lender-fields').style.display = role === 'lender' ? 'block' : 'none';
+        });
     });
-});
 </script>
 {% endblock %}
