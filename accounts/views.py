@@ -44,7 +44,7 @@ def register_view(request):
             password = form.cleaned_data.get("password1")
             user = authenticate(username=username, password=password)
             login(request, user)
-            success(request, f"Welcome to LoanManager, {user.first_name}!")
+            success(request, f"Welcome to NexusLoan, {user.first_name}!")
             return redirect("dashboard")
     else:
         form = RegistrationForm()
