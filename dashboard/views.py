@@ -1,10 +1,11 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import DecimalField, Q, Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from django.views.generic import TemplateView
 
 from loans.models import Loan
-from loans.utils import generate_projected_schedule
+from loans.utils import add_periods, generate_projected_schedule
 from payments.models import Payment, Prepayment
 
 
@@ -42,6 +43,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["total_remaining"] = aggregates["total_remaining"]
         context["total_interest_paid"] = aggregates["total_interest"]
         context["monthly_emi"] = monthly_emi
+        context["active_loans"] = loans.filter(status="active").count()
+        context["closed_loans"] = loans.filter(status="closed").count()
+        context["auto_debit_loans"] = loans.filter(auto_debit=True).count()
+        context["manual_loans"] = loans.filter(auto_debit=False).count()
+        context["outstanding"] = (
+            loans.aggregate(total=Sum("remaining_balance"))["total"] or 0
+        )
+        context["interest_paid"] = (
+            loans.aggregate(total=Sum("total_interest_paid"))["total"] or 0
+        )
 
         # ── Prepayment Savings ──
         prepay_stats = Prepayment.objects.filter(loan__user=user).aggregate(
@@ -96,5 +107,41 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["total_payable"] = sum(
             float(l.emi * l.tenure_years * 12) for l in loans
         )
-
+        principal_paid = 0
+        for loan in loans:
+            principal_paid += loan.amount - loan.remaining_balance
+        context["principal_paid"] = principal_paid
+        context["total_paid"] = principal_paid + context["interest_paid"]
+        context["total_prepayments"] = (
+            Prepayment.objects.filter(loan__user=user).aggregate(total=Sum("amount"))[
+                "total"
+            ]
+            or 0
+        )
+        context["total_prepayments"] = (
+            Prepayment.objects.filter(loan__user=user).aggregate(total=Sum("amount"))[
+                "total"
+            ]
+            or 0
+        )
+        context["interest_saved"] = (
+            Prepayment.objects.filter(loan__user=user).aggregate(
+                total=Sum("interest_saved")
+            )["total"]
+            or 0
+        )
+        upcoming = []
+        today = timezone.now().date()
+        for loan in loans.filter(status="active"):
+            next_num = loan.payments.filter(status="paid").count()
+            due = add_periods(loan.schedule_start_date, next_num, loan.emi_frequency)
+            upcoming.append((due, loan))
+        upcoming.sort(key=lambda x: x[0])
+        context["upcoming_emi"] = upcoming[0] if upcoming else None
+        if upcoming:
+            context["next_emi_date"] = upcoming[0][0]
+        else:
+            context["next_emi_date"] = None
+        total_payments = Payment.objects.filter(loan__user=user, status="paid").count()
+        context["total_payments"] = total_payments
         return context

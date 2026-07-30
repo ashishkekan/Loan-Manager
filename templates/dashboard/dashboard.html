@@ -200,7 +200,7 @@
                     </div>
                     <div>
                         <div class="qs-label">Total EMIs Paid</div>
-                        <div class="qs-value">{{ total_loans }} payments</div>
+                        <div class="qs-value">{{ total_payments }} payments</div>
                     </div>
                 </div>
             </div>
@@ -260,7 +260,7 @@
                     <div>
                         <div class="rp-name">{{ payment.loan.loan_name }}</div>
                         <div class="rp-meta">
-                            EMI #{{ payment.payment_number }} · {{ payment.payment_date|date:"M d, Y" }}
+                            {{ payment.get_payment_type_display }}#{{ payment.payment_number }}
                         </div>
                     </div>
                 </div>
@@ -515,6 +515,25 @@
             item.style.opacity = '1';
             item.style.transform = 'translateX(0)';
         }, 400);
+    });
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const reveals = document.querySelectorAll(".reveal");
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add("revealed");
+                    observer.unobserve(entry.target);
+                }
+
+            });
+        }, {
+            threshold: 0.15
+        });
+        reveals.forEach(function(el) {
+            observer.observe(el);
+        });
     });
 </script>
 {% endblock %}

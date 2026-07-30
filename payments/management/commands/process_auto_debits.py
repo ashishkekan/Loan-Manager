@@ -18,7 +18,6 @@ class Command(BaseCommand):
     help = "Automatically process due EMI payments."
 
     def handle(self, *args, **options):
-
         today = timezone.now().date()
 
         self.stdout.write("")
@@ -36,21 +35,17 @@ class Command(BaseCommand):
         ).order_by("id")
 
         for loan in loans:
-
+            if loan.status == "closed":
+                break
             try:
-
                 schedule_start = loan.schedule_start_date
-
                 if schedule_start > today:
                     skipped += 1
                     continue
 
                 paid_count = loan.payments.filter(status="paid").count()
-
                 next_due_date = add_periods(
-                    schedule_start,
-                    paid_count,
-                    loan.emi_frequency,
+                    schedule_start, paid_count, loan.emi_frequency
                 )
 
                 if next_due_date > today:
@@ -58,28 +53,18 @@ class Command(BaseCommand):
                     continue
 
                 while True:
-
                     paid_count = loan.payments.filter(status="paid").count()
-
                     next_due_date = add_periods(
-                        loan.schedule_start_date,
-                        paid_count,
-                        loan.emi_frequency,
+                        loan.schedule_start_date, paid_count, loan.emi_frequency
                     )
-
                     if next_due_date > today:
                         break
-
                     payment = process_emi_payment(
-                        loan,
-                        payment_date=today,
+                        loan, payment_mode="auto_debit", payment_type="emi"
                     )
-
                     if payment is None:
                         break
-
                     processed += 1
-
                     self.stdout.write(
                         self.style.SUCCESS(
                             f"[PAID] "
@@ -88,11 +73,8 @@ class Command(BaseCommand):
                             f"₹{payment.amount}"
                         )
                     )
-
             except Exception as exc:
-
                 failed += 1
-
                 self.stderr.write(
                     self.style.ERROR(
                         f"[FAILED] Loan #{loan.id} " f"({loan.loan_name}) " f"{exc}"

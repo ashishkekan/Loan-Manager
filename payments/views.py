@@ -10,6 +10,7 @@ import openpyxl
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
@@ -32,40 +33,19 @@ from .services import process_emi_payment
 
 @login_required
 def pay_emi(request, loan_id):
-
-    loan = get_object_or_404(
-        Loan,
-        pk=loan_id,
-        user=request.user,
-    )
-
-    payment = process_emi_payment(loan)
-
+    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    payment = process_emi_payment(loan, payment_mode="manual", payment_type="emi")
     if payment is None:
-
         if loan.status == "closed":
-            messages.warning(
-                request,
-                "Loan is already closed.",
-            )
-
+            messages.warning(request, "Loan is already closed.")
         else:
-            messages.warning(
-                request,
-                "Payment could not be processed.",
-            )
-
+            messages.warning(request, "Payment could not be processed.")
     else:
-
         messages.success(
             request,
             f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} paid successfully.",
         )
-
-    return redirect(
-        "loan_detail",
-        pk=loan.id,
-    )
+    return redirect("loan_detail", pk=loan.id)
 
 
 def make_prepayment(request, loan_id):
@@ -87,28 +67,20 @@ def make_prepayment(request, loan_id):
 
             old_balance = loan.remaining_balance
             new_balance = old_balance - amount
-            frequency = getattr(
-                loan,
-                "emi_frequency",
-                "monthly",
-            )
+            frequency = getattr(loan, "emi_frequency", "monthly")
             # Calculate months reduced
             old_periods = calculate_remaining_periods(
                 old_balance, loan.interest_rate, loan.emi, frequency
             )
-
             new_periods = calculate_remaining_periods(
                 max(new_balance, Decimal("0.01")),
                 loan.interest_rate,
                 loan.emi,
                 frequency,
             )
-
             periods_reduced = max(0, old_periods - new_periods)
-
             # Estimate interest saved (average monthly interest × months saved)
             _, periods_per_year = get_period_details(frequency)
-
             R = (
                 Decimal(str(loan.interest_rate))
                 / Decimal(str(periods_per_year))
@@ -119,17 +91,20 @@ def make_prepayment(request, loan_id):
 
             months_reduced = periods_reduced * months_per_period
             interest_saved = avg_period_interest * months_reduced
-
             Prepayment.objects.create(
                 loan=loan,
                 amount=amount,
                 prepayment_date=prepayment_date,
                 months_reduced=months_reduced,
                 interest_saved=interest_saved.quantize(Decimal("0.01")),
+                payment_mode="manual",
+                payment_type="prepayment",
+                status="paid",
             )
 
             # Update loan balance
             loan.remaining_balance = max(new_balance, Decimal("0.00"))
+            loan.save(update_fields=["remaining_balance", "status"])
             if loan.remaining_balance <= Decimal("0.01"):
                 loan.status = "closed"
                 loan.remaining_balance = Decimal("0.00")
@@ -143,7 +118,6 @@ def make_prepayment(request, loan_id):
                     f"~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.",
                 )
             loan.save()
-
     return redirect("loan_detail", pk=loan_id)
 
 
@@ -157,12 +131,9 @@ class EMIScheduleView(LoginRequiredMixin, TemplateView):
         loan_id = kwargs.get("loan_id")
         loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
 
-        from loans.utils import generate_full_schedule
-
         schedule = generate_full_schedule(loan)
 
         # Add Pagination manually for tables
-        from django.core.paginator import Paginator
 
         paginator = Paginator(schedule, 20)  # 20 rows per page
         page_number = self.request.GET.get("page", 1)
@@ -271,7 +242,7 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
                 {
                     "date": p.payment_date,
                     "amount": p.amount,
-                    "type": "emi",
+                    "type": p.payment_type,
                     "detail": f"EMI #{p.payment_number}",
                 }
             )
@@ -282,7 +253,7 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
                 {
                     "date": p.prepayment_date,
                     "amount": p.amount,
-                    "type": "prepayment",
+                    "type": p.payment_type,
                     "detail": "Prepayment",
                 }
             )

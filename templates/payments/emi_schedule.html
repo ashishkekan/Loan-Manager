@@ -56,7 +56,7 @@
             <tbody>
                 {% for row in schedule %}
                     <tr class="row-{{ row.status }}" data-status="{{ row.status }}">
-                        <td><strong>{{ row.month }}</strong></td>
+                        <td>{{ row.period }}</td>
                         <td>{{ row.due_date|date:"M d, Y" }}</td>
                         <td>₹{{ row.emi|floatformat:0 }}</td>
                         <td>₹{{ row.principal|floatformat:0 }}</td>

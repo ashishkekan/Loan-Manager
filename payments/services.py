@@ -27,6 +27,7 @@ def process_emi_payment(
     loan,
     payment_date=None,
     payment_mode="manual",
+    payment_type="emi",
 ):
     """
     Process a single EMI payment.
@@ -53,14 +54,8 @@ def process_emi_payment(
         loan.save(update_fields=["status", "remaining_balance"])
         return None
 
-    frequency = getattr(
-        loan,
-        "emi_frequency",
-        "monthly",
-    )
-
+    frequency = getattr(loan, "emi_frequency", "monthly")
     _, periods_per_year = get_period_details(frequency)
-
     period_rate = (
         Decimal(str(loan.interest_rate))
         / Decimal(str(periods_per_year))
@@ -68,7 +63,6 @@ def process_emi_payment(
     )
 
     payment_number = loan.payments.filter(status="paid").count() + 1
-
     # Prevent duplicate payment
     if Payment.objects.filter(
         loan=loan,
@@ -81,26 +75,18 @@ def process_emi_payment(
 
     principal = Decimal(str(loan.emi)) - interest
 
-    if principal >= loan.remaining_balance:
+    if principal <= Decimal("0"):
+        raise ValueError("EMI is too low to cover accrued interest.")
 
+    if principal >= loan.remaining_balance:
         principal = loan.remaining_balance
         actual_emi = principal + interest
-
     else:
-
         actual_emi = Decimal(str(loan.emi))
-
     new_balance = loan.remaining_balance - principal
-
     if new_balance < 0:
         new_balance = Decimal("0.00")
-
-    due_date = add_periods(
-        loan.schedule_start_date,
-        payment_number - 1,
-        frequency,
-    )
-
+    due_date = add_periods(loan.schedule_start_date, payment_number - 1, frequency)
     payment = Payment.objects.create(
         loan=loan,
         payment_number=payment_number,
@@ -110,18 +96,15 @@ def process_emi_payment(
         balance_after=new_balance.quantize(Decimal("0.01")),
         due_date=due_date,
         payment_date=payment_date,
+        payment_mode=payment_mode,
+        payment_type=payment_type,
         status="paid",
     )
 
     loan.remaining_balance = new_balance.quantize(Decimal("0.01"))
-
     loan.total_interest_paid += interest.quantize(Decimal("0.01"))
-
     if loan.remaining_balance <= Decimal("0.01"):
-
         loan.remaining_balance = Decimal("0.00")
         loan.status = "closed"
-
     loan.save()
-
     return payment

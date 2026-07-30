@@ -1,7 +1,7 @@
 """Payment and Prepayment models — track EMI payments and extra payments."""
 
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 
 class Payment(models.Model):
@@ -11,15 +11,26 @@ class Payment(models.Model):
     """
 
     STATUS_CHOICES = [
-        ('paid', 'Paid'),
-        ('pending', 'Pending'),
-        ('overdue', 'Overdue'),
+        ("paid", "Paid"),
+        ("pending", "Pending"),
+        ("overdue", "Overdue"),
+    ]
+
+    PAYMENT_MODE_CHOICES = [
+        ("manual", "Manual"),
+        ("auto_debit", "Auto Debit"),
+        ("upi", "UPI"),
+        ("netbanking", "Net Banking"),
+    ]
+
+    PAYMENT_TYPE_CHOICES = [
+        ("emi", "EMI"),
+        ("prepayment", "Prepayment"),
+        ("foreclosure", "Foreclosure"),
     ]
 
     loan = models.ForeignKey(
-        'loans.Loan',
-        on_delete=models.CASCADE,
-        related_name='payments'
+        "loans.Loan", on_delete=models.CASCADE, related_name="payments"
     )
     payment_number = models.PositiveIntegerField(
         help_text="Sequential EMI number (1, 2, 3...)"
@@ -28,17 +39,24 @@ class Payment(models.Model):
     principal_component = models.DecimalField(max_digits=15, decimal_places=2)
     interest_component = models.DecimalField(max_digits=15, decimal_places=2)
     balance_after = models.DecimalField(
-        max_digits=15, decimal_places=2,
-        help_text="Remaining balance after this payment"
+        max_digits=15,
+        decimal_places=2,
+        help_text="Remaining balance after this payment",
     )
     due_date = models.DateField()
     payment_date = models.DateField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    payment_mode = models.CharField(
+        max_length=20, choices=PAYMENT_MODE_CHOICES, default="manual"
+    )
+    payment_type = models.CharField(
+        max_length=20, choices=PAYMENT_TYPE_CHOICES, default="emi"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['payment_number']
-        unique_together = ['loan', 'payment_number']
+        ordering = ["payment_number"]
+        unique_together = ["loan", "payment_number"]
 
     def __str__(self):
         return f"EMI #{self.payment_number} — {self.loan.loan_name}"
@@ -50,25 +68,45 @@ class Prepayment(models.Model):
     reducing the outstanding balance and saving future interest.
     """
 
+    STATUS_CHOICES = [
+        ("paid", "Paid"),
+        ("pending", "Pending"),
+    ]
+
+    PAYMENT_MODE_CHOICES = [
+        ("manual", "Manual"),
+        ("auto_debit", "Auto Debit"),
+    ]
+
+    PAYMENT_TYPE_CHOICES = [
+        ("prepayment", "Prepayment"),
+        ("foreclosure", "Foreclosure"),
+    ]
     loan = models.ForeignKey(
-        'loans.Loan',
-        on_delete=models.CASCADE,
-        related_name='prepayments'
+        "loans.Loan", on_delete=models.CASCADE, related_name="prepayments"
     )
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     prepayment_date = models.DateField()
     months_reduced = models.PositiveIntegerField(
-        default=0,
-        help_text="Estimated number of months reduced from tenure"
+        default=0, help_text="Estimated number of months reduced from tenure"
     )
     interest_saved = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0,
-        help_text="Estimated total interest saved"
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        help_text="Estimated total interest saved",
     )
+    payment_mode = models.CharField(
+        max_length=20, choices=PAYMENT_MODE_CHOICES, default="manual"
+    )
+    payment_type = models.CharField(
+        max_length=20, choices=PAYMENT_TYPE_CHOICES, default="prepayment"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="paid")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-prepayment_date']
+        ordering = ["-prepayment_date"]
 
     def __str__(self):
         return f"Prepayment ₹{self.amount} — {self.loan.loan_name}"

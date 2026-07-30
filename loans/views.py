@@ -15,12 +15,15 @@ from django.views.generic import (
     TemplateView,
 )
 
-from .forms import LoanForm, LoanNoteForm
-from .models import Loan, LoanDocument, LoanNote
-from .utils import (
+from loans.forms import LoanForm, LoanNoteForm
+from loans.models import Loan, LoanDocument, LoanNote
+from loans.utils import (
     add_periods,
     calculate_emi,
+    calculate_foreclosure,
     compare_loans,
+    generate_full_schedule,
+    generate_projected_schedule,
 )
 
 
@@ -47,7 +50,9 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
-        form.instance.emi = calculate_emi(amount, rate, tenure)
+        form.instance.emi = calculate_emi(
+            amount, rate, tenure, form.cleaned_data["emi_frequency"]
+        )
         form.instance.remaining_balance = amount
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
@@ -88,42 +93,49 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         context["health_label"] = loan.health_label
         context["is_overdue"] = loan.is_overdue
         context["overdue_days"] = loan.overdue_days
-
+        last_payment = (
+            loan.payments.filter(status="paid").order_by("-payment_date").first()
+        )
+        last_prepayment = loan.prepayments.order_by("-prepayment_date").first()
+        last_transaction = None
+        last_transaction_type = None
+        if last_payment and last_prepayment:
+            if last_payment.payment_date >= last_prepayment.prepayment_date:
+                last_transaction = last_payment
+                last_transaction_type = "payment"
+            else:
+                last_transaction = last_prepayment
+                last_transaction_type = "prepayment"
+        elif last_payment:
+            last_transaction = last_payment
+            last_transaction_type = "payment"
+        elif last_prepayment:
+            last_transaction = last_prepayment
+            last_transaction_type = "prepayment"
+        context["last_payment"] = last_transaction
+        context["last_payment_type"] = last_transaction_type
         # Next EMI info
         if loan.status == "active":
-            from .utils import add_periods
-
             if loan.status == "active":
-
                 next_num = loan.payments.filter(status="paid").count() + 1
-
                 context["next_emi_num"] = next_num
-
                 context["next_emi_date"] = add_periods(
                     loan.schedule_start_date,
                     next_num - 1,
                     loan.emi_frequency,
                 )
-
-        from .utils import generate_projected_schedule
-
         projected = generate_projected_schedule(loan)
         context["projected_schedule_json"] = {
             "labels": [f"M{r['period']}" for r in projected[:60]],
             "balances": [float(r["balance"]) for r in projected[:60]],
         }
-
         context["pie_data_json"] = {
             "principal": round(float(total_principal_paid), 2),
             "interest": round(float(loan.total_interest_paid), 2),
         }
-
         # Foreclosure calculation
         if loan.status == "active":
-            from .utils import calculate_foreclosure
-
             context["foreclosure"] = calculate_foreclosure(loan)
-
         return context
 
 
@@ -172,15 +184,11 @@ class LoanCompareView(LoginRequiredMixin, TemplateView):
 
 def export_loan_csv(request, loan_id):
     loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    from .utils import generate_full_schedule
-
     schedule = generate_full_schedule(loan)
-
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = (
         f'attachment; filename="{loan.loan_name}_schedule.csv"'
     )
-
     writer = csv.writer(response)
     writer.writerow(
         [
@@ -199,7 +207,6 @@ def export_loan_csv(request, loan_id):
             "Status",
         ]
     )
-
     for row in schedule:
         writer.writerow(
             [
@@ -213,7 +220,6 @@ def export_loan_csv(request, loan_id):
                 row["status"],
             ]
         )
-
     return response
 
 

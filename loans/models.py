@@ -1,7 +1,13 @@
 """Loan model — core entity with health scoring, types, and notes."""
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
+from django.db.models import Sum
+from django.utils import timezone
+
+from loans.utils import add_periods, calculate_remaining_periods, get_period_details
 
 
 class Loan(models.Model):
@@ -57,6 +63,7 @@ class Loan(models.Model):
         help_text="Automatically deduct EMI on due date.",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    closed_date = models.DateField(null=True, blank=True)
     remaining_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     total_interest_paid = models.DecimalField(
         max_digits=15, decimal_places=2, default=0
@@ -79,6 +86,11 @@ class Loan(models.Model):
     def __str__(self):
         return f"{self.loan_name} — {self.user.get_full_name()}"
 
+    def save(self, *args, **kwargs):
+        if not self.first_emi_date:
+            self.first_emi_date = self.start_date
+        super().save(*args, **kwargs)
+
     @property
     def total_payable(self):
         return self.emi * self.tenure_years * 12
@@ -86,6 +98,14 @@ class Loan(models.Model):
     @property
     def total_interest_projected(self):
         return self.total_payable - self.amount
+
+    @property
+    def total_paid_emis(self):
+        return self.payments.filter(status="paid").count()
+
+    @property
+    def total_prepayment_amount(self):
+        return self.prepayments.aggregate(total=Sum("amount"))["total"] or 0
 
     @property
     def progress_percent(self):
@@ -100,10 +120,11 @@ class Loan(models.Model):
 
     @property
     def months_remaining(self):
-        from .utils import calculate_remaining_periods
-
         return calculate_remaining_periods(
-            self.remaining_balance, self.interest_rate, self.emi
+            self.remaining_balance,
+            self.interest_rate,
+            self.emi,
+            self.emi_frequency,
         )
 
     @property
@@ -111,11 +132,11 @@ class Loan(models.Model):
         if self.status != "active":
             return False
         next_num = self.months_elapsed + 1
-        from .utils import add_months
-
-        next_due = add_months(self.schedule_start_date, next_num - 1)
-        from django.utils import timezone
-
+        next_due = add_periods(
+            self.schedule_start_date,
+            next_num - 1,
+            self.emi_frequency,
+        )
         return next_due < timezone.now().date()
 
     @property
@@ -123,11 +144,11 @@ class Loan(models.Model):
         if not self.is_overdue:
             return 0
         next_num = self.months_elapsed + 1
-        from .utils import add_months
-
-        next_due = add_months(self.schedule_start_date, next_num - 1)
-        from django.utils import timezone
-
+        next_due = add_periods(
+            self.schedule_start_date,
+            next_num - 1,
+            self.emi_frequency,
+        )
         return (timezone.now().date() - next_due).days
 
     @property
@@ -162,9 +183,12 @@ class Loan(models.Model):
         return ("Poor", "danger")
 
     def _expected_balance_at_month(self, month):
-        from decimal import Decimal
-
-        R = Decimal(str(self.interest_rate)) / Decimal("12") / Decimal("100")
+        _, periods_per_year = get_period_details(self.emi_frequency)
+        R = (
+            Decimal(str(self.interest_rate))
+            / Decimal(str(periods_per_year))
+            / Decimal("100")
+        )
         balance = Decimal(str(self.amount))
         for _ in range(month):
             interest = balance * R
@@ -209,7 +233,6 @@ class Loan(models.Model):
 
         Therefore existing calculations will still work.
         """
-
         return self.first_emi_date or self.start_date
 
 
