@@ -17,7 +17,11 @@ from django.views.generic import (
 
 from .forms import LoanForm, LoanNoteForm
 from .models import Loan, LoanDocument, LoanNote
-from .utils import calculate_emi, compare_loans
+from .utils import (
+    add_periods,
+    calculate_emi,
+    compare_loans,
+)
 
 
 class LoanListView(LoginRequiredMixin, ListView):
@@ -45,6 +49,8 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
         tenure = form.cleaned_data["tenure_years"]
         form.instance.emi = calculate_emi(amount, rate, tenure)
         form.instance.remaining_balance = amount
+        if not form.instance.first_emi_date:
+            form.instance.first_emi_date = form.instance.start_date
         messages.success(self.request, f'"{form.instance.loan_name}" created!')
         return super().form_valid(form)
 
@@ -85,17 +91,25 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
 
         # Next EMI info
         if loan.status == "active":
-            from .utils import add_months
+            from .utils import add_periods
 
-            next_num = loan.months_elapsed + 1
-            context["next_emi_num"] = next_num
-            context["next_emi_date"] = add_months(loan.start_date, next_num - 1)
+            if loan.status == "active":
+
+                next_num = loan.payments.filter(status="paid").count() + 1
+
+                context["next_emi_num"] = next_num
+
+                context["next_emi_date"] = add_periods(
+                    loan.schedule_start_date,
+                    next_num - 1,
+                    loan.emi_frequency,
+                )
 
         from .utils import generate_projected_schedule
 
         projected = generate_projected_schedule(loan)
         context["projected_schedule_json"] = {
-            "labels": [f"M{r['month']}" for r in projected[:60]],
+            "labels": [f"M{r['period']}" for r in projected[:60]],
             "balances": [float(r["balance"]) for r in projected[:60]],
         }
 
@@ -174,9 +188,9 @@ def export_loan_csv(request, loan_id):
             f"Amount: ₹{loan.amount}",
             f"Rate: {loan.interest_rate}%",
             f"Tenure: {loan.tenure_years} years",
-            f"EMI: ₹{loan.emi}",
+            f"{loan.get_emi_frequency_display()} EMI: ₹{loan.emi}",
             "",
-            "Month",
+            "Period",
             "Due Date",
             "EMI",
             "Principal",
@@ -190,7 +204,7 @@ def export_loan_csv(request, loan_id):
         writer.writerow(
             [
                 "",
-                row["month"],
+                row["period"],
                 row["due_date"],
                 row["emi"],
                 row["principal"],

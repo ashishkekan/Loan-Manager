@@ -17,77 +17,55 @@ from django.views.generic import TemplateView
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from loans.models import Loan
-from loans.utils import add_months, calculate_remaining_months, generate_full_schedule
+from loans.utils import (
+    add_months,
+    add_periods,
+    calculate_remaining_periods,
+    generate_full_schedule,
+    get_period_details,
+)
 
 from .forms import PrepaymentForm
 from .models import Payment, Prepayment
+from .services import process_emi_payment
 
 
+@login_required
 def pay_emi(request, loan_id):
-    """
-    Process a single EMI payment for the given loan.
-    Calculates interest/principal split and updates the loan balance.
-    """
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
 
-    if loan.status == "closed":
-        messages.warning(request, "This loan is already closed.")
-        return redirect("loan_detail", pk=loan_id)
-
-    if loan.remaining_balance <= Decimal("0.01"):
-        loan.status = "closed"
-        loan.save()
-        messages.info(request, "Loan balance is zero. Loan marked as closed.")
-        return redirect("loan_detail", pk=loan_id)
-
-    # Monthly interest rate
-    R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
-    interest = loan.remaining_balance * R
-    principal = Decimal(str(loan.emi)) - interest
-
-    # Handle last payment (principal can't exceed balance)
-    if principal >= loan.remaining_balance:
-        principal = loan.remaining_balance
-        actual_emi = principal + interest
-    else:
-        actual_emi = loan.emi
-
-    new_balance = loan.remaining_balance - principal
-    if new_balance < 0:
-        new_balance = Decimal("0.00")
-
-    # Determine payment number and due date
-    payment_number = loan.payments.filter(status="paid").count() + 1
-    due_date = add_months(loan.start_date, payment_number - 1)
-
-    # Create payment record
-    Payment.objects.create(
-        loan=loan,
-        payment_number=payment_number,
-        amount=actual_emi.quantize(Decimal("0.01")),
-        principal_component=principal.quantize(Decimal("0.01")),
-        interest_component=interest.quantize(Decimal("0.01")),
-        balance_after=new_balance.quantize(Decimal("0.01")),
-        due_date=due_date,
-        payment_date=timezone.now().date(),
-        status="paid",
+    loan = get_object_or_404(
+        Loan,
+        pk=loan_id,
+        user=request.user,
     )
 
-    # Update loan
-    loan.remaining_balance = new_balance.quantize(Decimal("0.01"))
-    loan.total_interest_paid += interest.quantize(Decimal("0.01"))
+    payment = process_emi_payment(loan)
 
-    if loan.remaining_balance <= Decimal("0.01"):
-        loan.status = "closed"
-        loan.remaining_balance = Decimal("0.00")
-        messages.success(request, f"EMI #{payment_number} paid. Loan fully repaid!")
+    if payment is None:
+
+        if loan.status == "closed":
+            messages.warning(
+                request,
+                "Loan is already closed.",
+            )
+
+        else:
+            messages.warning(
+                request,
+                "Payment could not be processed.",
+            )
+
     else:
+
         messages.success(
-            request, f"EMI #{payment_number} of ₹{actual_emi:,.2f} paid successfully."
+            request,
+            f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} paid successfully.",
         )
 
-    loan.save()
-    return redirect("loan_detail", pk=loan_id)
+    return redirect(
+        "loan_detail",
+        pk=loan.id,
+    )
 
 
 def make_prepayment(request, loan_id):
@@ -109,20 +87,38 @@ def make_prepayment(request, loan_id):
 
             old_balance = loan.remaining_balance
             new_balance = old_balance - amount
-
+            frequency = getattr(
+                loan,
+                "emi_frequency",
+                "monthly",
+            )
             # Calculate months reduced
-            old_months = calculate_remaining_months(
-                old_balance, loan.interest_rate, loan.emi
+            old_periods = calculate_remaining_periods(
+                old_balance, loan.interest_rate, loan.emi, frequency
             )
-            new_months = calculate_remaining_months(
-                max(new_balance, Decimal("0.01")), loan.interest_rate, loan.emi
+
+            new_periods = calculate_remaining_periods(
+                max(new_balance, Decimal("0.01")),
+                loan.interest_rate,
+                loan.emi,
+                frequency,
             )
-            months_reduced = max(0, old_months - new_months)
+
+            periods_reduced = max(0, old_periods - new_periods)
 
             # Estimate interest saved (average monthly interest × months saved)
-            R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
-            avg_monthly_interest = (old_balance + new_balance) / 2 * R
-            interest_saved = avg_monthly_interest * months_reduced
+            _, periods_per_year = get_period_details(frequency)
+
+            R = (
+                Decimal(str(loan.interest_rate))
+                / Decimal(str(periods_per_year))
+                / Decimal("100")
+            )
+            avg_period_interest = (old_balance + new_balance) / 2 * R
+            months_per_period, _ = get_period_details(frequency)
+
+            months_reduced = periods_reduced * months_per_period
+            interest_saved = avg_period_interest * months_reduced
 
             Prepayment.objects.create(
                 loan=loan,
@@ -200,12 +196,13 @@ def export_schedule_excel(request, loan_id):
     ws.append(["Loan Amount:", float(loan.amount)])
     ws.append(["Interest Rate:", f"{loan.interest_rate}%"])
     ws.append(["Tenure:", f"{loan.tenure_years} Years"])
-    ws.append(["Monthly EMI:", float(loan.emi)])
+    frequency_label = loan.get_emi_frequency_display()
+    ws.append([f"{frequency_label} EMI:", float(loan.emi)])
     ws.append([])
 
     # Headers
     headers = [
-        "Month",
+        "Period",
         "Due Date",
         "EMI (₹)",
         "Principal (₹)",
@@ -227,7 +224,7 @@ def export_schedule_excel(request, loan_id):
     for row in schedule:
         ws.append(
             [
-                row["month"],
+                row["period"],
                 row["due_date"].strftime("%Y-%m-%d"),
                 float(row["emi"]),
                 float(row["principal"]),

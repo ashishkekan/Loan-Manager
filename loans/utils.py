@@ -12,41 +12,49 @@ from decimal import ROUND_HALF_UP, Decimal, getcontext
 getcontext().prec = 50
 
 
-def calculate_emi(principal, annual_rate, tenure_years):
+def calculate_emi(
+    principal,
+    annual_rate,
+    tenure_years,
+    frequency="monthly",
+):
     """
-    Calculate Equated Monthly Installment (EMI).
-
-    Formula: EMI = [P × R × (1+R)^N] / [(1+R)^N – 1]
-
-    Args:
-        principal: Loan amount (Decimal or float)
-        annual_rate: Annual interest rate in percent (Decimal or float)
-        tenure_years: Loan tenure in years (int)
-
-    Returns:
-        Decimal: Monthly EMI rounded to 2 decimal places
+    Calculates EMI according to repayment frequency.
     """
+
     P = Decimal(str(principal))
-    R = Decimal(str(annual_rate)) / Decimal("12") / Decimal("100")
-    N = Decimal(str(tenure_years * 12))
-
-    # Handle zero interest rate edge case
+    _, periods_per_year = get_period_details(frequency)
+    total_periods = tenure_years * periods_per_year
+    R = Decimal(str(annual_rate)) / Decimal(str(periods_per_year)) / Decimal("100")
+    N = Decimal(str(total_periods))
     if R == 0:
-        return (P / N).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
+        return (P / N).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
     factor = (Decimal("1") + R) ** N
     emi = (P * R * factor) / (factor - Decimal("1"))
-    return emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return emi.quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
+    )
 
 
-def calculate_remaining_months(remaining_balance, annual_rate, emi):
+def calculate_remaining_periods(
+    remaining_balance,
+    annual_rate,
+    emi,
+    frequency="monthly",
+):
     """
     Estimate remaining months given current balance and EMI.
 
     Derived by inverting the EMI formula to solve for N.
     """
     balance = Decimal(str(remaining_balance))
-    R = Decimal(str(annual_rate)) / Decimal("12") / Decimal("100")
+    _, periods_per_year = get_period_details(frequency)
+
+    R = Decimal(str(annual_rate)) / Decimal(str(periods_per_year)) / Decimal("100")
     E = Decimal(str(emi))
 
     if balance <= Decimal("0.01") or E <= 0:
@@ -75,6 +83,36 @@ def add_months(source_date, months):
     return date(year, month, day)
 
 
+def get_period_details(frequency):
+    """
+    Returns:
+        months_per_period
+        periods_per_year
+    """
+
+    mapping = {
+        "monthly": (1, 12),
+        "quarterly": (3, 4),
+        "half_yearly": (6, 2),
+        "yearly": (12, 1),
+    }
+
+    return mapping.get(frequency or "monthly", (1, 12))
+
+
+def add_periods(source_date, period_number, frequency):
+    """
+    Add EMI periods according to frequency.
+    """
+
+    months_per_period, _ = get_period_details(frequency)
+
+    return add_months(
+        source_date,
+        months_per_period * period_number,
+    )
+
+
 def generate_full_schedule(loan):
     """
     Generate the complete amortization schedule for a loan.
@@ -84,7 +122,18 @@ def generate_full_schedule(loan):
 
     Returns a list of dicts with monthly breakdown.
     """
-    R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
+    frequency = getattr(
+        loan,
+        "emi_frequency",
+        "monthly",
+    )
+    _, periods_per_year = get_period_details(frequency)
+
+    R = (
+        Decimal(str(loan.interest_rate))
+        / Decimal(str(periods_per_year))
+        / Decimal("100")
+    )
     emi = Decimal(str(loan.emi))
 
     # Build a map of past payments by payment_number
@@ -95,9 +144,16 @@ def generate_full_schedule(loan):
 
     schedule = []
     balance = Decimal(str(loan.amount))
-    max_months = loan.tenure_years * 12 + 120  # Extra buffer for prepayment extension
+    frequency = getattr(
+        loan,
+        "emi_frequency",
+        "monthly",
+    )
+    _, periods_per_year = get_period_details(frequency)
 
-    for month_num in range(1, max_months + 1):
+    max_periods = (loan.tenure_years * periods_per_year) + 20
+
+    for month_num in range(1, max_periods + 1):
         if balance <= Decimal("0.01"):
             break
 
@@ -115,7 +171,15 @@ def generate_full_schedule(loan):
         if new_balance < 0:
             new_balance = Decimal("0.00")
 
-        due_date = add_months(loan.start_date, month_num - 1)
+        due_date = add_periods(
+            loan.schedule_start_date,
+            month_num - 1,
+            getattr(
+                loan,
+                "emi_frequency",
+                "monthly",
+            ),
+        )
 
         # Determine if this month has an actual payment
         is_paid = month_num in paid_payments
@@ -134,7 +198,7 @@ def generate_full_schedule(loan):
                 prep._applied = True  # Temporary flag, won't persist
 
         row = {
-            "month": month_num,
+            "period": month_num,
             "emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             "principal": principal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             "interest": interest.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
@@ -156,14 +220,27 @@ def generate_projected_schedule(loan):
     Used for charts and future projections.
     """
     balance = Decimal(str(loan.remaining_balance))
-    R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
+    frequency = getattr(
+        loan,
+        "emi_frequency",
+        "monthly",
+    )
+    _, periods_per_year = get_period_details(frequency)
+
+    R = (
+        Decimal(str(loan.interest_rate))
+        / Decimal(str(periods_per_year))
+        / Decimal("100")
+    )
     emi = Decimal(str(loan.emi))
     start_month = loan.payments.filter(status="paid").count()
 
     schedule = []
     month_num = start_month + 1
 
-    for _ in range(600):  # Safety limit
+    max_periods = (loan.tenure_years * periods_per_year) + 20
+
+    for _ in range(max_periods):
         if balance <= Decimal("0.01"):
             break
 
@@ -177,11 +254,20 @@ def generate_projected_schedule(loan):
             actual_emi = emi
 
         balance = max(balance - principal, Decimal("0.00"))
-        due_date = add_months(loan.start_date, month_num - 1)
+        frequency = getattr(
+            loan,
+            "emi_frequency",
+            "monthly",
+        )
+        due_date = add_periods(
+            loan.schedule_start_date,
+            month_num - 1,
+            frequency,
+        )
 
         schedule.append(
             {
-                "month": month_num,
+                "period": month_num,
                 "emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
                 "principal": principal.quantize(
                     Decimal("0.01"), rounding=ROUND_HALF_UP
@@ -240,12 +326,24 @@ def calculate_foreclosure(loan):
     total_foreclosure_amount = balance + penalty
 
     # Calculate interest saved if closed today vs waiting for full tenure
-    R = Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
+    frequency = getattr(
+        loan,
+        "emi_frequency",
+        "monthly",
+    )
+    _, periods_per_year = get_period_details(frequency)
+
+    R = (
+        Decimal(str(loan.interest_rate))
+        / Decimal(str(periods_per_year))
+        / Decimal("100")
+    )
     emi = Decimal(str(loan.emi))
 
     projected_interest = Decimal("0")
     temp_balance = balance
-    for _ in range(600):
+    max_periods = (loan.tenure_years * periods_per_year) + 20
+    for _ in range(max_periods):
         if temp_balance <= Decimal("0.01"):
             break
         interest = temp_balance * R

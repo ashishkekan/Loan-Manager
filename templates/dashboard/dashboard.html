@@ -155,10 +155,22 @@
                     <div>
                         <div class="lmi-name">{{ loan.loan_name }}</div>
                         <div class="lmi-meta">
-                            ₹{{ loan.amount|floatformat:0 }} · {{ loan.interest_rate }}% · {{ loan.tenure_years }}y
-                            <span class="loan-status-badge badge-{{ loan.status }}" style="margin-left: 8px; font-size: 10px; padding: 2px 8px;">
+                            ₹{{ loan.amount|floatformat:0 }}
+                            · {{ loan.interest_rate }}%
+                            · {{ loan.tenure_years }}y
+                            · {{ loan.get_emi_frequency_display }}
+
+                            <span class="loan-status-badge badge-{{ loan.status }}"
+                                style="margin-left:8px;font-size:10px;padding:2px 8px;">
                                 {{ loan.status }}
                             </span>
+
+                            {% if loan.auto_debit %}
+                                <span class="loan-status-badge badge-active"
+                                    style="margin-left:6px;font-size:10px;padding:2px 8px;">
+                                    Auto Debit
+                                </span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

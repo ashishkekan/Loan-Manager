@@ -22,6 +22,13 @@ class Loan(models.Model):
         ("other", "Other"),
     ]
 
+    EMI_FREQUENCY_CHOICES = [
+        ("monthly", "Monthly"),
+        ("quarterly", "Quarterly"),
+        ("half_yearly", "Half Yearly"),
+        ("yearly", "Yearly"),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="loans"
     )
@@ -34,6 +41,21 @@ class Loan(models.Model):
     tenure_years = models.PositiveIntegerField()
     emi = models.DecimalField(max_digits=15, decimal_places=2)
     start_date = models.DateField()
+    first_emi_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date on which first EMI will be deducted.",
+    )
+
+    emi_frequency = models.CharField(
+        max_length=20,
+        choices=EMI_FREQUENCY_CHOICES,
+        default="monthly",
+    )
+    auto_debit = models.BooleanField(
+        default=True,
+        help_text="Automatically deduct EMI on due date.",
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
     remaining_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     total_interest_paid = models.DecimalField(
@@ -78,9 +100,9 @@ class Loan(models.Model):
 
     @property
     def months_remaining(self):
-        from .utils import calculate_remaining_months
+        from .utils import calculate_remaining_periods
 
-        return calculate_remaining_months(
+        return calculate_remaining_periods(
             self.remaining_balance, self.interest_rate, self.emi
         )
 
@@ -91,7 +113,7 @@ class Loan(models.Model):
         next_num = self.months_elapsed + 1
         from .utils import add_months
 
-        next_due = add_months(self.start_date, next_num - 1)
+        next_due = add_months(self.schedule_start_date, next_num - 1)
         from django.utils import timezone
 
         return next_due < timezone.now().date()
@@ -103,7 +125,7 @@ class Loan(models.Model):
         next_num = self.months_elapsed + 1
         from .utils import add_months
 
-        next_due = add_months(self.start_date, next_num - 1)
+        next_due = add_months(self.schedule_start_date, next_num - 1)
         from django.utils import timezone
 
         return (timezone.now().date() - next_due).days
@@ -177,6 +199,18 @@ class Loan(models.Model):
             "other": "#64748b",
         }
         return colors.get(self.loan_type, "#64748b")
+
+    @property
+    def schedule_start_date(self):
+        """
+        Backward compatibility.
+
+        Old loans don't have first_emi_date.
+
+        Therefore existing calculations will still work.
+        """
+
+        return self.first_emi_date or self.start_date
 
 
 class LoanNote(models.Model):

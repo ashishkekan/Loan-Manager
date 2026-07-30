@@ -64,7 +64,9 @@
     <div class="summary-card glass-card">
         <div class="sc-icon accent"><i class="fas fa-credit-card"></i></div>
         <div class="sc-info">
-            <span class="sc-label">Monthly EMI</span>
+            <span class="sc-label">
+                {{ loan.get_emi_frequency_display }} EMI
+            </span>
             <span class="sc-value">₹{{ loan.emi|floatformat:0 }}</span>
             {% if next_emi_date %}<span class="sc-sub">Next: {{ next_emi_date|date:"M d" }}</span>{% endif %}
         </div>
@@ -101,18 +103,155 @@
     </div>
 </div>
 
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+
+    <h3 style="margin-bottom:20px;">
+        Loan Information
+    </h3>
+
+    <div style="
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+        gap:18px;
+    ">
+
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Loan Created
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                {{ loan.start_date|date:"d M Y" }}
+            </div>
+        </div>
+
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                First EMI Date
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                {{ loan.first_emi_date|date:"d M Y" }}
+            </div>
+        </div>
+
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                EMI Frequency
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                {{ loan.get_emi_frequency_display }}
+            </div>
+        </div>
+
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Payment Mode
+            </div>
+
+            {% if loan.auto_debit %}
+                <span style="
+                    background:#dcfce7;
+                    color:#15803d;
+                    padding:6px 12px;
+                    border-radius:20px;
+                    font-weight:600;
+                    display:inline-block;
+                ">
+                    Auto Debit
+                </span>
+            {% else %}
+                <span style="
+                    background:#fef3c7;
+                    color:#b45309;
+                    padding:6px 12px;
+                    border-radius:20px;
+                    font-weight:600;
+                    display:inline-block;
+                ">
+                    Manual Payment
+                </span>
+            {% endif %}
+        </div>
+
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Next EMI
+            </div>
+
+            <div style="font-size:16px;font-weight:600;">
+                {% if next_emi_date %}
+                    {{ next_emi_date|date:"d M Y" }}
+                {% else %}
+                    Completed
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
 {% if loan.status == 'active' %}
     <div class="action-grid" style="margin-bottom: 24px;">
-        <form method="post" action="{% url 'pay_emi' loan.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-primary btn-lg btn-block action-btn-emi">
-                <i class="fas fa-check-circle"></i>
-                <div class="abi-text">
-                    <span>Pay EMI</span>
-                    <small>₹{{ loan.emi|floatformat:0 }} — #{{ next_emi_num }}</small>
+        {% if loan.auto_debit %}
+
+            <div class="glass-card" style="padding:18px;margin-bottom:24px;background:#ecfdf5;border:1px solid #22c55e;">
+
+                <div style="display:flex;align-items:center;gap:10px;">
+
+                    <i class="fas fa-check-circle"
+                    style="color:#16a34a;font-size:22px;"></i>
+
+                    <div>
+
+                        <strong>
+                            Auto Debit Enabled
+                        </strong>
+
+                        <div style="font-size:13px;color:#64748b;">
+
+                            EMI will be deducted automatically on
+
+                            {{ loan.first_emi_date }}
+
+                        </div>
+
+                    </div>
+
                 </div>
-            </button>
-        </form>
+
+            </div>
+
+            {% else %}
+
+            <form method="post"
+                action="{% url 'pay_emi' loan.pk %}">
+
+                {% csrf_token %}
+
+                <button type="submit"
+                        class="btn btn-primary btn-lg btn-block action-btn-emi">
+
+                    <i class="fas fa-check-circle"></i>
+
+                    <div class="abi-text">
+
+                        <span>Pay EMI</span>
+
+                        <small>
+
+                            ₹{{ loan.emi|floatformat:0 }}
+
+                            — #{{ next_emi_num }}
+
+                        </small>
+
+                    </div>
+
+                </button>
+
+            </form>
+
+            {% endif %}
     </div>
     <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
         <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
@@ -161,9 +300,15 @@
                     <label>Date</label>
                     <input type="date" name="prepayment_date" class="form-input" required value="{% now 'Y-m-d' %}">
                 </div>
-                <button type="submit" class="btn btn-primary" style="height: 44px; margin: 0; background: linear-gradient(135deg, var(--accent), #d97706);">
-                    <i class="fas fa-bolt"></i> Pay Now
-                </button>
+                {% if not loan.auto_debit %}
+                <a href="{% url 'pay_emi' loan.id %}" class="btn btn-success">
+                    Pay Now
+                </a>
+                {% else %}
+                    <span class="badge badge-success">
+                        Auto Debit Enabled
+                    </span>
+                {% endif %}
             </div>
             <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block;">
                 Max: ₹{{ loan.remaining_balance|floatformat:0 }}
@@ -292,17 +437,25 @@
                     <th>Principal</th>
                     <th>Interest</th>
                     <th>Balance After</th>
+                    <th>Due Date</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in paid_payments reversed %}
                 <tr>
-                    <td><strong>{{ p.payment_number }}</strong></td>
+                    <td>
+                        {{ p.payment_date|date:"M d, Y" }}
+                    </td>
                     <td>{{ p.payment_date|date:"M d, Y" }}</td>
                     <td>₹{{ p.amount|floatformat:0 }}</td>
                     <td style="color:var(--primary);">₹{{ p.principal_component|floatformat:0 }}</td>
                     <td style="color:var(--accent);">₹{{ p.interest_component|floatformat:0 }}</td>
                     <td>₹{{ p.balance_after|floatformat:0 }}</td>
+                    
+
+                    <td>
+                        {{ p.due_date|date:"M d, Y" }}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

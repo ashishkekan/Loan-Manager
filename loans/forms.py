@@ -15,6 +15,9 @@ class LoanForm(forms.ModelForm):
             "interest_rate",
             "tenure_years",
             "start_date",
+            "first_emi_date",
+            "emi_frequency",
+            "auto_debit",
         ]
         widgets = {
             "loan_name": forms.TextInput(
@@ -49,7 +52,53 @@ class LoanForm(forms.ModelForm):
             "start_date": forms.DateInput(
                 attrs={"class": "form-input", "type": "date"}
             ),
+            "first_emi_date": forms.DateInput(
+                attrs={
+                    "class": "form-input",
+                    "type": "date",
+                }
+            ),
+            "emi_frequency": forms.Select(
+                attrs={
+                    "class": "form-input",
+                }
+            ),
+            "auto_debit": forms.CheckboxInput(
+                attrs={
+                    "class": "form-checkbox",
+                }
+            ),
         }
+        labels = {
+            "start_date": "Loan Creation Date",
+            "first_emi_date": "First EMI Date",
+            "emi_frequency": "EMI Frequency",
+            "auto_debit": "Auto Debit EMI",
+        }
+        help_texts = {
+            "start_date": "Date on which loan was created.",
+            "first_emi_date": "EMI schedule will start from this date.",
+            "auto_debit": "EMI will be automatically marked paid on every due date.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["auto_debit"].initial = True
+        self.fields["emi_frequency"].initial = "monthly"
+        if not self.instance.pk:
+            self.fields["first_emi_date"].required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        loan_date = cleaned_data.get("start_date")
+        first_emi = cleaned_data.get("first_emi_date")
+        if loan_date and first_emi:
+            if first_emi < loan_date:
+                self.add_error(
+                    "first_emi_date",
+                    "First EMI date cannot be before loan creation date.",
+                )
+        return cleaned_data
 
     def clean_amount(self):
         amount = self.cleaned_data.get("amount")
