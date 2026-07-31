@@ -2328,7 +2328,7 @@ input, select, textarea { font-family: inherit; }
 /* Pie Center Stat — overlaid on doughnut */
 .pie-center-stat {
     position: absolute;
-    top: 50%;
+    top: 38%;
     left: 50%;
     transform: translate(-50%, -55%);
     text-align: center;
