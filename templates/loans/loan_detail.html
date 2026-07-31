@@ -426,17 +426,27 @@
 </div>
 <div class="glass-card" style="padding: 24px; margin-top: 24px;">
     <h3 style="margin-bottom: 16px;">Payment History</h3>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
-        <span class="badge badge-success">
-            EMI Paid {{ paid_payments|length }}
+    <div class="payment-summary-badges">
+        <span class="summary-badge success">
+            <i class="fas fa-check-circle"></i>
+            <strong>{{ paid_payments|length }}</strong>
+            <small>EMIs Paid</small>
         </span>
-        <span class="badge badge-warning">
-            Prepayments {{ prepayments|length }}
+        <span class="summary-badge warning">
+            <i class="fas fa-bolt"></i>
+            <strong>{{ prepayments|length }}</strong>
+            <small>Prepayments</small>
         </span>
         {% if loan.auto_debit %}
-            <span class="badge badge-primary">Auto Debit</span>
+        <span class="summary-badge primary">
+            <i class="fas fa-repeat"></i>
+            <small>Auto Debit</small>
+        </span>
         {% else %}
-            <span class="badge badge-secondary">Manual</span>
+        <span class="summary-badge secondary">
+            <i class="fas fa-hand-pointer"></i>
+            <small>Manual Payment</small>
+        </span>
         {% endif %}
     </div>
     {% if paid_payments %}

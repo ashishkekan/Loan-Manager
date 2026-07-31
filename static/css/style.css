@@ -2838,3 +2838,63 @@ FORECLOSURE CALCULATOR STYLES
 [data-theme="dark"] .sim-value {
     color: #f1f5f9 !important;
 }
+
+.payment-summary-badges{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:24px;
+}
+
+.summary-badge{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 18px;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);
+    transition:.25s ease;
+    cursor:default;
+}
+
+.summary-badge:hover{
+    transform:translateY(-2px);
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+}
+
+.summary-badge i{
+    font-size:18px;
+}
+
+.summary-badge strong{
+    font-size:18px;
+    font-weight:700;
+    line-height:1;
+}
+
+.summary-badge small{
+    font-size:13px;
+    color:var(--text-secondary);
+    margin-left:2px;
+}
+
+.summary-badge.success{
+    background:rgba(34,197,94,.10);
+    color:#22c55e;
+}
+
+.summary-badge.warning{
+    background:rgba(245,158,11,.10);
+    color:#f59e0b;
+}
+
+.summary-badge.primary{
+    background:rgba(59,130,246,.10);
+    color:#3b82f6;
+}
+
+.summary-badge.secondary{
+    background:rgba(148,163,184,.12);
+    color:#64748b;
+}
