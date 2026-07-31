@@ -255,7 +255,6 @@
         </div>
     </div>
 </div>
-
 {% if loan.status == 'active' %}
     <div class="action-grid" style="margin-bottom: 24px;">
         {% if loan.auto_debit %}
@@ -355,7 +354,192 @@
         </form>
     </div>
 {% endif %}
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <h3 style="margin-bottom:20px;">
+        <i class="fas fa-calendar-check" style="color:var(--primary);"></i>Estimated Loan Closure
+    </h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Estimated Closure
+            </div>
+            <div style="font-size:18px;font-weight:700;color:var(--primary);">
+                {{ estimated_closure_date|date:"d M Y" }}
+            </div>
+            <small style="color:#64748b;">
+                Based on current repayment progress
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Original Closure
+            </div>
+            <div style="font-size:18px;font-weight:700;">
+                {{ original_closure_date|date:"d M Y" }}
+            </div>
+            <small style="color:#64748b;">
+                Without any prepayments
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Time Saved
+            </div>
+            <div style="font-size:18px;font-weight:700;color:#16a34a;">
+                {% if months_saved > 0 %}
+                    {% if years_saved %}
+                        {{ years_saved }} Year{{ years_saved|pluralize }}
+                    {% endif %}
+                    {% if remaining_months_saved %}
+                        {{ remaining_months_saved }} Month{{ remaining_months_saved|pluralize }}
+                    {% endif %}
+                {% else %}
+                    No Savings Yet
+                {% endif %}
+            </div>
+            <small style="color:#64748b;">
+                Thanks to your prepayments
+            </small>
+        </div>
+    </div>
+</div>
+<div class="glass-card stats-card">
+    <div class="stats-header">
+        <div class="stats-icon success">
+            <i class="fas fa-piggy-bank"></i>
+        </div>
+        <div>
+            <h3>Lifetime Savings</h3>
+            <span class="stats-subtitle">
+                Savings achieved through prepayments
+            </span>
+        </div>
+    </div>
+    <div class="stats-grid">
+        <div class="stats-item">
+            <span class="stats-label">
+                Interest Saved
+            </span>
+            <span class="stats-value success">
+                ₹{{ lifetime_interest_saved|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Loan Closed Earlier
+            </span>
+            <span class="stats-value">
+                {{ lifetime_months_saved }}
+                <small>Months</small>
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Total Prepaid
+            </span>
+            <span class="stats-value">
+                ₹{{ total_prepayment_amount|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                ROI on Prepayment
+            </span>
+            <span class="stats-value primary">
+                {{ roi_percentage }}%
+            </span>
+        </div>
+    </div>
+</div>
+<div class="glass-card stats-card">
+    <div class="stats-header">
+        <div class="stats-icon primary">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div>
+            <h3>Next EMI Breakdown</h3>
+            <span class="stats-subtitle">
+                Scheduled for {{ next_emi_date|date:"d M Y" }}
+            </span>
+        </div>
+    </div>
+    <div class="stats-grid">
+        <div class="stats-item">
+            <span class="stats-label">
+                EMI Amount
+            </span>
+            <span class="stats-value">
+                ₹{{ loan.emi|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Principal
+            </span>
+            <span class="stats-value success">
+                ₹{{ next_principal|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Interest
+            </span>
+            <span class="stats-value warning">
+                ₹{{ next_interest|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Balance After EMI
+            </span>
+            <span class="stats-value">
+                ₹{{ balance_after_next|floatformat:0 }}
+            </span>
+        </div>
+    </div>
+</div>
+<div class="glass-card health-card">
+    <div class="section-header">
+        <div>
+            <h3>
+                <i class="fas fa-heart-pulse"></i>
+                Loan Health Analysis
+            </h3>
+            <small>Your overall repayment performance</small>
+        </div>
 
+        <div class="overall-health">
+            <span class="score">{{ health_score }}/100</span>
+            <span class="label">{{ health_label.0 }}</span>
+        </div>
+    </div>
+    <div class="health-grid">
+        {% for item in health_factors %}
+        <div class="health-item">
+            <div class="health-icon">
+                <i class="fas {{ item.icon }}"></i>
+            </div>
+            <div class="health-content">
+                <div class="health-title">
+                    {{ item.title }}
+                </div>
+                <div class="health-status">
+                    {{ item.status }}
+                </div>
+                <div class="progress-small">
+                    <div
+                        class="progress-fill"
+                        style="width:{{ item.score }}%">
+                    </div>
+                </div>
+            </div>
+            <div class="health-score">
+                {{ item.score }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% if loan.status == 'active' and foreclosure %}
     <div class="glass-card foreclosure-card" style="padding: 24px; margin-bottom: 24px;">
         <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
@@ -384,6 +568,7 @@
         </div>
     </div>
 {% endif %}
+
 <div class="charts-grid">
     <div class="glass-card chart-card">
         <div class="chart-header">
@@ -551,6 +736,62 @@
     <p style="color: var(--text-secondary);">No payments recorded yet.</p>
     {% endif %}
 </div>
+<div class="glass-card timeline-card">
+    <div class="timeline-header">
+        <div>
+            <h3>
+                <i class="fas fa-route"></i>
+                Prepayment Timeline
+            </h3>
+            <small>Track every extra payment you've made</small>
+        </div>
+        <span class="timeline-count">
+            {{ prepayment_timeline|length }} Events
+        </span>
+    </div>
+    {% if prepayment_timeline %}
+        <div class="timeline">
+            {% for item in prepayment_timeline %}
+            <div class="timeline-item">
+                <div class="timeline-dot">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-date">
+                        {{ item.date|date:"d M Y" }}
+                    </div>
+                    <div class="timeline-title">
+                        Prepayment of
+                        <strong>₹{{ item.amount|floatformat:0 }}</strong>
+                    </div>
+                    <div class="timeline-meta">
+                        <span>
+                            <i class="fas fa-calendar-check"></i>
+                            {{ item.months_saved }} Months Saved
+                        </span>
+                        <span>
+                            <i class="fas fa-piggy-bank"></i>
+                            ₹{{ item.interest_saved|floatformat:0 }} Interest Saved
+                        </span>
+                        <span>
+                            <i class="fas fa-wallet"></i>
+                            {{ item.payment_mode }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="timeline-empty">
+            <i class="fas fa-clock"></i>
+            <h4>No Prepayments Yet</h4>
+            <p>
+                Make your first prepayment to reduce your loan tenure and interest.
+            </p>
+        </div>
+    {% endif %}
+</div>
 {% if prepayments %}
     <div class="glass-card" style="padding: 24px; margin-top: 24px;">
         <h3 style="margin-bottom: 16px;"><i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayments</h3>
@@ -584,6 +825,70 @@
         </div>
     </div>
 {% endif %}
+<div class="glass-card tips-card">
+    <div class="tips-header">
+        <h3>
+            <i class="fas fa-lightbulb"></i>
+            Financial Tips
+        </h3>
+        <span class="tips-count">
+            {{ financial_tips|length }} Tips
+        </span>
+    </div>
+    <div class="tips-list">
+        {% for tip in financial_tips %}
+            <div class="tip-item tip-{{ tip.type }}">
+                <div class="tip-icon">
+                    <i class="fas {{ tip.icon }}"></i>
+                </div>
+                <div class="tip-content">
+                    <div class="tip-title">
+                        {{ tip.title }}
+                    </div>
+                    <div class="tip-message">
+                        {{ tip.message }}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+<div class="glass-card badges-card">
+    <div class="badges-header">
+        <h3>
+            <i class="fas fa-award"></i>
+            Achievement Badges
+        </h3>
+        <span class="badge-count">
+            {{ achievement_badges|length }} Unlocked
+        </span>
+    </div>
+    <div class="badges-grid">
+        {% for badge in achievement_badges %}
+            <div class="achievement-card {{ badge.color }}">
+                <div class="badge-icon">
+                    <i class="fas {{ badge.icon }}"></i>
+                </div>
+                <div class="badge-title">
+                    {{ badge.title }}
+                </div>
+                <div class="badge-description">
+                    {{ badge.description }}
+                </div>
+                <span class="earned-tag">
+                    <i class="fas fa-check-circle"></i>
+                    Unlocked
+                </span>
+            </div>
+        {% empty %}
+            <div class="empty-badge">
+                <i class="fas fa-lock"></i>
+                <p>No achievements yet.</p>
+                <small>Keep paying EMIs to unlock badges.</small>
+            </div>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}
 {% block extra_scripts %}
 <script>

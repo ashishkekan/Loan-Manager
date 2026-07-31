@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from .views import (
+from payments.views import (
     EMIScheduleView,
     TransactionLedgerView,
     export_schedule_excel,
@@ -16,7 +16,6 @@ urlpatterns = [
     path(
         "loans/<int:loan_id>/schedule/", EMIScheduleView.as_view(), name="emi_schedule"
     ),
-    # Naye Routes
     path(
         "loans/<int:loan_id>/schedule/excel/",
         export_schedule_excel,

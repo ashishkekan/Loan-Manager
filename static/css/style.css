@@ -2898,3 +2898,505 @@ FORECLOSURE CALCULATOR STYLES
     background:rgba(148,163,184,.12);
     color:#64748b;
 }
+
+.stats-card{
+    padding:24px;
+    margin-bottom:24px;
+}
+
+.stats-header{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:24px;
+}
+
+.stats-header h3{
+    margin:0;
+    font-size:20px;
+    font-weight:700;
+}
+
+.stats-subtitle{
+    color:#64748b;
+    font-size:13px;
+}
+
+.stats-icon{
+    width:56px;
+    height:56px;
+    border-radius:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:22px;
+}
+
+.stats-icon.success{
+    background:#dcfce7;
+    color:#16a34a;
+}
+
+.stats-icon.primary{
+    background:#dbeafe;
+    color:#2563eb;
+}
+
+.stats-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+}
+
+.stats-item{
+    background:#f8fafc;
+    border:1px solid #e2e8f0;
+    border-radius:14px;
+    padding:18px;
+}
+
+.stats-label{
+    display:block;
+    color:#64748b;
+    font-size:13px;
+    margin-bottom:8px;
+}
+
+.stats-value{
+    font-size:24px;
+    font-weight:700;
+    color:#0f172a;
+}
+
+.stats-value.success{
+    color:#16a34a;
+}
+
+.stats-value.warning{
+    color:#f59e0b;
+}
+
+.stats-value.primary{
+    color:#2563eb;
+}
+
+.stats-value small{
+    font-size:13px;
+    font-weight:600;
+    color:#64748b;
+}
+
+@media(max-width:768px){
+
+.stats-grid{
+    grid-template-columns:1fr;
+}
+
+}
+.health-card{
+    padding:28px;
+    margin-top:24px;
+}
+
+.section-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:24px;
+}
+
+.section-header h3{
+    margin:0;
+    display:flex;
+    gap:10px;
+    align-items:center;
+}
+
+.overall-health{
+    text-align:center;
+    background:#f8fafc;
+    padding:14px 24px;
+    border-radius:16px;
+}
+
+.overall-health .score{
+    display:block;
+    font-size:32px;
+    font-weight:700;
+    color:#2563eb;
+}
+
+.overall-health .label{
+    font-size:13px;
+    color:#64748b;
+}
+
+.health-grid{
+    display:grid;
+    gap:16px;
+}
+
+.health-item{
+    display:grid;
+    grid-template-columns:60px 1fr 60px;
+    gap:18px;
+    align-items:center;
+    padding:18px;
+    border:1px solid #e5e7eb;
+    border-radius:16px;
+}
+
+.health-icon{
+    width:52px;
+    height:52px;
+    border-radius:50%;
+    background:#eff6ff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:20px;
+    color:#2563eb;
+}
+
+.health-title{
+    font-weight:600;
+    margin-bottom:4px;
+}
+
+.health-status{
+    font-size:13px;
+    color:#64748b;
+    margin-bottom:10px;
+}
+
+.progress-small{
+    height:8px;
+    background:#edf2f7;
+    border-radius:999px;
+    overflow:hidden;
+}
+
+.progress-small .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg,#10b981,#3b82f6);
+}
+
+.health-score{
+    font-size:24px;
+    font-weight:700;
+    text-align:right;
+    color:#0f172a;
+}
+.tips-card{
+    padding:28px;
+    margin-top:24px;
+}
+
+.tips-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:22px;
+}
+
+.tips-count{
+    background:#eef2ff;
+    color:#2563eb;
+    padding:6px 12px;
+    border-radius:30px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.tips-list{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.tip-item{
+    display:flex;
+    gap:16px;
+    padding:18px;
+    border-radius:16px;
+    border-left:5px solid;
+}
+
+.tip-icon{
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:18px;
+    flex-shrink:0;
+}
+
+.tip-title{
+    font-weight:700;
+    margin-bottom:6px;
+}
+
+.tip-message{
+    font-size:14px;
+    color:#64748b;
+    line-height:1.6;
+}
+
+.tip-success{
+    background:#f0fdf4;
+    border-color:#22c55e;
+}
+.tip-success .tip-icon{
+    background:#dcfce7;
+    color:#16a34a;
+}
+
+.tip-warning{
+    background:#fffbeb;
+    border-color:#f59e0b;
+}
+.tip-warning .tip-icon{
+    background:#fef3c7;
+    color:#d97706;
+}
+
+.tip-danger{
+    background:#fef2f2;
+    border-color:#ef4444;
+}
+.tip-danger .tip-icon{
+    background:#fee2e2;
+    color:#dc2626;
+}
+
+.tip-primary{
+    background:#eff6ff;
+    border-color:#3b82f6;
+}
+.tip-primary .tip-icon{
+    background:#dbeafe;
+    color:#2563eb;
+}
+.badges-card{
+    padding:28px;
+    margin-top:24px;
+}
+
+.badges-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:24px;
+}
+
+.badge-count{
+    background:#eef2ff;
+    color:#2563eb;
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.badges-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:20px;
+}
+
+.achievement-card{
+    border:1px solid #e5e7eb;
+    border-radius:18px;
+    padding:22px;
+    text-align:center;
+    transition:.25s;
+    position:relative;
+    overflow:hidden;
+}
+
+.achievement-card:hover{
+    transform:translateY(-6px);
+    box-shadow:0 14px 30px rgba(0,0,0,.08);
+}
+
+.badge-icon{
+    width:72px;
+    height:72px;
+    margin:auto;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:28px;
+    margin-bottom:18px;
+}
+
+.badge-title{
+    font-size:18px;
+    font-weight:700;
+    margin-bottom:8px;
+}
+
+.badge-description{
+    font-size:13px;
+    color:#64748b;
+    min-height:42px;
+}
+
+.earned-tag{
+    display:inline-block;
+    margin-top:18px;
+    background:#dcfce7;
+    color:#15803d;
+    padding:6px 12px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+}
+
+/* Colors */
+
+.success .badge-icon{
+    background:#dcfce7;
+    color:#16a34a;
+}
+
+.primary .badge-icon{
+    background:#dbeafe;
+    color:#2563eb;
+}
+
+.warning .badge-icon{
+    background:#fef3c7;
+    color:#d97706;
+}
+
+.danger .badge-icon{
+    background:#fee2e2;
+    color:#dc2626;
+}
+
+.gold .badge-icon{
+    background:#fef3c7;
+    color:#ca8a04;
+}
+
+.empty-badge{
+    grid-column:1/-1;
+    text-align:center;
+    padding:40px;
+    color:#94a3b8;
+}
+
+.empty-badge i{
+    font-size:42px;
+    margin-bottom:12px;
+}
+.timeline-card{
+    padding:28px;
+    margin-top:24px;
+}
+
+.timeline-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:28px;
+}
+
+.timeline-count{
+    background:#eef2ff;
+    color:#2563eb;
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.timeline{
+    position:relative;
+    margin-left:18px;
+}
+
+.timeline::before{
+    content:"";
+    position:absolute;
+    left:16px;
+    top:0;
+    bottom:0;
+    width:2px;
+    background:#dbeafe;
+}
+
+.timeline-item{
+    position:relative;
+    display:flex;
+    gap:22px;
+    margin-bottom:30px;
+}
+
+.timeline-dot{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:#2563eb;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    z-index:2;
+}
+
+.timeline-content{
+    flex:1;
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:16px;
+    padding:18px 20px;
+    transition:.25s;
+}
+
+.timeline-content:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 24px rgba(0,0,0,.08);
+}
+
+.timeline-date{
+    color:#64748b;
+    font-size:13px;
+    margin-bottom:6px;
+}
+
+.timeline-title{
+    font-size:18px;
+    font-weight:700;
+    margin-bottom:14px;
+}
+
+.timeline-meta{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    color:#64748b;
+    font-size:13px;
+}
+
+.timeline-meta span{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.timeline-empty{
+    text-align:center;
+    padding:50px;
+    color:#94a3b8;
+}
+
+.timeline-empty i{
+    font-size:46px;
+    margin-bottom:16px;
+}
