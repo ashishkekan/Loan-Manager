@@ -1,12 +1,15 @@
 import csv
 
+from dateutil.relativedelta import relativedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.storage import default_storage
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -136,6 +139,22 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         # Foreclosure calculation
         if loan.status == "active":
             context["foreclosure"] = calculate_foreclosure(loan)
+
+        total_prepayment_amount = loan.prepayments.aggregate(total=Sum("amount"))[
+            "total"
+        ] or Decimal("0")
+
+        total_paid = (
+            total_principal_paid + loan.total_interest_paid + total_prepayment_amount
+        )
+
+        estimated_closure_date = timezone.now().date() + relativedelta(
+            months=loan.months_remaining
+        )
+
+        context["total_prepayment_amount"] = total_prepayment_amount
+        context["total_paid"] = total_paid
+        context["estimated_closure_date"] = estimated_closure_date
         return context
 
 

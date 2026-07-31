@@ -217,6 +217,45 @@
     </div>
 </div>
 
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <h3 style="margin-bottom:20px;">Loan Analytics</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Total Amount Paid
+            </div>
+            <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                ₹{{ total_paid|floatformat:0 }}
+            </div>
+            <small style="color:#64748b;">
+                EMI + Prepayments
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Total Prepayments
+            </div>
+            <div style="font-size:22px;font-weight:700;color:#16a34a;">
+                ₹{{ total_prepayment_amount|floatformat:0 }}
+            </div>
+            <small style="color:#64748b;">
+                {{ prepayments|length }} Transactions
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Estimated Loan Closing
+            </div>
+            <div style="font-size:20px;font-weight:700;">
+                {{ estimated_closure_date|date:"d M Y" }}
+            </div>
+            <small style="color:#64748b;">
+                Based on current repayment
+            </small>
+        </div>
+    </div>
+</div>
+
 {% if loan.status == 'active' %}
     <div class="action-grid" style="margin-bottom: 24px;">
         {% if loan.auto_debit %}

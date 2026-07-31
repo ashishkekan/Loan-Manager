@@ -262,45 +262,59 @@ def compare_loans(loans):
 
 def calculate_foreclosure(loan):
     """
-    Calculate the exact amount needed to close the loan today.
-    Includes standard 2% foreclosure penalty and projects interest saved.
+    Calculate foreclosure details.
+
+    Returns:
+        {
+            "outstanding_balance": Decimal,
+            "penalty": Decimal,
+            "total_amount": Decimal,
+            "interest_saved": Decimal,
+            "remaining_periods": int,
+        }
     """
     balance = Decimal(str(loan.remaining_balance))
+    if balance <= 0:
+        return {
+            "outstanding_balance": Decimal("0.00"),
+            "penalty": Decimal("0.00"),
+            "total_amount": Decimal("0.00"),
+            "interest_saved": Decimal("0.00"),
+            "remaining_periods": 0,
+        }
 
-    # Standard foreclosure penalty is 2% of remaining principal
-    penalty = balance * Decimal("0.02")
-    total_foreclosure_amount = balance + penalty
-
-    # Calculate interest saved if closed today vs waiting for full tenure
-    frequency = getattr(loan, "emi_frequency", "monthly")
-    _, periods_per_year = get_period_details(frequency)
-    R = (
+    _, periods_per_year = get_period_details(loan.emi_frequency)
+    rate_per_period = (
         Decimal(str(loan.interest_rate))
-        / Decimal(str(periods_per_year))
         / Decimal("100")
+        / Decimal(str(periods_per_year))
     )
     emi = Decimal(str(loan.emi))
-    projected_interest = Decimal("0")
+    remaining_periods = max(0, int(loan.months_remaining))
+    future_interest = Decimal("0")
     temp_balance = balance
-    max_periods = (loan.tenure_years * periods_per_year) + 20
-    for _ in range(max_periods):
-        if temp_balance <= Decimal("0.01"):
+    for _ in range(remaining_periods):
+        if temp_balance <= 0:
             break
-        interest = temp_balance * R
-        projected_interest += interest
+        interest = temp_balance * rate_per_period
+        future_interest += interest
         principal = emi - interest
-        if principal >= temp_balance:
+        if principal <= 0:
             break
+        principal = min(principal, temp_balance)
         temp_balance -= principal
+    penalty = balance * Decimal("0.02")
+    total_foreclosure = balance + penalty
     return {
         "outstanding_balance": balance.quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         ),
         "penalty": penalty.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-        "total_amount": total_foreclosure_amount.quantize(
+        "total_amount": total_foreclosure.quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         ),
-        "interest_saved": projected_interest.quantize(
+        "interest_saved": future_interest.quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         ),
+        "remaining_periods": remaining_periods,
     }
