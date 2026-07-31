@@ -3381,10 +3381,12 @@ FORECLOSURE CALCULATOR STYLES
 }
 .loan-action-bar{
     display:flex;
-    justify-content:space-between;
     align-items:center;
     gap:18px;
     margin-bottom:22px;
+}
+.loan-action-spacer{
+    flex:1;
 }
 .overdue-alert-enhanced{
     flex:1;
@@ -3395,8 +3397,8 @@ FORECLOSURE CALCULATOR STYLES
     border-radius:16px;
     background:linear-gradient(135deg,#fff5f5,#ffe4e6);
     border:1px solid #fca5a5;
+    box-shadow:0 8px 20px rgba(239,68,68,.08);
 }
-
 .oa-icon{
     width:54px;
     height:54px;
@@ -3407,6 +3409,10 @@ FORECLOSURE CALCULATOR STYLES
     background:#ef4444;
     color:white;
     font-size:22px;
+    flex-shrink:0;
+}
+.oa-content{
+    flex:1;
 }
 .oa-title{
     font-size:17px;
@@ -3420,6 +3426,12 @@ FORECLOSURE CALCULATOR STYLES
     flex-wrap:wrap;
     font-size:13px;
     color:#7f1d1d;
+    margin-bottom:8px;
+}
+.oa-meta span{
+    display:flex;
+    align-items:center;
+    gap:6px;
 }
 .oa-days{
     background:#dc2626;
@@ -3428,11 +3440,21 @@ FORECLOSURE CALCULATOR STYLES
     border-radius:20px;
     font-weight:700;
 }
+.oa-note{
+    font-size:13px;
+    color:#7f1d1d;
+}
+.pay-emi-form{
+    margin-left:auto;
+    flex-shrink:0;
+}
 .pay-emi-small{
+    width:180px;
     height:60px;
     padding:0 22px;
     display:flex;
     align-items:center;
+    justify-content:center;
     gap:12px;
     border-radius:14px;
     white-space:nowrap;
@@ -3440,23 +3462,28 @@ FORECLOSURE CALCULATOR STYLES
 .pay-emi-small i{
     font-size:20px;
 }
-.pay-emi-small strong{
+.pay-text{
+    text-align:left;
+}
+.pay-text strong{
     display:block;
     font-size:15px;
 }
-.pay-emi-small small{
+.pay-text small{
     display:block;
     opacity:.9;
-}
-.oa-note{
-    margin-top:10px;
-    font-size:13px;
-    color:#7f1d1d;
 }
 @media(max-width:900px){
     .loan-action-bar{
         flex-direction:column;
         align-items:stretch;
+    }
+    .loan-action-spacer{
+        display:none;
+    }
+    .pay-emi-form{
+        margin-left:0;
+        width:100%;
     }
     .pay-emi-small{
         width:100%;

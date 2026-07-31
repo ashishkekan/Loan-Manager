@@ -51,39 +51,44 @@
 {% if loan.status == "active" %}
     <div class="loan-action-bar">
         {% if is_overdue %}
-        <div class="oa-content">
-            <div class="oa-title">
-                EMI #{{ next_emi_num }} Payment Pending
+        <div class="overdue-alert-enhanced">
+            <div class="oa-icon">
+                <i class="fas fa-triangle-exclamation"></i>
             </div>
-            <div class="oa-meta">
-                <span>
-                    <i class="fas fa-calendar"></i>
-                    Due {{ next_emi_date|date:"d M Y" }}
-                </span>
-                <span class="oa-days">
-                    {{ overdue_days }} Day{{ overdue_days|pluralize }} Overdue
-                </span>
-            </div>
-            <div class="oa-note">
-                Please clear this EMI to keep your repayment history healthy.
+            <div class="oa-content">
+                <div class="oa-title">
+                    EMI #{{ next_emi_num }} Payment Pending
+                </div>
+                <div class="oa-meta">
+                    <span>
+                        <i class="fas fa-calendar"></i>
+                        Due {{ next_emi_date|date:"d M Y" }}
+                    </span>
+                    <span class="oa-days">
+                        {{ overdue_days }} Day{{ overdue_days|pluralize }} Overdue
+                    </span>
+                </div>
+                <div class="oa-note">
+                    Please clear this EMI to keep your repayment history healthy.
+                </div>
             </div>
         </div>
+        {% else %}
+        <div class="loan-action-spacer"></div>
         {% endif %}
         {% if not loan.auto_debit %}
-            <form method="post" action="{% url 'pay_emi' loan.pk %}">
-                {% csrf_token %}
-                <button class="btn btn-primary pay-emi-small">
-                    <i class="fas fa-wallet"></i>
-                    <div>
-                        <strong>
-                            Pay EMI
-                        </strong>
-                        <small>
-                            ₹{{ loan.emi|floatformat:0 }}
-                        </small>
-                    </div>
-                </button>
-            </form>
+        <form method="post" action="{% url 'pay_emi' loan.pk %}" class="pay-emi-form">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary pay-emi-small">
+                <i class="fas fa-wallet"></i>
+                <div class="pay-text">
+                    <strong>Pay EMI</strong>
+                    <small>
+                        ₹{{ loan.emi|floatformat:0 }}
+                    </small>
+                </div>
+            </button>
+        </form>
         {% endif %}
     </div>
 {% endif %}
