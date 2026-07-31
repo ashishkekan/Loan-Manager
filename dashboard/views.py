@@ -120,25 +120,30 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         for loan in loans:
             principal_paid += loan.amount - loan.remaining_balance
         context["principal_paid"] = principal_paid
-        context["total_paid"] = principal_paid + context["interest_paid"]
-        context["total_prepayments"] = (
-            Prepayment.objects.filter(loan__user=user).aggregate(total=Sum("amount"))[
-                "total"
-            ]
-            or 0
-        )
-        context["total_prepayments"] = (
-            Prepayment.objects.filter(loan__user=user).aggregate(total=Sum("amount"))[
-                "total"
-            ]
-            or 0
-        )
-        context["interest_saved"] = (
-            Prepayment.objects.filter(loan__user=user).aggregate(
-                total=Sum("interest_saved")
-            )["total"]
-            or 0
-        )
+        # Total Principal Paid
+        principal_paid = sum((loan.amount - loan.remaining_balance) for loan in loans)
+
+        # Total Prepayments
+        total_prepayments = Prepayment.objects.filter(loan__user=user).aggregate(
+            total=Coalesce(Sum("amount"), 0, output_field=DecimalField())
+        )["total"]
+
+        # Total Interest Saved
+        interest_saved = Prepayment.objects.filter(loan__user=user).aggregate(
+            total=Coalesce(
+                Sum("interest_saved"),
+                0,
+                output_field=DecimalField(),
+            )
+        )["total"]
+
+        # Total Amount Paid by User
+        total_paid = principal_paid + aggregates["total_interest"] + total_prepayments
+
+        context["principal_paid"] = principal_paid
+        context["total_prepayments"] = total_prepayments
+        context["interest_saved"] = interest_saved
+        context["total_paid"] = total_paid
         upcoming = []
         today = timezone.now().date()
         for loan in loans.filter(status="active"):

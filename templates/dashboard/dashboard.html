@@ -117,7 +117,7 @@
                 {% if pie_chart_json.principal > 0 or pie_chart_json.interest > 0 %}
                 <div class="pie-center-stat">
                     <span class="pcs-label">Total Paid</span>
-                    <span class="pcs-value">₹{{ total_interest_paid|add:total_amount|add:total_remaining|add:total_remaining|floatformat:0 }}</span>
+                    <span class="pcs-value">₹{{ total_paid|floatformat:0 }}</span>
                 </div>
                 {% endif %}
             </div>
