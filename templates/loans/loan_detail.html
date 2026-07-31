@@ -48,12 +48,43 @@
         {% endif %}
     </div>
 </div>
-{% if is_overdue %}
-    <div class="overdue-alert">
-        <div class="oa-icon"><i class="fas fa-exclamation-triangle"></i></div>
-        <div class="oa-info">
-            <strong>EMI Overdue!</strong> Payment #{{ next_emi_num }} was due on {{ next_emi_date|date:"M d, Y" }} — {{ overdue_days }} day{{ overdue_days|pluralize }} overdue
+{% if loan.status == "active" %}
+    <div class="loan-action-bar">
+        {% if is_overdue %}
+        <div class="oa-content">
+            <div class="oa-title">
+                EMI #{{ next_emi_num }} Payment Pending
+            </div>
+            <div class="oa-meta">
+                <span>
+                    <i class="fas fa-calendar"></i>
+                    Due {{ next_emi_date|date:"d M Y" }}
+                </span>
+                <span class="oa-days">
+                    {{ overdue_days }} Day{{ overdue_days|pluralize }} Overdue
+                </span>
+            </div>
+            <div class="oa-note">
+                Please clear this EMI to keep your repayment history healthy.
+            </div>
         </div>
+        {% endif %}
+        {% if not loan.auto_debit %}
+            <form method="post" action="{% url 'pay_emi' loan.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-primary pay-emi-small">
+                    <i class="fas fa-wallet"></i>
+                    <div>
+                        <strong>
+                            Pay EMI
+                        </strong>
+                        <small>
+                            ₹{{ loan.emi|floatformat:0 }}
+                        </small>
+                    </div>
+                </button>
+            </form>
+        {% endif %}
     </div>
 {% endif %}
 <div class="summary-grid">
@@ -256,36 +287,6 @@
     </div>
 </div>
 {% if loan.status == 'active' %}
-    <div class="action-grid" style="margin-bottom: 24px;">
-        {% if loan.auto_debit %}
-            <div class="glass-card" style="padding:18px; background:#ecfdf5; border:1px solid #22c55e;">
-                <div style="display:flex;justify-content:space-between;">
-                    <div>
-                        <h4><i class="fas fa-repeat"></i>Auto Debit Enabled</h4>
-                        <small>Every {{ loan.get_emi_frequency_display }}</small>
-                    </div>
-                    <div style="text-align:right">
-                        <strong>{{ next_emi_date|date:"d M Y" }}</strong><br>
-                        <small>Next Debit</small>
-                    </div>
-                </div>
-            </div>
-        {% else %}
-            <form method="post" action="{% url 'pay_emi' loan.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-lg btn-block action-btn-emi">
-                    <i class="fas fa-check-circle"></i>
-                    <div class="abi-text">
-                        <span>Pay EMI</span>
-                        <small>
-                            ₹{{ loan.emi|floatformat:0 }}
-                            — #{{ next_emi_num }}
-                        </small>
-                    </div>
-                </button>
-            </form>
-        {% endif %}
-    </div>
     <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
         <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
             <i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayment Simulator

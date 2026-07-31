@@ -3257,39 +3257,32 @@ FORECLOSURE CALCULATOR STYLES
 }
 
 /* Colors */
-
 .success .badge-icon{
     background:#dcfce7;
     color:#16a34a;
 }
-
 .primary .badge-icon{
     background:#dbeafe;
     color:#2563eb;
 }
-
 .warning .badge-icon{
     background:#fef3c7;
     color:#d97706;
 }
-
 .danger .badge-icon{
     background:#fee2e2;
     color:#dc2626;
 }
-
 .gold .badge-icon{
     background:#fef3c7;
     color:#ca8a04;
 }
-
 .empty-badge{
     grid-column:1/-1;
     text-align:center;
     padding:40px;
     color:#94a3b8;
 }
-
 .empty-badge i{
     font-size:42px;
     margin-bottom:12px;
@@ -3298,14 +3291,12 @@ FORECLOSURE CALCULATOR STYLES
     padding:28px;
     margin-top:24px;
 }
-
 .timeline-header{
     display:flex;
     justify-content:space-between;
     align-items:center;
     margin-bottom:28px;
 }
-
 .timeline-count{
     background:#eef2ff;
     color:#2563eb;
@@ -3314,12 +3305,10 @@ FORECLOSURE CALCULATOR STYLES
     font-size:12px;
     font-weight:600;
 }
-
 .timeline{
     position:relative;
     margin-left:18px;
 }
-
 .timeline::before{
     content:"";
     position:absolute;
@@ -3329,14 +3318,12 @@ FORECLOSURE CALCULATOR STYLES
     width:2px;
     background:#dbeafe;
 }
-
 .timeline-item{
     position:relative;
     display:flex;
     gap:22px;
     margin-bottom:30px;
 }
-
 .timeline-dot{
     width:34px;
     height:34px;
@@ -3349,7 +3336,6 @@ FORECLOSURE CALCULATOR STYLES
     flex-shrink:0;
     z-index:2;
 }
-
 .timeline-content{
     flex:1;
     background:#fff;
@@ -3358,24 +3344,20 @@ FORECLOSURE CALCULATOR STYLES
     padding:18px 20px;
     transition:.25s;
 }
-
 .timeline-content:hover{
     transform:translateY(-2px);
     box-shadow:0 10px 24px rgba(0,0,0,.08);
 }
-
 .timeline-date{
     color:#64748b;
     font-size:13px;
     margin-bottom:6px;
 }
-
 .timeline-title{
     font-size:18px;
     font-weight:700;
     margin-bottom:14px;
 }
-
 .timeline-meta{
     display:flex;
     gap:20px;
@@ -3383,20 +3365,101 @@ FORECLOSURE CALCULATOR STYLES
     color:#64748b;
     font-size:13px;
 }
-
 .timeline-meta span{
     display:flex;
     align-items:center;
     gap:6px;
 }
-
 .timeline-empty{
     text-align:center;
     padding:50px;
     color:#94a3b8;
 }
-
 .timeline-empty i{
     font-size:46px;
     margin-bottom:16px;
+}
+.loan-action-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:18px;
+    margin-bottom:22px;
+}
+.overdue-alert-enhanced{
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:18px;
+    padding:18px 22px;
+    border-radius:16px;
+    background:linear-gradient(135deg,#fff5f5,#ffe4e6);
+    border:1px solid #fca5a5;
+}
+
+.oa-icon{
+    width:54px;
+    height:54px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#ef4444;
+    color:white;
+    font-size:22px;
+}
+.oa-title{
+    font-size:17px;
+    font-weight:700;
+    color:#991b1b;
+    margin-bottom:6px;
+}
+.oa-meta{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    font-size:13px;
+    color:#7f1d1d;
+}
+.oa-days{
+    background:#dc2626;
+    color:white;
+    padding:5px 12px;
+    border-radius:20px;
+    font-weight:700;
+}
+.pay-emi-small{
+    height:60px;
+    padding:0 22px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    border-radius:14px;
+    white-space:nowrap;
+}
+.pay-emi-small i{
+    font-size:20px;
+}
+.pay-emi-small strong{
+    display:block;
+    font-size:15px;
+}
+.pay-emi-small small{
+    display:block;
+    opacity:.9;
+}
+.oa-note{
+    margin-top:10px;
+    font-size:13px;
+    color:#7f1d1d;
+}
+@media(max-width:900px){
+    .loan-action-bar{
+        flex-direction:column;
+        align-items:stretch;
+    }
+    .pay-emi-small{
+        width:100%;
+        justify-content:center;
+    }
 }
