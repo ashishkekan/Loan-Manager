@@ -1,5 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import DecimalField, Q, Sum
+from django.db.models import Avg, DecimalField, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.views.generic import TemplateView
@@ -52,6 +52,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
         context["interest_paid"] = (
             loans.aggregate(total=Sum("total_interest_paid"))["total"] or 0
+        )
+        total_payable = sum(float(l.total_payable) for l in loans)
+
+        context["total_payable"] = total_payable
+        context["projected_interest"] = total_payable - float(
+            aggregates["total_amount"]
+        )
+        context["avg_interest_rate"] = (
+            loans.aggregate(avg=Avg("interest_rate"))["avg"] or 0
         )
 
         # ── Prepayment Savings ──

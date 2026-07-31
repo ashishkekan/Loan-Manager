@@ -223,7 +223,7 @@
                     <div>
                         <div class="qs-label">Projected Interest</div>
                         <div class="qs-value">
-                            ₹{{ total_payable|add:total_amount|add:total_amount|floatformat:0 }}
+                            ₹{{ projected_interest|floatformat:0 }}
                         </div>
                     </div>
                 </div>
@@ -235,7 +235,7 @@
                     </div>
                     <div>
                         <div class="qs-label">Avg. Interest Rate</div>
-                        <div class="qs-value">{{ avg_interest_rate }}%</div>
+                        <div class="qs-value">{{ avg_interest_rate|floatformat:2 }}%</div>
                     </div>
                 </div>
             </div>
