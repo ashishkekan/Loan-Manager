@@ -359,6 +359,56 @@
             </span>
         </form>
     </div>
+    <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
+        <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-bolt" style="color: var(--accent);"></i> Extra EMI Simulator
+        </h3>
+        <div class="card-body">
+            <form method="get">
+                <div style="display:flex;gap:12px;">
+                    <input
+                        type="number"
+                        class="form-input"
+                        name="extra_emi"
+                        placeholder="Extra EMI Amount"
+                        value="{{ extra_emi }}"
+                    >
+                    <button class="btn btn-primary">
+                        Simulate
+                    </button>
+                </div>
+            </form>
+            {% if simulation %}
+            <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;" class="mt-4">
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Months Saved
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        {{ simulation.months_saved }}
+                    </div>
+                </div>
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Interest Saved
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#16a34a;">
+                        ₹{{ simulation.interest_saved }}
+                    </div>
+                </div>
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Remaining EMI's
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        {{ simulation.new_payoff_periods }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 {% endif %}
 <div class="glass-card" style="padding:24px;margin-bottom:24px;">
     <h3 style="margin-bottom:20px;">

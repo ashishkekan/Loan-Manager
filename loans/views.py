@@ -29,7 +29,7 @@ from loans.utils import (
     generate_full_schedule,
     generate_projected_schedule,
 )
-
+from loans.utils import simulate_extra_emi
 
 class LoanListView(LoginRequiredMixin, ListView):
     model = Loan
@@ -500,6 +500,16 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                 }
             )
         context["prepayment_timeline"] = timeline
+        extra = self.request.GET.get("extra_emi")
+        if extra:
+            try:
+                context["simulation"] = simulate_extra_emi(
+                    self.object,
+                    Decimal(extra),
+                )
+                context["extra_emi"] = extra
+            except Exception:
+                pass
         return context
 
 

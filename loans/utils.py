@@ -228,6 +228,74 @@ def generate_projected_schedule(loan):
     return schedule
 
 
+def simulate_extra_emi(loan, extra_emi):
+    """
+    Simulate paying an additional fixed amount with every EMI.
+
+    Returns:
+        {
+            months_saved,
+            interest_saved,
+            new_payoff_periods,
+            total_interest
+        }
+    """
+    balance = Decimal(str(loan.remaining_balance))
+
+    if balance <= Decimal("0.01"):
+        return None
+
+    frequency = getattr(loan, "emi_frequency", "monthly")
+    _, periods_per_year = get_period_details(frequency)
+
+    rate = (
+        Decimal(str(loan.interest_rate))
+        / Decimal(str(periods_per_year))
+        / Decimal("100")
+    )
+
+    emi = Decimal(str(loan.emi))
+    extra = Decimal(str(extra_emi or 0))
+
+    payment = emi + extra
+
+    if payment <= 0:
+        return None
+
+    total_interest = Decimal("0")
+    periods = 0
+
+    while balance > Decimal("0.01"):
+        interest = balance * rate
+        principal = payment - interest
+
+        if principal <= 0:
+            break
+
+        if principal > balance:
+            principal = balance
+
+        balance -= principal
+        total_interest += interest
+        periods += 1
+
+    current_periods = loan.months_remaining
+
+    remaining_interest = (
+        Decimal(str(loan.emi)) * current_periods
+    ) - Decimal(str(loan.remaining_balance))
+
+    return {
+        "months_saved": max(current_periods - periods, 0),
+        "interest_saved": max(
+            remaining_interest - total_interest,
+            Decimal("0"),
+        ).quantize(Decimal("0.01")),
+        "new_payoff_periods": periods,
+        "total_interest": total_interest.quantize(Decimal("0.01")),
+    }
+
+
 def compare_loans(loans):
     """
     Compare multiple loans side by side.
