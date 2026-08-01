@@ -3490,3 +3490,43 @@ FORECLOSURE CALCULATOR STYLES
         justify-content:center;
     }
 }
+.goal-progress {
+    display: flex;
+    align-items: center;
+    height: 18px;
+    background: var(--primary-50);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.goal-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg,#22c55e,#16a34a,#15803d);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: width .8s ease;
+}
+
+.stat-card{
+    padding:18px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    text-align:center;
+}
+
+.stat-card small{
+    color:#64748b;
+    display:block;
+    margin-bottom:8px;
+}
+
+.stat-card h5{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+}

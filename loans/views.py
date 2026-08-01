@@ -510,6 +510,60 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                 context["extra_emi"] = extra
             except Exception:
                 pass
+        context["goal_tracker"] = self.object.goal_tracker
+        affordability = {}
+        monthly_income = self.request.GET.get("income")
+        monthly_expenses = self.request.GET.get("expenses")
+
+        if monthly_income and monthly_expenses:
+            try:
+                monthly_income = Decimal(monthly_income)
+                monthly_expenses = Decimal(monthly_expenses)
+
+                disposable_income = max(
+                    monthly_income - monthly_expenses,
+                    Decimal("0"),
+                )
+
+                if disposable_income > 0:
+                    emi_ratio = (
+                        loan.emi / disposable_income
+                    ) * Decimal("100")
+                else:
+                    emi_ratio = Decimal("100")
+
+                emi_ratio = emi_ratio.quantize(Decimal("0.1"))
+
+                if emi_ratio <= 35:
+                    status = "Excellent"
+                    color = "success"
+                elif emi_ratio <= 50:
+                    status = "Good"
+                    color = "primary"
+                elif emi_ratio <= 70:
+                    status = "Risky"
+                    color = "warning"
+                else:
+                    status = "Not Affordable"
+                    color = "danger"
+                balance_after_emi = max(
+                    disposable_income - loan.emi,
+                    Decimal("0"),
+                )
+                affordability = {
+                    "income": monthly_income,
+                    "expenses": monthly_expenses,
+                    "disposable": disposable_income,
+                    "emi_ratio": emi_ratio,
+                    "balance_after_emi": balance_after_emi,
+                    "status": status,
+                    "color": color,
+                }
+
+            except Exception:
+                pass
+        
+        context["affordability"] = affordability
         return context
 
 

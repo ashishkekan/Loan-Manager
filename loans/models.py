@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
-
+from decimal import ROUND_HALF_UP
 from loans.utils import add_periods, calculate_remaining_periods, get_period_details
 
 
@@ -234,6 +234,47 @@ class Loan(models.Model):
         Therefore existing calculations will still work.
         """
         return self.first_emi_date or self.start_date
+    
+    @property
+    def goal_tracker(self):
+        """
+        Loan Goal Tracker
+        """
+        current_balance = Decimal(str(self.remaining_balance))
+
+        if current_balance <= 0:
+            return {
+                "target": Decimal("0.00"),
+                "progress": 100,
+                "remaining": Decimal("0.00"),
+                "achieved": True,
+            }
+
+        target = (
+            current_balance / Decimal("100000")
+        ).to_integral_value(rounding=ROUND_HALF_UP) * Decimal("100000")
+
+        if target >= current_balance:
+            target -= Decimal("100000")
+
+        target = max(target, Decimal("0"))
+
+        paid_towards_goal = current_balance - target
+
+        if current_balance > 0:
+            progress = round(
+                float((paid_towards_goal / current_balance) * 100),
+                1,
+            )
+        else:
+            progress = 100
+
+        return {
+            "target": target,
+            "progress": max(0, min(progress, 100)),
+            "remaining": paid_towards_goal,
+            "achieved": current_balance <= target,
+        }
 
 
 class LoanNote(models.Model):
