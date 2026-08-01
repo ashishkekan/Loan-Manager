@@ -153,15 +153,31 @@
         <span>₹{{ total_principal_paid|floatformat:0 }} repaid</span>
         <span>₹{{ loan.remaining_balance|floatformat:0 }} remaining</span>
     </div>
-    <div style="display:flex; gap:15px; flex-wrap:wrap; margin-top:20px;">
-        <div class="badge badge-primary">
-            Principal Paid ₹{{ total_principal_paid|floatformat:0 }}
+    <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Principal Paid
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                ₹{{ total_principal_paid|floatformat:0 }}
+            </div>
         </div>
-        <div class="badge badge-warning">
-            Interest Paid ₹{{ loan.total_interest_paid|floatformat:0 }}
+         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Interest Paid
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                ₹{{ loan.total_interest_paid|floatformat:0 }}
+            </div>
         </div>
-        <div class="badge badge-success">
-            Outstanding ₹{{ loan.remaining_balance|floatformat:0 }}
+         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Outstanding
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                ₹{{ loan.remaining_balance|floatformat:0 }}
+            </div>
         </div>
     </div>
 </div>
@@ -722,7 +738,7 @@
     </div>
 </div>
 {% if loan.status == 'active' and foreclosure %}
-    <div class="glass-card foreclosure-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="glass-card foreclosure-card" style="padding: 24px; margin-top: 24px;">
         <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
             <i class="fas fa-gavel" style="color: var(--accent);"></i> Foreclosure Calculator
         </h3>
@@ -750,7 +766,7 @@
     </div>
 {% endif %}
 
-<div class="charts-grid">
+<div class="charts-grid" style="margin-top: 24px;">
     <div class="glass-card chart-card">
         <div class="chart-header">
             <div><h3>Balance Over Time</h3><span class="chart-subtitle">Projected</span></div>

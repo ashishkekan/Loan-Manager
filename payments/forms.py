@@ -1,5 +1,7 @@
 """Forms for recording EMI payments and prepayments."""
 
+import datetime
+
 from django import forms
 from .models import Prepayment
 
@@ -33,3 +35,12 @@ class PrepaymentForm(forms.ModelForm):
             if amount <= 0:
                 raise forms.ValidationError("Amount must be greater than zero.")
         return amount
+    
+    def clean_prepayment_date(self):
+        prepayment_date = self.cleaned_data.get('prepayment_date')
+        if self.loan and prepayment_date:
+            if prepayment_date > datetime.datetime.today().date():
+                raise forms.ValidationError(
+                    "Prepayment date cannot be greater than today's date."
+                )
+        return prepayment_date

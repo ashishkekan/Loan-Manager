@@ -1,6 +1,6 @@
 @echo off
 
-cd /d D:\LoanManager
+cd /d C:\Users\Smart Computer\Desktop\Management\Loan-Manager
 
 call venv\Scripts\activate.bat
 

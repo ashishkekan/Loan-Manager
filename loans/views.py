@@ -246,7 +246,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         )
         if total_prepayment_amount == 0:
             prepayment_score = 70
-            prepayment_status = "None"
+            prepayment_status = "Basic"
         elif total_prepayment_amount < loan.amount * Decimal("0.10"):
             prepayment_score = 90
             prepayment_status = "Good"
@@ -488,7 +488,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             )
         context["achievement_badges"] = achievement_badges
         timeline = []
-        for prepayment in loan.prepayments.order_by("prepayment_date"):
+        for prepayment in loan.prepayments.order_by("-prepayment_date")[:3]:
             timeline.append(
                 {
                     "date": prepayment.prepayment_date,

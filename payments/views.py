@@ -118,6 +118,10 @@ def make_prepayment(request, loan_id):
                     f"~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.",
                 )
             loan.save()
+        else:
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
     return redirect("loan_detail", pk=loan_id)
 
 
