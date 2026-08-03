@@ -21,6 +21,7 @@ from django.views.generic import (
     UpdateView,
 )
 
+from dashboard.utils import add_activity
 from loans.forms import LoanForm, LoanNoteForm
 from loans.models import Loan, LoanDocument, LoanNote
 from loans.utils import (
@@ -63,6 +64,13 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
         form.instance.remaining_balance = amount
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
+        add_activity(
+            request.user,
+            "loan_created",
+            f"{form.instance.loan_name} created",
+            form.instance,
+            f"Loan of ₹{form.instance.amount:,.0f} added.",
+        )
         messages.success(self.request, f'"{form.instance.loan_name}" created!')
         return super().form_valid(form)
 
@@ -687,6 +695,13 @@ def close_loan(request, pk):
         loan.status = "closed"
         loan.closed_date = parse_date(request.POST.get("closing_date"))
         loan.save()
+        add_activity(
+            loan.user,
+            "loan_closed",
+            f"{loan.loan_name} Closed",
+            loan,
+            "Congratulations! Loan completed.",
+        )
         messages.success(request, "Loan closed successfully.")
     return redirect("loan_detail", pk=loan.pk)
 

@@ -3621,3 +3621,76 @@ FORECLOSURE CALCULATOR STYLES
         transform:scale(1);
     }
 }
+
+.activity-card{
+    padding:24px;
+}
+
+.activity-list{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+}
+
+.activity-item{
+    display:flex;
+    gap:15px;
+    align-items:flex-start;
+}
+
+.activity-icon{
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-shrink:0;
+}
+
+.activity-icon.success{
+    background:#d1fae5;
+    color:#10b981;
+}
+
+.activity-icon.primary{
+    background:#dbeafe;
+    color:#2563eb;
+}
+
+.activity-icon.warning{
+    background:#fef3c7;
+    color:#d97706;
+}
+
+.activity-icon.info{
+    background:#ede9fe;
+    color:#7c3aed;
+}
+
+.activity-content{
+    flex:1;
+}
+
+.activity-title{
+    font-weight:700;
+    font-size:14px;
+}
+
+.activity-desc{
+    color:var(--text-muted);
+    font-size:13px;
+    margin-top:2px;
+}
+
+.activity-time{
+    margin-top:6px;
+    color:#94a3b8;
+    font-size:12px;
+}
+
+.empty-activity{
+    text-align:center;
+    padding:40px;
+    color:#94a3b8;
+}

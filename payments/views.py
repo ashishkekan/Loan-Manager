@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from dashboard.utils import add_activity
 from loans.models import Loan
 from loans.utils import (
     add_months,
@@ -41,6 +42,13 @@ def pay_emi(request, loan_id):
         else:
             messages.warning(request, "Payment could not be processed.")
     else:
+        add_activity(
+            loan.user,
+            "emi_paid",
+            f"EMI #{payment.payment_number} Paid",
+            loan,
+            f"₹{payment.amount:,.0f}",
+        )
         messages.success(
             request,
             f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} paid successfully.",
@@ -91,7 +99,7 @@ def make_prepayment(request, loan_id):
 
             months_reduced = periods_reduced * months_per_period
             interest_saved = avg_period_interest * months_reduced
-            Prepayment.objects.create(
+            prepayment = Prepayment.objects.create(
                 loan=loan,
                 amount=amount,
                 prepayment_date=prepayment_date,
@@ -118,6 +126,13 @@ def make_prepayment(request, loan_id):
                     f"~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.",
                 )
             loan.save()
+            add_activity(
+                loan.user,
+                "prepayment",
+                "Prepayment Done",
+                loan,
+                f"₹{prepayment.amount:,.0f} prepaid.",
+            )
         else:
             for errors in form.errors.values():
                 for error in errors:

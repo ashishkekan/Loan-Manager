@@ -4,6 +4,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.views.generic import TemplateView
 
+from dashboard.models import ActivityLog
 from loans.models import Loan
 from loans.utils import add_periods, generate_projected_schedule
 from payments.models import Payment, Prepayment
@@ -158,4 +159,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context["next_emi_date"] = None
         total_payments = Payment.objects.filter(loan__user=user, status="paid").count()
         context["total_payments"] = total_payments
+        if user.is_staff:
+            context["activities"] = ActivityLog.objects.select_related(
+                "user", "loan"
+            ).order_by("-created_at")[:20]
+        else:
+            context["activities"] = (
+                ActivityLog.objects.filter(user=request.user)
+                .select_related("loan")
+                .order_by("-created_at")[:10]
+            )
         return context
