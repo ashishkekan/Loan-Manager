@@ -1271,10 +1271,10 @@
     // Principal vs Interest — Doughnut Chart
     (function() {
         const data = {{ pie_data_json|safe }};
-        const ctx = document.getElementById('pieChart').getContext('2d');
+        const d_ctx = document.getElementById('pieChart').getContext('2d');
         const has = data.principal > 0 || data.interest > 0;
 
-        new Chart(ctx, {
+        new Chart(d_ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Principal Paid', 'Interest Paid'],
