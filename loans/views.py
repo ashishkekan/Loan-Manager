@@ -11,12 +11,14 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
     ListView,
     TemplateView,
+    UpdateView,
 )
 
 from loans.forms import LoanForm, LoanNoteForm
@@ -28,8 +30,9 @@ from loans.utils import (
     compare_loans,
     generate_full_schedule,
     generate_projected_schedule,
+    simulate_extra_emi,
 )
-from loans.utils import simulate_extra_emi
+
 
 class LoanListView(LoginRequiredMixin, ListView):
     model = Loan
@@ -126,6 +129,11 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                 next_num - 1,
                 loan.emi_frequency,
             )
+            next_emi_date = add_periods(
+                loan.schedule_start_date, next_num - 1, loan.emi_frequency
+            )
+        else:
+            next_emi_date = None
         projected = generate_projected_schedule(loan)
         context["projected_schedule_json"] = {
             "labels": [f"M{r['period']}" for r in projected[:60]],
@@ -145,9 +153,6 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         )
         original_closure_date = add_periods(
             loan.schedule_start_date, loan.tenure_years * 12, loan.emi_frequency
-        )
-        next_emi_date = add_periods(
-            loan.schedule_start_date, next_num - 1, loan.emi_frequency
         )
         estimated_closure_date = add_periods(
             next_emi_date, loan.months_remaining - 1, loan.emi_frequency
@@ -526,9 +531,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                 )
 
                 if disposable_income > 0:
-                    emi_ratio = (
-                        loan.emi / disposable_income
-                    ) * Decimal("100")
+                    emi_ratio = (loan.emi / disposable_income) * Decimal("100")
                 else:
                     emi_ratio = Decimal("100")
 
@@ -562,7 +565,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
 
             except Exception:
                 pass
-        
+
         context["affordability"] = affordability
         return context
 
@@ -675,3 +678,40 @@ def delete_document(request, loan_id, doc_id):
     doc.delete()
     messages.success(request, "Document deleted.")
     return redirect("loan_detail", pk=loan_id)
+
+
+@login_required
+def close_loan(request, pk):
+    loan = get_object_or_404(Loan, pk=pk, user=request.user)
+    if request.method == "POST":
+        loan.status = "closed"
+        loan.closed_date = parse_date(request.POST.get("closing_date"))
+        loan.save()
+        messages.success(request, "Loan closed successfully.")
+    return redirect("loan_detail", pk=loan.pk)
+
+
+class LoanUpdateView(LoginRequiredMixin, UpdateView):
+    model = Loan
+    form_class = LoanForm
+    template_name = "loans/create_loan.html"
+
+    def get_queryset(self):
+        return Loan.objects.filter(user=self.request.user)
+
+    def form_valid(self, form):
+        messages.success(self.request, "Loan updated successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("loan_detail", kwargs={"pk": self.object.pk})
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        form.fields["amount"].disabled = True
+        form.fields["interest_rate"].disabled = True
+        form.fields["tenure_years"].disabled = True
+        form.fields["start_date"].disabled = True
+
+        return form

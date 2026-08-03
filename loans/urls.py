@@ -8,7 +8,9 @@ from .views import (
     LoanDeleteView,
     LoanDetailView,
     LoanListView,
+    LoanUpdateView,
     add_note,
+    close_loan,
     delete_document,
     delete_note,
     export_loan_csv,
@@ -40,4 +42,6 @@ urlpatterns = [
     ),
     # Export CSV
     path("loans/<int:loan_id>/export/csv/", export_loan_csv, name="export_csv"),
+    path("loan/<int:pk>/close/", close_loan, name="close_loan"),
+    path("loan/<int:pk>/edit/", LoanUpdateView.as_view(), name="edit_loan"),
 ]

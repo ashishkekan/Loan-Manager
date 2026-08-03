@@ -20,7 +20,6 @@
         </div>
         <span class="loan-card-type-badge" style="margin-bottom:0;">{{ loan.get_loan_type_display }}</span>
     </div>
-    
     <div class="page-actions">
         <a href="{% url 'dashboard' %}" class="btn btn-outline">
             <i class="fas fa-chart-line"></i>Dashboard
@@ -37,13 +36,23 @@
         <a href="{% url 'transaction_ledger' loan.pk %}" class="btn btn-outline" title="Transaction History">
             <i class="fas fa-receipt"></i> Ledger
         </a>
+        {% if loan.status == "active" %}
+            <a href="{% url 'edit_loan' loan.pk %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <button class="btn btn-danger" onclick="openCloseLoanModal()">
+                <i class="fas fa-check-circle"></i> Close
+            </button>
+        {% endif %}
         <button class="btn btn-ghost" onclick="window.print()" title="Print Page">
             <i class="fas fa-print"></i>
         </button>
         {% if loan.status == 'active' %}
-            <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline;" onsubmit="return confirm('Delete this loan and all its payment history?')">
+            <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline; margin-top: 5px;" onsubmit="return confirm('Delete this loan and all its payment history?')">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan"><i class="fas fa-trash"></i></button>
+                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan">
+                    <i class="fas fa-trash"></i>
+                </button>
             </form>
         {% endif %}
     </div>
@@ -1086,6 +1095,38 @@
         {% endfor %}
     </div>
 </div>
+<div id="closeLoanModal" class="custom-modal">
+    <div class="custom-modal-content">
+        <form method="post" action="{% url 'close_loan' loan.pk %}">
+            {% csrf_token %}
+            <div class="custom-modal-header">
+                <h3>Close Loan</h3>
+                <button type="button" class="custom-close" onclick="closeCloseLoanModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="custom-modal-body">
+                <p>Are you sure you want to close <strong>{{ loan.loan_name }}</strong>?</p>
+                <div class="form-group">
+                    <label>Closing Date</label>
+                    <input type="date" name="closing_date" class="form-input" value="{{ today|date:'Y-m-d' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Remarks (Optional)</label>
+                    <textarea name="remarks" rows="3" class="form-input"></textarea>
+                </div>
+            </div>
+            <div class="custom-modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeCloseLoanModal()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    Close Loan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
@@ -1263,6 +1304,25 @@
         const w = b.style.width;
         b.style.width = '0%';
         requestAnimationFrame(() => requestAnimationFrame(() => { b.style.width = w }));
+    });
+    function openCloseLoanModal() {
+        document.getElementById("closeLoanModal").classList.add("show");
+        document.body.style.overflow = "hidden";
+    }
+    function closeCloseLoanModal() {
+        document.getElementById("closeLoanModal").classList.remove("show");
+        document.body.style.overflow = "";
+    }
+    window.addEventListener("click", function(e) {
+        const modal = document.getElementById("closeLoanModal");
+        if (e.target === modal) {
+            closeCloseLoanModal();
+        }
+    });
+    window.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            closeCloseLoanModal();
+        }
     });
 </script>
 {% endblock %}

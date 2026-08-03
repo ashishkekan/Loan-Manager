@@ -3530,3 +3530,94 @@ FORECLOSURE CALCULATOR STYLES
     font-size:22px;
     font-weight:700;
 }
+
+.header-actions{
+    display:flex;
+    gap:12px;
+    align-items:center;
+}
+
+@media(max-width:768px){
+    .page-header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:16px;
+    }
+
+    .header-actions{
+        width:100%;
+    }
+
+    .header-actions .btn{
+        flex:1;
+        justify-content:center;
+    }
+}
+
+.custom-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+    padding:20px;
+}
+
+.custom-modal.show{
+    display:flex;
+}
+
+.custom-modal-content{
+    width:100%;
+    max-width:520px;
+    background:#fff;
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.25);
+    animation:modalScale .2s ease;
+}
+
+.custom-modal-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:18px 22px;
+    border-bottom:1px solid #e5e7eb;
+}
+
+.custom-modal-body{
+    padding:22px;
+}
+
+.custom-modal-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:18px 22px;
+    border-top:1px solid #e5e7eb;
+}
+
+.custom-close{
+    background:none;
+    border:none;
+    font-size:18px;
+    cursor:pointer;
+    color:#64748b;
+}
+
+.custom-close:hover{
+    color:#ef4444;
+}
+
+@keyframes modalScale{
+    from{
+        opacity:0;
+        transform:scale(.9);
+    }
+    to{
+        opacity:1;
+        transform:scale(1);
+    }
+}
