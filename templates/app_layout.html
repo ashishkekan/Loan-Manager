@@ -29,11 +29,7 @@
             </a>
             <a href="{% url 'loan_list' %}" class="nav-item {% if request.resolver_match.url_name == 'loan_list' %}active{% endif %}">
                 <i class="fas fa-file-invoice-dollar"></i>
-                <span>My Loans</span>
-            </a>
-            <a href="{% url 'create_loan' %}" class="nav-item {% if request.resolver_match.url_name == 'create_loan' %}active{% endif %}">
-                <i class="fas fa-plus-circle"></i>
-                <span>New Loan</span>
+                <span>{% if not request.user.is_staff %}My Loans{% else %}Loans{% endif %}</span>
             </a>
             {% if loans %}
                 <div class="nav-divider"></div>

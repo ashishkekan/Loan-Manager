@@ -139,7 +139,7 @@
 {% if loans %}
     <div class="glass-card reveal" style="padding: 24px; margin-top: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="font-size: 16px; font-weight: 700;">Your Loans</h3>
+            <h3 style="font-size: 16px; font-weight: 700;">{% if not request.user.is_staff %}Your Loans{% else %}Loans{% endif %}</h3>
             <a href="{% url 'loan_list' %}" class="link-accent">
                 View All <i class="fas fa-arrow-right"></i>
             </a>
