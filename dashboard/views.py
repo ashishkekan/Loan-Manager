@@ -165,7 +165,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             ).order_by("-created_at")[:20]
         else:
             context["activities"] = (
-                ActivityLog.objects.filter(user=request.user)
+                ActivityLog.objects.filter(user=user)
                 .select_related("loan")
                 .order_by("-created_at")[:10]
             )
