@@ -8,6 +8,8 @@ import math
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal, getcontext
 
+from django.db.models import Sum
+
 getcontext().prec = 50
 
 
@@ -163,16 +165,25 @@ def generate_full_schedule(loan):
             if not hasattr(prep, "_applied"):
                 new_balance = max(new_balance - prep.amount, Decimal("0.00"))
                 prep._applied = True  # Temporary flag, won't persist
+        from loans.models import LoanAccruedInterest
 
+        additional_interest = LoanAccruedInterest.objects.filter(
+            loan=loan,
+            emi_date=due_date,
+            status="pending",
+        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0")
+        total_debit = emi + additional_interest
         row = {
             "period": month_num,
-            "emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "regular_emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             "principal": principal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             "interest": interest.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             "balance": new_balance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             "due_date": due_date,
             "status": "paid" if is_paid else "projected",
             "payment_date": actual_payment.payment_date if is_paid else None,
+            "total_debit": total_debit,
+            "additional_interest": additional_interest,
         }
         schedule.append(row)
         balance = new_balance
@@ -281,9 +292,9 @@ def simulate_extra_emi(loan, extra_emi):
 
     current_periods = loan.months_remaining
 
-    remaining_interest = (
-        Decimal(str(loan.emi)) * current_periods
-    ) - Decimal(str(loan.remaining_balance))
+    remaining_interest = (Decimal(str(loan.emi)) * current_periods) - Decimal(
+        str(loan.remaining_balance)
+    )
 
     return {
         "months_saved": max(current_periods - periods, 0),

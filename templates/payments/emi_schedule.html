@@ -46,7 +46,9 @@
                 <tr>
                     <th>Month</th>
                     <th>Due Date</th>
-                    <th>EMI</th>
+                    <th>Regular EMI</th>
+                    <th>Additional Interest</th>
+                    <th>Total Debit</th>
                     <th>Principal</th>
                     <th>Interest</th>
                     <th>Balance</th>
@@ -58,7 +60,9 @@
                     <tr class="row-{{ row.status }}" data-status="{{ row.status }}">
                         <td>{{ row.period }}</td>
                         <td>{{ row.due_date|date:"M d, Y" }}</td>
-                        <td>₹{{ row.emi|floatformat:0 }}</td>
+                        <td>₹{{ row.regular_emi|floatformat:0 }}</td>
+                        <td>₹{{ row.additional_interest|floatformat:0 }}</td>
+                        <td>₹{{ row.total_debit|floatformat:0 }}</td>
                         <td>₹{{ row.principal|floatformat:0 }}</td>
                         <td>₹{{ row.interest|floatformat:0 }}</td>
                         <td>₹{{ row.balance|floatformat:0 }}</td>
