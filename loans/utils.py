@@ -167,23 +167,44 @@ def generate_full_schedule(loan):
                 prep._applied = True  # Temporary flag, won't persist
         from loans.models import LoanAccruedInterest
 
-        additional_interest = LoanAccruedInterest.objects.filter(
-            loan=loan,
-            emi_date=due_date,
-            status="pending",
-        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0")
-        total_debit = emi + additional_interest
+        accrued_qs = LoanAccruedInterest.objects.filter(loan=loan, emi_date=due_date)
+        if actual_payment:
+            additional_interest = actual_payment.additional_interest
+            accrued_status = "paid"
+
+            display_emi = actual_payment.regular_emi_amount
+            display_principal = actual_payment.principal_component
+            display_interest = (
+                actual_payment.interest_component + actual_payment.additional_interest
+            )
+            total_debit = actual_payment.total_debit_amount
+            new_balance = actual_payment.balance_after
+
+        else:
+            additional_interest = accrued_qs.aggregate(total=Sum("interest_amount"))[
+                "total"
+            ] or Decimal("0")
+            accrued_status = accrued_qs.values_list(
+                "status",
+                flat=True,
+            ).first()
+
+            display_emi = actual_emi
+            display_principal = principal
+            display_interest = interest
+            total_debit = emi + additional_interest
         row = {
             "period": month_num,
-            "regular_emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-            "principal": principal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-            "interest": interest.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-            "balance": new_balance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "regular_emi": display_emi.quantize(Decimal("0.01")),
+            "principal": display_principal.quantize(Decimal("0.01")),
+            "interest": display_interest.quantize(Decimal("0.01")),
+            "balance": new_balance.quantize(Decimal("0.01")),
+            "total_debit": total_debit.quantize(Decimal("0.01")),
             "due_date": due_date,
             "status": "paid" if is_paid else "projected",
             "payment_date": actual_payment.payment_date if is_paid else None,
-            "total_debit": total_debit,
             "additional_interest": additional_interest,
+            "accrued_status": accrued_status,
         }
         schedule.append(row)
         balance = new_balance

@@ -930,6 +930,11 @@ class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
         kwargs["loan"] = self.object.loan
         return kwargs
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["loan"] = self.object.loan
+        return context
+
     @transaction.atomic
     def form_valid(self, form):
         response = super().form_valid(form)
