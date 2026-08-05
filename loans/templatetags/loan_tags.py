@@ -1,5 +1,3 @@
-"""Custom template filters for loans."""
-
 from django import template
 
 register = template.Library()

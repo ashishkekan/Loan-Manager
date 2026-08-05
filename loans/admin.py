@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.http import HttpResponse
 
-from .models import (
+from loans.models import (
     Investment,
     Loan,
     LoanAccruedInterest,

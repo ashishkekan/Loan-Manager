@@ -8,8 +8,7 @@ from django.views.generic import CreateView, ListView, TemplateView
 
 from accounts.models import Profile
 from loans.models import Investment, Loan, LoanDocument
-
-from .forms import InvestForm, ProfileSetupForm
+from marketplace.forms import InvestForm, ProfileSetupForm
 
 
 class SetupProfileView(LoginRequiredMixin, CreateView):

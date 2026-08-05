@@ -3,7 +3,8 @@
 import datetime
 
 from django import forms
-from .models import Prepayment
+
+from payments.models import Prepayment
 
 
 class PrepaymentForm(forms.ModelForm):
@@ -11,22 +12,27 @@ class PrepaymentForm(forms.ModelForm):
 
     class Meta:
         model = Prepayment
-        fields = ['amount', 'prepayment_date']
+        fields = ["amount", "prepayment_date"]
         widgets = {
-            'amount': forms.NumberInput(attrs={
-                'class': 'form-input', 'placeholder': 'Amount', 'min': '1', 'step': '0.01'
-            }),
-            'prepayment_date': forms.DateInput(attrs={
-                'class': 'form-input', 'type': 'date'
-            }),
+            "amount": forms.NumberInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "Amount",
+                    "min": "1",
+                    "step": "0.01",
+                }
+            ),
+            "prepayment_date": forms.DateInput(
+                attrs={"class": "form-input", "type": "date"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
-        self.loan = kwargs.pop('loan', None)
+        self.loan = kwargs.pop("loan", None)
         super().__init__(*args, **kwargs)
 
     def clean_amount(self):
-        amount = self.cleaned_data.get('amount')
+        amount = self.cleaned_data.get("amount")
         if self.loan and amount:
             if amount > self.loan.remaining_balance:
                 raise forms.ValidationError(
@@ -35,9 +41,9 @@ class PrepaymentForm(forms.ModelForm):
             if amount <= 0:
                 raise forms.ValidationError("Amount must be greater than zero.")
         return amount
-    
+
     def clean_prepayment_date(self):
-        prepayment_date = self.cleaned_data.get('prepayment_date')
+        prepayment_date = self.cleaned_data.get("prepayment_date")
         if self.loan and prepayment_date:
             if prepayment_date > datetime.datetime.today().date():
                 raise forms.ValidationError(

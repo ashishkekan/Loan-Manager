@@ -5,7 +5,7 @@ from django.contrib.auth.views import LoginView
 from django.contrib.messages import success
 from django.shortcuts import redirect, render
 
-from .forms import RegistrationForm
+from accounts.forms import RegistrationForm
 
 
 def custom_logout(request):

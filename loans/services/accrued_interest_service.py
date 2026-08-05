@@ -4,10 +4,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import transaction
 
 from loans.models import LoanAccruedInterest, LoanDisbursement
-from loans.utils import (
-    add_periods,
-    get_period_details,
-)
+from loans.utils import add_periods, get_period_details
 
 
 class AccruedInterestService:

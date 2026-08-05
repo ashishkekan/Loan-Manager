@@ -26,10 +26,9 @@ from loans.utils import (
     generate_full_schedule,
     get_period_details,
 )
-
-from .forms import PrepaymentForm
-from .models import Payment, Prepayment
-from .services import process_emi_payment
+from payments.forms import PrepaymentForm
+from payments.models import Payment, Prepayment
+from payments.services import process_emi_payment
 
 
 @login_required

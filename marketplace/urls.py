@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import MarketplaceView, SetupProfileView, invest_in_loan
+from marketplace.views import MarketplaceView, SetupProfileView, invest_in_loan
 
 urlpatterns = [
     path("profile/setup/", SetupProfileView.as_view(), name="setup_profile"),

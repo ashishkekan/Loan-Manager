@@ -19,8 +19,7 @@ from loans.utils import (
     add_periods,
     get_period_details,
 )
-
-from .models import Payment
+from payments.models import Payment
 
 
 @transaction.atomic
