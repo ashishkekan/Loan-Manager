@@ -7,12 +7,11 @@
     <div>
         <h1 class="page-title">Dashboard</h1>
         <p class="page-subtitle">
-            Welcome back, {{ request.user.first_name|default:request.user.username }}
-            — here's your loan overview
+            Welcome back, {{ request.user.first_name|default:request.user.username }} — here's your loan overview
         </p>
     </div>
-    <a href="{% url 'create_loan' %}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> New Loan
+    <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" style="width: 40px; height: 40px;">
+        <i class="fas fa-plus"></i>
     </a>
 </div>
 
@@ -282,7 +281,7 @@
     </div>
     <div class="glass-card reveal activity-card">
         <div class="card-header">
-            <h3><i class="fas fa-bolt"></i>Activity Feed</h3>
+            <h3><i class="fas fa-bolt"></i> Activity Feed</h3>
         </div>
         {% if activities %}
             <div class="activity-list" style="margin-top: 12px;">

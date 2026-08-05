@@ -7,8 +7,8 @@
         <h1 class="page-title">{% if not request.user.is_staff %}My Loans{% else %}Loans{% endif %}</h1>
         <p class="page-subtitle">Manage and track all your loans</p>
     </div>
-    <a href="{% url 'create_loan' %}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Create Loan
+    <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" style="width: 40px; height: 40px;">
+        <i class="fas fa-plus"></i>
     </a>
 </div>
 {% if loans %}

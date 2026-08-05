@@ -50,7 +50,7 @@
         {% if loan.status == 'active' %}
             <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline; margin-top: 5px;" onsubmit="return confirm('Delete this loan and all its payment history?')">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan">
+                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan" style="color: red;">
                     <i class="fas fa-trash"></i>
                 </button>
             </form>
@@ -193,7 +193,7 @@
 
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
-        <div style="display:flex;gap:12px;">
+        <div style="display: flex; gap: 12px;">
             <h3>Loan Disbursement Summary</h3>
             <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus"></i>Add
@@ -231,9 +231,9 @@
 
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
-        <div style="display:flex;gap:12px;">
+        <div style="display: flex; gap: 12px;">
             <h3>Recent Disbursements</h3>
-            <a href="{% url 'loan_disbursement_list' loan.id %}" class="btn btn-outline-primary btn-sm">
+            <a href="{% url 'loan_disbursement_list' loan.id %}" class="btn btn-primary btn-sm" style="margin-bottom: 15px;">
                 View All
             </a>
         </div>
@@ -489,20 +489,20 @@
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;">
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-bolt"></i>Make Prepayment
+                        <i class="fas fa-bolt"></i> Make Prepayment
                     </button>
                     {% if loan.auto_debit %}
                         <span class="badge badge-success">
-                            <i class="fas fa-repeat"></i>Auto Debit Active
+                            <i class="fas fa-repeat"></i> Auto Debit Active
                         </span>
                     {% else %}
                         <span class="badge badge-warning">
-                            <i class="fas fa-hand-pointer"></i>Manual EMI
+                            <i class="fas fa-hand-pointer"></i> Manual EMI
                         </span>
                     {% endif %}
                 </div>
             </div>
-            <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block;">
+            <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block; margin-bottom: 10px;">
                 Max: ₹{{ loan.remaining_balance|floatformat:0 }}
             </span>
         </form>
@@ -965,7 +965,9 @@
                 <form method="post" action="{% url 'delete_note' loan.pk note.pk %}" style="display:inline;"
                       onsubmit="return confirm('Delete note?')">
                     {% csrf_token %}
-                    <button type="submit" class="note-delete"><i class="fas fa-trash-alt"></i></button>
+                    <button type="submit" class="btn btn-danger-ghost" title="Delete Note" style="color: red;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </form>
             </div>
         </div>
@@ -1067,8 +1069,7 @@
     <div class="timeline-header">
         <div>
             <h3>
-                <i class="fas fa-route"></i>
-                Prepayment Timeline
+                <i class="fas fa-route"></i> Prepayment Timeline
             </h3>
             <small>Track every extra payment you've made</small>
         </div>
@@ -1155,8 +1156,7 @@
 <div class="glass-card tips-card">
     <div class="tips-header">
         <h3>
-            <i class="fas fa-lightbulb"></i>
-            Financial Tips
+            <i class="fas fa-lightbulb"></i> Financial Tips
         </h3>
         <span class="tips-count">
             {{ financial_tips|length }} Tips
@@ -1183,8 +1183,7 @@
 <div class="glass-card badges-card">
     <div class="badges-header">
         <h3>
-            <i class="fas fa-award"></i>
-            Achievement Badges
+            <i class="fas fa-award"></i> Achievement Badges
         </h3>
         <span class="badge-count">
             {{ achievement_badges|length }} Unlocked
