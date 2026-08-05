@@ -1,13 +1,17 @@
 """Loan model — core entity with health scoring, types, and notes."""
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
-from decimal import ROUND_HALF_UP
-from loans.utils import add_periods, calculate_remaining_periods, get_period_details
+
+from loans.utils import (
+    add_periods,
+    calculate_remaining_periods,
+    get_period_details,
+)
 
 
 class Loan(models.Model):
@@ -234,7 +238,7 @@ class Loan(models.Model):
         Therefore existing calculations will still work.
         """
         return self.first_emi_date or self.start_date
-    
+
     @property
     def goal_tracker(self):
         """
@@ -250,9 +254,9 @@ class Loan(models.Model):
                 "achieved": True,
             }
 
-        target = (
-            current_balance / Decimal("100000")
-        ).to_integral_value(rounding=ROUND_HALF_UP) * Decimal("100000")
+        target = (current_balance / Decimal("100000")).to_integral_value(
+            rounding=ROUND_HALF_UP
+        ) * Decimal("100000")
 
         if target >= current_balance:
             target -= Decimal("100000")
@@ -275,6 +279,70 @@ class Loan(models.Model):
             "remaining": paid_towards_goal,
             "achieved": current_balance <= target,
         }
+
+    @property
+    def total_disbursed_amount(self):
+        from django.db.models import Sum
+
+        return self.disbursements.filter(status="released").aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0.00")
+
+    @property
+    def remaining_sanction_amount(self):
+        return self.amount - self.total_disbursed_amount
+
+    @property
+    def total_pending_accrued_interest(self):
+        from django.db.models import Sum
+
+        return self.accrued_interests.filter(status="pending").aggregate(
+            total=Sum("interest_amount")
+        )["total"] or Decimal("0.00")
+
+    @property
+    def total_recovered_accrued_interest(self):
+        from django.db.models import Sum
+
+        return self.accrued_interests.filter(status="recovered").aggregate(
+            total=Sum("interest_amount")
+        )["total"] or Decimal("0.00")
+
+    @property
+    def disbursement_percentage(self):
+        if self.amount <= 0:
+            return Decimal("0")
+        return ((self.total_disbursed_amount / self.amount) * Decimal("100")).quantize(
+            Decimal("0.01")
+        )
+
+    @property
+    def total_disbursement_count(self):
+        return self.disbursements.filter(status="released").count()
+
+    @property
+    def pending_accrued_interest_count(self):
+        return self.accrued_interests.filter(status="pending").count()
+
+    @property
+    def recovered_accrued_interest_count(self):
+        return self.accrued_interests.filter(status="recovered").count()
+
+    @property
+    def has_pending_accrued_interest(self):
+        return self.accrued_interests.filter(status="pending").exists()
+
+    @classmethod
+    def has_pending_interest(cls, loan, emi_date):
+        return LoanAccruedInterest.objects.filter(
+            loan=loan, emi_date=emi_date, status="pending"
+        ).exists()
+
+    @classmethod
+    def get_recovered_interest(cls, loan):
+        return LoanAccruedInterest.objects.filter(
+            loan=loan, status="recovered"
+        ).aggregate(total=Sum("recovered_amount"))["total"] or Decimal("0.00")
 
 
 class LoanNote(models.Model):
@@ -334,3 +402,156 @@ class Investment(models.Model):
         return (
             f"₹{self.amount} by {self.lender.get_full_name()} in {self.loan.loan_name}"
         )
+
+
+class LoanDisbursement(models.Model):
+    PURPOSE_CHOICES = [
+        ("builder", "Builder Payment"),
+        ("insurance", "Insurance"),
+        ("processing_fee", "Processing Fee"),
+        ("legal", "Legal Charges"),
+        ("technical", "Technical Charges"),
+        ("registration", "Registration"),
+        ("other", "Other"),
+    ]
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("released", "Released"),
+        ("cancelled", "Cancelled"),
+    ]
+    loan = models.ForeignKey(
+        "loans.Loan", on_delete=models.CASCADE, related_name="disbursements"
+    )
+    disbursement_number = models.PositiveIntegerField()
+    disbursement_date = models.DateField()
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    purpose = models.CharField(
+        max_length=50, choices=PURPOSE_CHOICES, default="builder"
+    )
+    remarks = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="released")
+    is_interest_processed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "loan_disbursements"
+        ordering = ["disbursement_date", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["loan", "disbursement_number"],
+                name="unique_loan_disbursement_number",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["loan"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["disbursement_date"]),
+            models.Index(fields=["loan", "status"]),
+            models.Index(fields=["loan", "disbursement_date"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.disbursement_number:
+            last = (
+                LoanDisbursement.objects.filter(loan=self.loan)
+                .order_by("-disbursement_number")
+                .first()
+            )
+            self.disbursement_number = 1 if not last else last.disbursement_number + 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.loan.loan_name} - Disbursement #{self.disbursement_number}"
+
+    @property
+    def is_released(self):
+        return self.status == "released"
+
+
+class LoanAccruedInterest(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("recovered", "Recovered"),
+        ("cancelled", "Cancelled"),
+    ]
+    loan = models.ForeignKey(
+        "loans.Loan", on_delete=models.CASCADE, related_name="accrued_interests"
+    )
+    disbursement = models.ForeignKey(
+        "loans.LoanDisbursement",
+        on_delete=models.CASCADE,
+        related_name="interest_entries",
+    )
+    emi_payment = models.ForeignKey(
+        "payments.Payment",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="accrued_interest_entries",
+    )
+    from_date = models.DateField()
+    to_date = models.DateField()
+    emi_date = models.DateField()
+    days = models.PositiveIntegerField()
+    annual_interest_rate = models.DecimalField(max_digits=7, decimal_places=4)
+    disbursed_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    interest_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    recovered_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    recovered_on = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "loan_accrued_interest"
+        ordering = ["emi_date", "id"]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "loan",
+                    "disbursement",
+                    "from_date",
+                    "to_date",
+                    "emi_date",
+                ],
+                name="unique_accrued_interest_cycle",
+            ),
+            models.CheckConstraint(
+                check=models.Q(interest_amount__gte=0),
+                name="loan_interest_positive",
+            ),
+            models.CheckConstraint(
+                check=models.Q(days__gte=0),
+                name="loan_interest_days_positive",
+            ),
+        ]
+
+        indexes = [
+            models.Index(fields=["loan"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["emi_date"]),
+            models.Index(fields=["disbursement"]),
+            models.Index(fields=["loan", "status"]),
+            models.Index(fields=["loan", "emi_date"]),
+            models.Index(fields=["loan", "disbursement"]),
+            models.Index(fields=["loan", "emi_date", "status"]),  # ✅ yaha hona chahiye
+        ]
+
+    def __str__(self):
+        return f"{self.loan.loan_name} - ₹{self.interest_amount}"
+
+    @property
+    def pending_amount(self):
+        return self.interest_amount - self.recovered_amount
+
+    @property
+    def is_pending(self):
+        return self.status == "pending"
+
+    @property
+    def is_recovered(self):
+        return self.status == "recovered"

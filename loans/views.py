@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -22,8 +23,19 @@ from django.views.generic import (
 )
 
 from dashboard.utils import add_activity
-from loans.forms import LoanForm, LoanNoteForm
-from loans.models import Loan, LoanDocument, LoanNote
+from loans.forms import (
+    LoanDisbursementForm,
+    LoanForm,
+    LoanNoteForm,
+)
+from loans.models import (
+    Loan,
+    LoanAccruedInterest,
+    LoanDisbursement,
+    LoanDocument,
+    LoanNote,
+)
+from loans.services import AccruedInterestService
 from loans.utils import (
     add_periods,
     calculate_emi,
@@ -55,24 +67,36 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.user = self.request.user
+
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
+
         form.instance.emi = calculate_emi(
-            amount, rate, tenure, form.cleaned_data["emi_frequency"]
+            amount,
+            rate,
+            tenure,
+            form.cleaned_data["emi_frequency"],
         )
+
         form.instance.remaining_balance = amount
+
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
+
+        response = super().form_valid(form)
+
         add_activity(
-            request.user,
+            self.request.user,
             "loan_created",
-            f"{form.instance.loan_name} created",
-            form.instance,
-            f"Loan of ₹{form.instance.amount:,.0f} added.",
+            f"{self.object.loan_name} created",
+            self.object,
+            f"Loan of ₹{self.object.amount:,.0f} added.",
         )
-        messages.success(self.request, f'"{form.instance.loan_name}" created!')
-        return super().form_valid(form)
+
+        messages.success(self.request, f'"{self.object.loan_name}" created!')
+
+        return response
 
     def get_success_url(self):
         return reverse_lazy("loan_detail", kwargs={"pk": self.object.pk})
@@ -207,6 +231,18 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             )
             next_interest = loan.remaining_balance * period_rate
             next_principal = Decimal(str(loan.emi)) - next_interest
+            additional_interest = loan.total_pending_accrued_interest
+
+            total_debit = (Decimal(str(loan.emi)) + additional_interest).quantize(
+                Decimal("0.01")
+            )
+
+            context.update(
+                {
+                    "additional_interest": additional_interest,
+                    "total_debit": total_debit,
+                }
+            )
             next_interest = next_interest.quantize(Decimal("0.01"))
             next_principal = next_principal.quantize(Decimal("0.01"))
             if next_principal > loan.remaining_balance:
@@ -524,6 +560,32 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             except Exception:
                 pass
         context["goal_tracker"] = self.object.goal_tracker
+        context["disbursements"] = loan.disbursements.order_by("disbursement_number")
+
+        context["pending_accrued_interest"] = loan.accrued_interests.filter(
+            status="pending"
+        ).order_by("emi_date")
+
+        context["recovered_accrued_interest"] = loan.accrued_interests.filter(
+            status="recovered"
+        ).order_by("-emi_date")[:20]
+
+        context["total_disbursed_amount"] = loan.total_disbursed_amount
+
+        context["remaining_sanction_amount"] = loan.remaining_sanction_amount
+
+        context["pending_interest"] = loan.total_pending_accrued_interest
+
+        context["recovered_interest"] = loan.total_recovered_accrued_interest
+        summary = AccruedInterestService.calculate_total_debit(loan, next_emi_date)
+
+        context["regular_emi"] = summary["regular_emi"]
+
+        context["additional_interest"] = summary["additional_interest"]
+
+        context["next_emi_total_debit"] = summary["total_debit"]
+
+        context["regular_interest"] = summary["regular_interest"]
         affordability = {}
         monthly_income = self.request.GET.get("income")
         monthly_expenses = self.request.GET.get("expenses")
@@ -538,8 +600,12 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                     Decimal("0"),
                 )
 
+                effective_emi = (
+                    Decimal(str(loan.emi)) + loan.total_pending_accrued_interest
+                )
+
                 if disposable_income > 0:
-                    emi_ratio = (loan.emi / disposable_income) * Decimal("100")
+                    emi_ratio = (effective_emi / disposable_income) * Decimal("100")
                 else:
                     emi_ratio = Decimal("100")
 
@@ -558,7 +624,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                     status = "Not Affordable"
                     color = "danger"
                 balance_after_emi = max(
-                    disposable_income - loan.emi,
+                    disposable_income - effective_emi,
                     Decimal("0"),
                 )
                 affordability = {
@@ -692,6 +758,15 @@ def delete_document(request, loan_id, doc_id):
 def close_loan(request, pk):
     loan = get_object_or_404(Loan, pk=pk, user=request.user)
     if request.method == "POST":
+        pending_interest = loan.total_pending_accrued_interest
+        if pending_interest > 0:
+            messages.error(
+                request, "Loan cannot be closed while accrued interest is pending."
+            )
+            return redirect(
+                "loan_detail",
+                pk=loan.pk,
+            )
         loan.status = "closed"
         loan.closed_date = parse_date(request.POST.get("closing_date"))
         loan.save()
@@ -715,18 +790,181 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
         return Loan.objects.filter(user=self.request.user)
 
     def form_valid(self, form):
+        amount = form.cleaned_data["amount"]
+        rate = form.cleaned_data["interest_rate"]
+        tenure = form.cleaned_data["tenure_years"]
+
+        form.instance.emi = calculate_emi(
+            amount, rate, tenure, form.cleaned_data["emi_frequency"]
+        )
+
+        if not form.instance.first_emi_date:
+            form.instance.first_emi_date = form.instance.start_date
+
         messages.success(self.request, "Loan updated successfully.")
+        LoanAccruedInterest.objects.filter(
+            loan=form.instance, status="pending"
+        ).delete()
+        for disbursement in form.instance.disbursements.filter(status="released"):
+            AccruedInterestService.generate_for_disbursement(disbursement)
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy("loan_detail", kwargs={"pk": self.object.pk})
+        return reverse_lazy(
+            "loan_detail",
+            kwargs={"pk": self.object.pk},
+        )
 
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
 
-        form.fields["amount"].disabled = True
-        form.fields["interest_rate"].disabled = True
-        form.fields["tenure_years"].disabled = True
-        form.fields["start_date"].disabled = True
+class LoanDisbursementListView(LoginRequiredMixin, ListView):
+    model = LoanDisbursement
+    template_name = "loans/disbursement_list.html"
+    context_object_name = "disbursements"
 
-        return form
+    def dispatch(self, request, *args, **kwargs):
+        self.loan = get_object_or_404(
+            Loan,
+            pk=self.kwargs["loan_id"],
+            user=request.user,
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return LoanDisbursement.objects.filter(loan=self.loan).order_by(
+            "disbursement_number"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["loan"] = self.loan
+
+        context["total_disbursed"] = self.loan.total_disbursed_amount
+
+        context["remaining_sanction"] = self.loan.remaining_sanction_amount
+
+        context["pending_interest"] = self.loan.total_pending_accrued_interest
+
+        context["recovered_interest"] = self.loan.total_recovered_accrued_interest
+
+        return context
+
+
+class LoanDisbursementDetailView(LoginRequiredMixin, DetailView):
+    model = LoanDisbursement
+    template_name = "loans/disbursement_detail.html"
+    context_object_name = "disbursement"
+
+    def get_queryset(self):
+        return LoanDisbursement.objects.select_related("loan").filter(
+            loan__user=self.request.user
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["interest_entries"] = self.object.interest_entries.order_by("emi_date")
+
+        context["total_interest"] = self.object.interest_entries.filter(
+            status="recovered"
+        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
+
+        context["pending_interest"] = self.object.interest_entries.filter(
+            status="pending"
+        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
+
+        return context
+
+
+class LoanDisbursementCreateView(LoginRequiredMixin, CreateView):
+    model = LoanDisbursement
+    form_class = LoanDisbursementForm
+    template_name = "loans/create_disbursement.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.loan = get_object_or_404(
+            Loan,
+            pk=self.kwargs["loan_id"],
+            user=request.user,
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["loan"] = self.loan
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["loan"] = self.loan
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        form.instance.loan = self.loan
+        response = super().form_valid(form)
+
+        if self.object.status == "released":
+            AccruedInterestService.generate_for_disbursement(self.object)
+
+        messages.success(self.request, "Loan disbursement created successfully.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "loan_disbursement_list",
+            kwargs={"loan_id": self.loan.pk},
+        )
+
+
+class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
+    model = LoanDisbursement
+    form_class = LoanDisbursementForm
+    template_name = "loans/create_disbursement.html"
+
+    def get_queryset(self):
+        return LoanDisbursement.objects.filter(loan__user=self.request.user)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["loan"] = self.object.loan
+        return kwargs
+
+    @transaction.atomic
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        LoanAccruedInterest.objects.filter(
+            disbursement=self.object,
+            status="pending",
+        ).delete()
+        if self.object.status == "released":
+            AccruedInterestService.generate_for_disbursement(self.object)
+        messages.success(self.request, "Disbursement updated successfully.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "loan_disbursement_list", kwargs={"loan_id": self.object.loan.pk}
+        )
+
+
+class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
+    model = LoanDisbursement
+
+    def get_queryset(self):
+        return LoanDisbursement.objects.filter(loan__user=self.request.user)
+
+    @transaction.atomic
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        loan_id = self.object.loan.pk
+        LoanAccruedInterest.objects.filter(
+            disbursement=self.object,
+            status="pending",
+        ).delete()
+        self.object.delete()
+        messages.success(request, "Disbursement deleted successfully.")
+        return redirect(
+            "loan_disbursement_list",
+            loan_id=loan_id,
+        )

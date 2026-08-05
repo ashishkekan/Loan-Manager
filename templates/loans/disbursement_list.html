@@ -1,0 +1,62 @@
+{% extends 'app_layout.html' %}
+{% block app_content %}
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div style="display:flex;gap:12px;">
+            <h3>Loan Disbursements</h3>
+        </div>
+        <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Disbursement
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>No</th>
+                    <th>Date</th>
+                    <th>Purpose</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in disbursements %}
+                    <tr>
+                        <td>
+                            #{{ d.disbursement_number }}
+                        </td>
+                        <td>
+                            {{ d.disbursement_date }}
+                        </td>
+                        <td>
+                            {{ d.get_purpose_display }}
+                        </td>
+                        <td>
+                            ₹{{ d.amount }}
+                        </td>
+                        <td>
+                            {{ d.get_status_display }}
+                        </td>
+                        <td>
+                            <a href="{% url 'loan_disbursement_detail' d.id %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                            <a href="{% url 'edit_disbursement' d.id %}" class="btn btn-sm btn-warning">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            No disbursements found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

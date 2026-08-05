@@ -113,7 +113,10 @@ def make_prepayment(request, loan_id):
             # Update loan balance
             loan.remaining_balance = max(new_balance, Decimal("0.00"))
             loan.save(update_fields=["remaining_balance", "status"])
-            if loan.remaining_balance <= Decimal("0.01"):
+            if (
+                loan.remaining_balance == Decimal("0.00")
+                and not loan.has_pending_accrued_interest
+            ):
                 loan.status = "closed"
                 loan.remaining_balance = Decimal("0.00")
                 messages.success(

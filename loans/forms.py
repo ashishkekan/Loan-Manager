@@ -1,8 +1,12 @@
 """Forms for creating and managing loans."""
 
-from django import forms
+from decimal import Decimal
 
-from .models import Loan, LoanNote
+from django import forms
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+from loans.models import Loan, LoanDisbursement, LoanNote
 
 
 class LoanForm(forms.ModelForm):
@@ -132,3 +136,98 @@ class LoanNoteForm(forms.ModelForm):
                 }
             )
         }
+
+
+class LoanDisbursementForm(forms.ModelForm):
+    class Meta:
+        model = LoanDisbursement
+        fields = [
+            "disbursement_date",
+            "amount",
+            "purpose",
+            "remarks",
+            "status",
+        ]
+        widgets = {
+            "disbursement_date": forms.DateInput(
+                attrs={
+                    "class": "form-input",
+                    "type": "date",
+                }
+            ),
+            "amount": forms.NumberInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "500000",
+                    "min": "1",
+                    "step": "0.01",
+                }
+            ),
+            "purpose": forms.Select(
+                attrs={
+                    "class": "form-input",
+                }
+            ),
+            "remarks": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 3,
+                    "placeholder": "Add disbursement remarks...",
+                }
+            ),
+            "status": forms.Select(
+                attrs={
+                    "class": "form-input",
+                }
+            ),
+        }
+
+    def __init__(self, *args, loan=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loan = loan
+        self.fields["amount"].help_text = "Actual amount released by bank."
+        self.fields["disbursement_date"].help_text = (
+            "Interest calculation will start from this date."
+        )
+
+    def clean_disbursement_date(self):
+        value = self.cleaned_data["disbursement_date"]
+        if self.loan and value < self.loan.start_date:
+            raise ValidationError("Disbursement date cannot be before loan start date.")
+
+        if value > timezone.now().date():
+            raise ValidationError("Future disbursement is not allowed.")
+
+        return value
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount <= Decimal("0"):
+            raise ValidationError("Amount should be greater than zero.")
+        return amount
+
+    def clean(self):
+        cleaned = super().clean()
+        if not self.loan:
+            return cleaned
+        amount = cleaned.get("amount")
+        status = cleaned.get("status")
+        if amount is None:
+            return cleaned
+        previous_total = self.loan.total_disbursed_amount
+        if self.instance.pk:
+            previous_total -= self.instance.amount
+        if status == "released":
+            if previous_total + amount > self.loan.amount:
+                remaining = self.loan.amount - previous_total
+                raise ValidationError(
+                    f"Remaining sanction amount is only ₹{remaining}."
+                )
+        return cleaned
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        obj.loan = self.loan
+        if commit:
+            obj.save()
+        return obj

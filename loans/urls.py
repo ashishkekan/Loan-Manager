@@ -7,6 +7,11 @@ from .views import (
     LoanCreateView,
     LoanDeleteView,
     LoanDetailView,
+    LoanDisbursementCreateView,
+    LoanDisbursementDeleteView,
+    LoanDisbursementDetailView,
+    LoanDisbursementListView,
+    LoanDisbursementUpdateView,
     LoanListView,
     LoanUpdateView,
     add_note,
@@ -44,4 +49,29 @@ urlpatterns = [
     path("loans/<int:loan_id>/export/csv/", export_loan_csv, name="export_csv"),
     path("loan/<int:pk>/close/", close_loan, name="close_loan"),
     path("loan/<int:pk>/edit/", LoanUpdateView.as_view(), name="edit_loan"),
+    path(
+        "loans/<int:loan_id>/disbursements/",
+        LoanDisbursementListView.as_view(),
+        name="loan_disbursement_list",
+    ),
+    path(
+        "disbursement/<int:pk>/",
+        LoanDisbursementDetailView.as_view(),
+        name="loan_disbursement_detail",
+    ),
+    path(
+        "loans/<int:loan_id>/disbursement/create/",
+        LoanDisbursementCreateView.as_view(),
+        name="create_disbursement",
+    ),
+    path(
+        "disbursement/<int:pk>/edit/",
+        LoanDisbursementUpdateView.as_view(),
+        name="edit_disbursement",
+    ),
+    path(
+        "disbursement/<int:pk>/delete/",
+        LoanDisbursementDeleteView.as_view(),
+        name="delete_disbursement",
+    ),
 ]
