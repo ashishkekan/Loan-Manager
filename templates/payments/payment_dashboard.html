@@ -1,5 +1,5 @@
 {% extends 'app_layout.html' %}
-{% load humanize %}
+{% load  %}
 {% load static %}
 {% block title %}Payments — NexusLoan{% endblock %}
 {% block app_content %}
@@ -22,6 +22,32 @@
         </a>
     </div>
 </div>
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon"><i class="fas fa-circle-check"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Total Paid</span>
+            <span class="sc-value">₹{{ total_paid|floatformat:0 }}</span>
+            <small>{{ paid_emis }} EMI{{ paid_emis }} Paid</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon"><i class="fas fa-clock"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Pending EMIs</span>
+            <span class="sc-value">{{ pending_emis }}</span>
+            <small>₹{{ pending_amount|floatformat:0 }} Outstanding</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Overdue</span>
+            <span class="sc-value">{{ overdue_emis }}</span>
+            <small>₹{{ overdue_amount|floatformat:0 }} Due</small>
+        </div>
+    </div>
+</div>
 <div class="download-card">
     <div>
         <h4>Payment Statement</h4>
@@ -34,178 +60,128 @@
         Download Statement
     </a>
 </div>
-<div class="summary-grid">
-    <div class="summary-card glass-card">
-        <div class="sc-icon"><i class="fas fa-circle-check"></i></div>
-        <div class="sc-info">
-            <span class="sc-label">Total Paid</span>
-            <span class="sc-value">₹{{ total_paid|floatformat:0|intcomma }}</span>
-            <small>{{ paid_emis }} EMI{{ paid_emis|pluralize }} Paid</small>
-        </div>
-    </div>
-    <div class="summary-card glass-card">
-        <div class="sc-icon"><i class="fas fa-clock"></i></div>
-        <div class="sc-info">
-            <span class="sc-label">Pending EMIs</span>
-            <span class="sc-value">{{ pending_emis }}</span>
-            <small>₹{{ pending_amount|floatformat:0|intcomma }} Outstanding</small>
-        </div>
-    </div>
-    <div class="summary-card glass-card">
-        <div class="sc-icon"><i class="fas fa-triangle-exclamation"></i></div>
-        <div class="sc-info">
-            <span class="sc-label">Overdue</span>
-            <span class="sc-value">{{ overdue_emis }}</span>
-            <small>₹{{ overdue_amount|floatformat:0|intcomma }} Due</small>
-        </div>
-    </div>
-    <div class="summary-card glass-card">
-        <div class="sc-icon"><i class="fas fa-rotate"></i></div>
-        <div class="sc-info">
-            <span class="sc-label">Auto Debit</span>
-            {% if auto_debit_enabled %}
-                <span class="sc-value">Enabled</span>
-                <small>Next debit on {{ next_auto_debit|date:"d M Y" }}</small>
-            {% else %}
-                <span class="sc-value">Disabled</span>
-                <small>Manual Payments</small>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-<div class="payment-overview-grid">
-    <div class="glass-card payment-card upcoming-card">
-        <div class="card-header">
-            <div class="card-title">
-                <div class="card-icon upcoming"><i class="fas fa-calendar-check"></i></div>
-                <div>
-                    <h3>Upcoming EMI</h3>
-                    <p>{% if upcoming_emi %}Your next scheduled payment{% else %}No upcoming payments{% endif %}</p>
-                </div>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div class="card-title">
+            <div class="sc-icon"><i class="fas fa-calendar-check"></i>
+                <h3>Upcoming EMI</h3>
+                <p>{% if upcoming_emi %}Your next scheduled payment{% else %}No upcoming payments{% endif %}</p>
             </div>
-            {% if upcoming_emi %}
-                {% if upcoming_emi.loan.auto_debit %}
-                    <span class="badge badge-success"><i class="fas fa-repeat"></i> Auto Debit Enabled</span>
-                {% else %}
-                    <span class="badge badge-warning"><i class="fas fa-hand-pointer"></i> Manual Payment</span>
-                {% endif %}
-            {% endif %}
         </div>
         {% if upcoming_emi %}
-            <div class="payment-details">
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <span class="label">Loan</span>
-                        <span class="value">{{ upcoming_emi.loan.loan_name }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Due Date</span>
-                        <span class="value">{{ upcoming_emi.due_date|date:"d M Y" }}</span>
-                    </div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <span class="label">Regular EMI</span>
-                        <span class="value text-primary">₹{{ upcoming_emi.regular_emi_amount|floatformat:0|intcomma }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Additional Interest</span>
-                        <span class="value">₹{{ upcoming_emi.additional_interest|floatformat:0|intcomma }}</span>
-                    </div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <span class="label">Total Debit</span>
-                        <span class="value total-amount">₹{{ upcoming_emi.total_debit_amount|floatformat:0|intcomma }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Status</span>
-                        <span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>
-                    </div>
-                </div>
-            </div>
-            <div class="payment-actions">
-                {% if upcoming_emi.loan.auto_debit %}
-                    <button class="btn btn-success" disabled>
-                        <i class="fas fa-repeat"></i> Auto Debit Enabled
-                    </button>
-                    <span class="helper-text">Amount will be deducted automatically on {{ upcoming_emi.due_date|date:"d M Y" }}</span>
-                {% else %}
-                    <a href="{% url 'payment_create' upcoming_emi.loan.pk %}" class="btn btn-primary">
-                        <i class="fas fa-credit-card"></i> Pay Now
-                    </a>
-                    <span class="helper-text">Complete payment before due date to avoid late interest.</span>
-                {% endif %}
-            </div>
-        {% else %}
-            <div class="empty-card">
-                <div class="empty-icon"><i class="fas fa-circle-check"></i></div>
-                <h4>No Upcoming EMI</h4>
-                <p>Great! There are no scheduled payments at the moment.</p>
-            </div>
+            {% if upcoming_emi.loan.auto_debit %}
+                <span class="badge badge-success"><i class="fas fa-repeat"></i> Auto Debit Enabled</span>
+            {% else %}
+                <span class="badge badge-warning"><i class="fas fa-hand-pointer"></i> Manual Payment</span>
+            {% endif %}
         {% endif %}
     </div>
-    <div class="glass-card payment-card overdue-card">
-        <div class="card-header">
-            <div class="card-title">
-                <div class="card-icon danger"><i class="fas fa-triangle-exclamation"></i></div>
-                <div>
-                    <h3>Overdue EMI</h3>
-                    <p>{% if overdue_emi %}Immediate payment recommended{% else %}No overdue payments{% endif %}</p>
-                </div>
-            </div>
-            {% if overdue_emi %}
-                <span class="badge badge-danger"><i class="fas fa-fire"></i> {{ overdue_days }} Days Late</span>
-            {% endif %}
+    {% if upcoming_emi %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Loan</th>
+                        <th>Due Date</th>
+                        <th>Regular EMI</th>
+                        <th>Additional Interest</th>
+                        <th>Total Debit</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ upcoming_emi.loan.loan_name }}</td>
+                        <td>{{ upcoming_emi.due_date|date:"d M Y" }}</td>
+                        <td>₹{{ upcoming_emi.regular_emi_amount|floatformat:0 }}</td>
+                        <td>₹{{ upcoming_emi.additional_interest|floatformat:0 }}</td>
+                        <td>₹{{ upcoming_emi.total_debit_amount|floatformat:0 }}</td>
+                        <td>Pending</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-        {% if overdue_emi %}
-            <div class="payment-details">
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <span class="label">Loan</span>
-                        <span class="value">{{ overdue_emi.loan.loan_name }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Due Date</span>
-                        <span class="value text-danger">{{ overdue_emi.due_date|date:"d M Y" }}</span>
-                    </div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <span class="label">Regular EMI</span>
-                        <span class="value">₹{{ overdue_emi.regular_emi_amount|floatformat:0|intcomma }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Late Interest</span>
-                        <span class="value text-danger">₹{{ overdue_emi.additional_interest|floatformat:0|intcomma }}</span>
-                    </div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <span class="label">Total Payable</span>
-                        <span class="value total-amount text-danger">₹{{ overdue_emi.total_debit_amount|floatformat:0|intcomma }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Status</span>
-                        <span class="status-badge status-overdue"><i class="fas fa-circle-exclamation"></i> Overdue</span>
-                    </div>
-                </div>
-            </div>
-            <div class="payment-actions">
-                <a href="{% url 'payment_create' overdue_emi.loan.pk %}" class="btn btn-danger">
+        <div class="payment-actions">
+            {% if upcoming_emi.loan.auto_debit %}
+                <button class="btn btn-success" disabled>
+                    <i class="fas fa-repeat"></i> Auto Debit Enabled
+                </button>
+                <span class="helper-text">Amount will be deducted automatically on {{ upcoming_emi.due_date|date:"d M Y" }}</span>
+            {% else %}
+                <a href="{% url 'payment_create' upcoming_emi.loan.pk %}" class="btn btn-primary">
                     <i class="fas fa-credit-card"></i> Pay Now
                 </a>
-                <span class="helper-text">Pay immediately to stop additional interest accumulation.</span>
+                <span class="helper-text">Complete payment before due date to avoid late interest.</span>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="empty-card">
+            <div class="empty-icon"><i class="fas fa-circle-check"></i></div>
+            <h4>No Upcoming EMI</h4>
+            <p>Great! There are no scheduled payments at the moment.</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-header">
+        <div class="card-title">
+            <div class="card-icon danger"><i class="fas fa-triangle-exclamation"></i></div>
+            <div>
+                <h3>Overdue EMI</h3>
+                <p>{% if overdue_emi %}Immediate payment recommended{% else %}No overdue payments{% endif %}</p>
             </div>
-        {% else %}
-            <div class="empty-card">
-                <div class="empty-icon success"><i class="fas fa-shield-check"></i></div>
-                <h4>No Overdue EMI 🎉</h4>
-                <p>Excellent! All your loan payments are up to date.</p>
-            </div>
+        </div>
+        {% if overdue_emi %}
+            <span class="badge badge-danger"><i class="fas fa-fire"></i> {{ overdue_days }} Days Late</span>
         {% endif %}
     </div>
+    {% if overdue_emi %}
+        <div class="payment-details">
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="label">Loan</span>
+                    <span class="value">{{ overdue_emi.loan.loan_name }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Due Date</span>
+                    <span class="value text-danger">{{ overdue_emi.due_date|date:"d M Y" }}</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="label">Regular EMI</span>
+                    <span class="value">₹{{ overdue_emi.regular_emi_amount|floatformat:0 }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Late Interest</span>
+                    <span class="value text-danger">₹{{ overdue_emi.additional_interest|floatformat:0 }}</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="label">Total Payable</span>
+                    <span class="value total-amount text-danger">₹{{ overdue_emi.total_debit_amount|floatformat:0 }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Status</span>
+                    <span class="status-badge status-overdue"><i class="fas fa-circle-exclamation"></i> Overdue</span>
+                </div>
+            </div>
+        </div>
+        <div class="payment-actions">
+            <a href="{% url 'payment_create' overdue_emi.loan.pk %}" class="btn btn-danger">
+                <i class="fas fa-credit-card"></i> Pay Now
+            </a>
+            <span class="helper-text">Pay immediately to stop additional interest accumulation.</span>
+        </div>
+    {% else %}
+        <div class="empty-card">
+            <div class="empty-icon success"><i class="fas fa-shield-check"></i></div>
+            <h4>No Overdue EMI 🎉</h4>
+            <p>Excellent! All your loan payments are up to date.</p>
+        </div>
+    {% endif %}
 </div>
 
 <div class="glass-card loan-summary-card">
@@ -220,7 +196,7 @@
         <div class="loan-summary-item">
             <div class="loan-summary-top">
                 <h3>{{ loan.loan_name }}</h3>
-                <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline btn-sm">View Details</a>
+                <a href="{% url 'loan_detail' loan.loan.pk %}" class="btn btn-outline btn-sm">View Details</a>
             </div>
             <div class="loan-summary-stats">
                 <div>
@@ -238,7 +214,7 @@
             </div>
             <div class="loan-summary-footer">
                 Total Paid
-                <strong>₹{{ loan.total_paid|default:0|floatformat:0|intcomma }}</strong>
+                <strong>₹{{ loan.total_paid|default:0|floatformat:0 }}</strong>
             </div>
         </div>
         {% empty %}
@@ -262,16 +238,16 @@
     <div class="analytics-grid">
         <div class="analytics-item">
             <span class="analytics-label">Average EMI</span>
-            <h3>₹{{ analytics.avg_emi|floatformat:0|intcomma }}</h3>
+            <h3>₹{{ analytics.avg_emi|floatformat:0 }}</h3>
         </div>
         <div class="analytics-item">
             <span class="analytics-label">Highest EMI</span>
-            <h3>₹{{ analytics.highest_emi|floatformat:0|intcomma }}</h3>
+            <h3>₹{{ analytics.highest_emi|floatformat:0 }}</h3>
         </div>
         <div class="analytics-item">
             <span class="analytics-label">Additional Interest Paid</span>
             <h3 class="text-danger">
-                ₹{{ analytics.additional_interest|floatformat:0|intcomma }}
+                ₹{{ analytics.additional_interest|floatformat:0 }}
             </h3>
         </div>
         <div class="analytics-item">
@@ -285,13 +261,13 @@
         <div class="analytics-item">
             <span class="analytics-label">Principal Paid</span>
             <h3>
-                ₹{{ analytics.principal_paid|floatformat:0|intcomma }}
+                ₹{{ analytics.principal_paid|floatformat:0 }}
             </h3>
         </div>
         <div class="analytics-item">
             <span class="analytics-label">Interest Paid</span>
             <h3>
-                ₹{{ analytics.interest_paid|floatformat:0|intcomma }}
+                ₹{{ analytics.interest_paid|floatformat:0 }}
             </h3>
         </div>
     </div>
@@ -371,18 +347,18 @@
                             —
                         {% endif %}
                     </td>
-                    <td>₹{{ payment.regular_emi_amount|floatformat:0|intcomma }}</td>
+                    <td>₹{{ payment.regular_emi_amount|floatformat:0 }}</td>
                     <td>
                         {% if payment.additional_interest > 0 %}
-                            <span class="text-danger">₹{{ payment.additional_interest|floatformat:0|intcomma }}</span>
+                            <span class="text-danger">₹{{ payment.additional_interest|floatformat:0 }}</span>
                         {% else %}
                             —
                         {% endif %}
                     </td>
-                    <td><strong>₹{{ payment.total_debit_amount|floatformat:0|intcomma }}</strong></td>
-                    <td>₹{{ payment.principal_component|floatformat:0|intcomma }}</td>
-                    <td>₹{{ payment.interest_component|floatformat:0|intcomma }}</td>
-                    <td>₹{{ payment.balance_after|floatformat:0|intcomma }}</td>
+                    <td><strong>₹{{ payment.total_debit_amount|floatformat:0 }}</strong></td>
+                    <td>₹{{ payment.principal_component|floatformat:0 }}</td>
+                    <td>₹{{ payment.interest_component|floatformat:0 }}</td>
+                    <td>₹{{ payment.balance_after|floatformat:0 }}</td>
                     <td>
                         {% if payment.payment_mode == "manual" %}
                             <span class="badge badge-light"><i class="fas fa-hand-pointer"></i> Manual</span>

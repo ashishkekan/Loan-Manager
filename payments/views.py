@@ -1,8 +1,3 @@
-"""
-Views for recording EMI payments and prepayments.
-These are POST-only actions that redirect back to the loan detail page.
-"""
-
 import math
 from datetime import date
 from decimal import Decimal
@@ -37,6 +32,7 @@ from loans.utils import (
     calculate_remaining_periods,
     generate_full_schedule,
     get_period_details,
+    get_schedule_summary,
 )
 from payments.forms import PrepaymentForm
 from payments.models import Payment, Prepayment
@@ -304,109 +300,101 @@ def payment_dashboard(request):
     today = date.today()
     loans = (
         Loan.objects.filter(user=request.user)
-        .prefetch_related("payments")
+        .prefetch_related("payments", "prepayments")
         .order_by("loan_name")
     )
-    from django.core.paginator import Paginator
-
     payment_queryset = (
         Payment.objects.filter(loan__user=request.user)
         .select_related("loan")
         .order_by("-due_date", "-payment_number")
     )
-
     paginator = Paginator(payment_queryset, 15)
-
-    page_number = request.GET.get("page")
-
-    payments = paginator.get_page(page_number)
-    summary = payment_queryset.aggregate(
-        total_paid=Sum("total_debit_amount", filter=Q(status="paid")),
-        total_paid_count=Count("id", filter=Q(status="paid")),
-        pending_count=Count("id", filter=Q(status="pending")),
-        overdue_count=Count("id", filter=Q(status="overdue")),
-    )
-    upcoming_emi = (
-        payment_queryset.filter(status="pending", due_date__gte=today)
-        .order_by("due_date")
-        .first()
-    )
-    overdue_emi = payment_queryset.filter(status="overdue").order_by("due_date").first()
+    payments = paginator.get_page(request.GET.get("page"))
+    summary = {
+        "total_paid": Decimal("0.00"),
+        "total_paid_count": 0,
+        "pending_count": 0,
+        "overdue_count": 0,
+    }
+    pending_amount = Decimal("0.00")
+    overdue_amount = Decimal("0.00")
+    analytics = {
+        "avg_emi": Decimal("0.00"),
+        "highest_emi": Decimal("0.00"),
+        "additional_interest": Decimal("0.00"),
+        "principal_paid": Decimal("0.00"),
+        "interest_paid": Decimal("0.00"),
+        "late_payments": 0,
+        "auto_debit_rate": 0,
+    }
+    loan_payment_summary = []
+    upcoming_emi = None
+    overdue_emi = None
+    emi_values = []
+    auto_total = 0
+    auto_success = 0
+    for loan in loans:
+        schedule = generate_full_schedule(loan)
+        stats = get_schedule_summary(loan)
+        summary["total_paid"] += stats["paid_amount"]
+        summary["total_paid_count"] += stats["paid"]
+        summary["pending_count"] += stats["pending"]
+        summary["overdue_count"] += stats["overdue"]
+        pending_amount += stats["pending_amount"]
+        overdue_amount += stats["overdue_amount"]
+        analytics["principal_paid"] += stats["principal_paid"]
+        analytics["interest_paid"] += stats["interest_paid"]
+        analytics["additional_interest"] += stats["additional_interest"]
+        paid = 0
+        pending = 0
+        overdue = 0
+        loan_paid_amount = Decimal("0.00")
+        for row in schedule:
+            emi_values.append(row["regular_emi"])
+            if row["payment_mode"] == "auto_debit":
+                auto_total += 1
+                if row["status"] == "paid":
+                    auto_success += 1
+            if row["status"] == "paid":
+                paid += 1
+                loan_paid_amount += row["total_debit"]
+            elif row["status"] == "pending":
+                pending += 1
+                if upcoming_emi is None or row["due_date"] < upcoming_emi["due_date"]:
+                    upcoming_emi = row.copy()
+                    upcoming_emi["loan"] = loan
+            elif row["status"] == "overdue":
+                overdue += 1
+                analytics["late_payments"] += 1
+                if overdue_emi is None or row["due_date"] < overdue_emi["due_date"]:
+                    overdue_emi = row.copy()
+                    overdue_emi["loan"] = loan
+        loan_payment_summary.append(
+            {
+                "loan": loan,
+                "paid_count": paid,
+                "pending_count": pending,
+                "overdue_count": overdue,
+                "total_paid": loan_paid_amount,
+            }
+        )
+    if emi_values:
+        analytics["avg_emi"] = (sum(emi_values) / Decimal(len(emi_values))).quantize(
+            Decimal("0.01")
+        )
+        analytics["highest_emi"] = max(emi_values)
+    if auto_total:
+        analytics["auto_debit_rate"] = round(auto_success * 100 / auto_total, 1)
     if overdue_emi:
-        overdue_days = (today - overdue_emi.due_date).days
-        late_interest = overdue_emi.additional_interest or 0
-        total_payable = overdue_emi.total_debit_amount or overdue_emi.amount
+        overdue_days = (today - overdue_emi["due_date"]).days
+        late_interest = overdue_emi["additional_interest"]
+        total_payable = overdue_emi["total_debit"]
     else:
         overdue_days = 0
-        late_interest = 0
-        total_payable = 0
-    auto_debit_count = Loan.objects.filter(
-        user=request.user, auto_debit=True, status="active"
-    ).count()
+        late_interest = Decimal("0.00")
+        total_payable = Decimal("0.00")
+    auto_debit_count = loans.filter(auto_debit=True, status="active").count()
     recent_payments = payment_queryset.filter(status="paid")[:5]
-    pending_amount = (
-        payment_queryset.filter(status="pending").aggregate(
-            total=Sum("total_debit_amount")
-        )["total"]
-        or 0
-    )
-    overdue_amount = (
-        payment_queryset.filter(status="overdue").aggregate(
-            total=Sum("total_debit_amount")
-        )["total"]
-        or 0
-    )
-    stats = {
-        "paid": payment_queryset.filter(status="paid").count(),
-        "pending": payment_queryset.filter(status="pending").count(),
-        "overdue": payment_queryset.filter(status="overdue").count(),
-    }
-
-    loan_payment_summary = (
-        Loan.objects.filter(user=request.user)
-        .annotate(
-            paid_count=Count("payments", filter=Q(payments__status="paid")),
-            pending_count=Count("payments", filter=Q(payments__status="pending")),
-            overdue_count=Count("payments", filter=Q(payments__status="overdue")),
-            total_paid=Sum(
-                "payments__total_debit_amount",
-                filter=Q(payments__status="paid"),
-            ),
-        )
-        .order_by("loan_name")
-    )
-
-    analytics = payment_queryset.aggregate(
-        avg_emi=Avg("regular_emi_amount"),
-        highest_emi=Max("regular_emi_amount"),
-        additional_interest=Sum("additional_interest"),
-        principal_paid=Sum(
-            "principal_component",
-            filter=Q(status="paid"),
-        ),
-        interest_paid=Sum(
-            "interest_component",
-            filter=Q(status="paid"),
-        ),
-    )
-
-    late_payments = payment_queryset.filter(status="overdue").count()
-
-    auto_total = payment_queryset.filter(
-        payment_mode="auto_debit",
-    ).count()
-
-    auto_success = payment_queryset.filter(
-        payment_mode="auto_debit",
-        status="paid",
-    ).count()
-
-    analytics["late_payments"] = late_payments
-
-    analytics["auto_debit_rate"] = (
-        round(auto_success * 100 / auto_total, 1) if auto_total else 0
-    )
-
     context = {
         "page_title": "Payments",
         "loans": loans,
@@ -421,7 +409,11 @@ def payment_dashboard(request):
         "pending_amount": pending_amount,
         "overdue_amount": overdue_amount,
         "recent_payments": recent_payments,
-        "stats": stats,
+        "stats": {
+            "paid": summary["total_paid_count"],
+            "pending": summary["pending_count"],
+            "overdue": summary["overdue_count"],
+        },
         "loan_payment_summary": loan_payment_summary,
         "analytics": analytics,
     }
@@ -434,7 +426,6 @@ def export_payment_excel(request):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.title = "Payments"
-
     headers = [
         "Payment No",
         "Loan",
@@ -449,18 +440,14 @@ def export_payment_excel(request):
         "Interest",
         "Balance After",
     ]
-
     for col, header in enumerate(headers, start=1):
         sheet.cell(row=1, column=col).value = header
-
     payments = (
         Payment.objects.filter(loan__user=request.user)
         .select_related("loan")
         .order_by("payment_number")
     )
-
     row = 2
-
     for payment in payments:
         sheet.cell(row=row, column=1).value = payment.payment_number
         sheet.cell(row=row, column=2).value = payment.loan.loan_name
@@ -478,23 +465,17 @@ def export_payment_excel(request):
         sheet.cell(row=row, column=10).value = float(payment.principal_component)
         sheet.cell(row=row, column=11).value = float(payment.interest_component)
         sheet.cell(row=row, column=12).value = float(payment.balance_after)
-
         row += 1
-
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
     response["Content-Disposition"] = 'attachment; filename="payment_history.xlsx"'
-
     workbook.save(response)
-
     return response
 
 
 @login_required
 def download_statement(request):
-
     payments = (
         Payment.objects.filter(loan__user=request.user)
         .select_related("loan")
@@ -505,13 +486,10 @@ def download_statement(request):
     response["Content-Disposition"] = 'attachment; filename="Payment_Statement.pdf"'
 
     doc = SimpleDocTemplate(response)
-
     styles = getSampleStyleSheet()
 
     elements = []
-
     elements.append(Paragraph("<b>NexusLoan Payment Statement</b>", styles["Title"]))
-
     elements.append(
         Paragraph(
             f"Customer : {request.user.get_full_name() or request.user.username}",
@@ -520,7 +498,6 @@ def download_statement(request):
     )
 
     elements.append(Spacer(1, 0.30 * inch))
-
     data = [
         [
             "Loan",
@@ -531,13 +508,9 @@ def download_statement(request):
             "Amount",
         ]
     ]
-
     total = 0
-
     for payment in payments:
-
         total += payment.total_debit_amount
-
         data.append(
             [
                 payment.loan.loan_name,
@@ -552,7 +525,6 @@ def download_statement(request):
                 f"₹ {payment.total_debit_amount}",
             ]
         )
-
     data.append(
         [
             "",
@@ -563,9 +535,7 @@ def download_statement(request):
             f"₹ {total}",
         ]
     )
-
     table = Table(data)
-
     table.setStyle(
         TableStyle(
             [
@@ -581,9 +551,6 @@ def download_statement(request):
             ]
         )
     )
-
     elements.append(table)
-
     doc.build(elements)
-
     return response

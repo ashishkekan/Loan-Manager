@@ -718,7 +718,7 @@ def export_loan_csv(request, loan_id):
                 "",
                 row["period"],
                 row["due_date"],
-                row["emi"],
+                row["regular_emi"],
                 row["principal"],
                 row["interest"],
                 row["balance"],

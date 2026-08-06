@@ -106,158 +106,232 @@ def add_periods(source_date, period_number, frequency):
     return add_months(source_date, months_per_period * period_number)
 
 
-def generate_full_schedule(loan):
+def build_paid_schedule(loan):
     """
-    Generate the complete amortization schedule for a loan.
-
-    Past payments use actual recorded data.
-    Future months are projected from the current remaining balance.
-
-    Returns a list of dicts with monthly breakdown.
+    Returns all paid EMIs indexed by payment_number.
     """
+    paid_rows = {}
+    payments = (
+        loan.payments.select_related("loan")
+        .filter(status="paid")
+        .order_by("payment_number")
+    )
+    for payment in payments:
+        paid_rows[payment.payment_number] = {
+            "period": payment.payment_number,
+            "loan": loan,
+            "payment": payment,
+            "due_date": payment.due_date,
+            "payment_date": payment.payment_date,
+            "status": "paid",
+            "regular_emi": Decimal(str(payment.regular_emi_amount)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            "principal": Decimal(str(payment.principal_component)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            "interest": Decimal(str(payment.interest_component)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            "additional_interest": Decimal(
+                str(payment.additional_interest or 0)
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "total_debit": Decimal(str(payment.total_debit_amount)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            "balance": Decimal(str(payment.balance_after)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            "payment_mode": payment.payment_mode,
+            "payment_type": payment.payment_type,
+            "is_paid": True,
+            "is_pending": False,
+            "is_overdue": False,
+            "is_projected": False,
+        }
+    return paid_rows
+
+
+def build_projected_schedule(loan):
+    """
+    Generates projected EMIs from current loan state.
+    Does not use Payment table.
+    """
+    from loans.models import LoanAccruedInterest
+
     frequency = getattr(loan, "emi_frequency", "monthly")
     _, periods_per_year = get_period_details(frequency)
-
-    R = (
+    rate = (
         Decimal(str(loan.interest_rate))
         / Decimal(str(periods_per_year))
         / Decimal("100")
     )
     emi = Decimal(str(loan.emi))
-
-    # Build a map of past payments by payment_number
-    paid_payments = {
-        p.payment_number: p
-        for p in loan.payments.filter(status="paid").order_by("payment_number")
-    }
-
-    schedule = []
     balance = Decimal(str(loan.amount))
-    max_periods = (loan.tenure_years * periods_per_year) + 20
-    for month_num in range(1, max_periods + 1):
+    today = date.today()
+    accrued_lookup = {
+        obj.emi_date: obj for obj in LoanAccruedInterest.objects.filter(loan=loan)
+    }
+    prepayments = list(loan.prepayments.order_by("prepayment_date"))
+    prepayment_index = 0
+    rows = {}
+    total_periods = (loan.tenure_years * periods_per_year) + 20
+    for period in range(1, total_periods + 1):
         if balance <= Decimal("0.01"):
             break
-
-        interest = balance * R
-        principal = emi - interest
-        # Last payment: principal can't exceed balance
+        due_date = add_periods(loan.schedule_start_date, period - 1, frequency)
+        while (
+            prepayment_index < len(prepayments)
+            and prepayments[prepayment_index].prepayment_date <= due_date
+        ):
+            balance = max(
+                Decimal("0.00"),
+                balance - Decimal(str(prepayments[prepayment_index].amount)),
+            )
+            prepayment_index += 1
+        interest = (balance * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        principal = (emi - interest).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        current_emi = emi
         if principal >= balance:
             principal = balance
-            actual_emi = principal + interest
-        else:
-            actual_emi = emi
-        new_balance = balance - principal
-        if new_balance < 0:
-            new_balance = Decimal("0.00")
-        due_date = add_periods(loan.schedule_start_date, month_num - 1, frequency)
-
-        # Determine if this month has an actual payment
-        is_paid = month_num in paid_payments
-        actual_payment = paid_payments[month_num] if is_paid else None
-
-        # If there's a prepayment before this month, adjust balance
-        prepayments_before = loan.prepayments.filter(
-            prepayment_date__lte=due_date
-        ).order_by("prepayment_date")
-
-        # Simple approach: subtract prepayments from projected balance
-        for prep in prepayments_before:
-            if not hasattr(prep, "_applied"):
-                new_balance = max(new_balance - prep.amount, Decimal("0.00"))
-                prep._applied = True  # Temporary flag, won't persist
-        from loans.models import LoanAccruedInterest
-
-        accrued_qs = LoanAccruedInterest.objects.filter(loan=loan, emi_date=due_date)
-        if actual_payment:
-            additional_interest = actual_payment.additional_interest
-            accrued_status = "paid"
-
-            display_emi = actual_payment.regular_emi_amount
-            display_principal = actual_payment.principal_component
-            display_interest = (
-                actual_payment.interest_component + actual_payment.additional_interest
+            current_emi = (principal + interest).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
             )
-            total_debit = actual_payment.total_debit_amount
-            new_balance = actual_payment.balance_after
-
-        else:
-            additional_interest = accrued_qs.aggregate(total=Sum("interest_amount"))[
-                "total"
-            ] or Decimal("0")
-            accrued_status = accrued_qs.values_list(
-                "status",
-                flat=True,
-            ).first()
-
-            display_emi = actual_emi
-            display_principal = principal
-            display_interest = interest
-            total_debit = emi + additional_interest
-        row = {
-            "period": month_num,
-            "regular_emi": display_emi.quantize(Decimal("0.01")),
-            "principal": display_principal.quantize(Decimal("0.01")),
-            "interest": display_interest.quantize(Decimal("0.01")),
-            "balance": new_balance.quantize(Decimal("0.01")),
-            "total_debit": total_debit.quantize(Decimal("0.01")),
+        projected_balance = max(Decimal("0.00"), balance - principal)
+        accrued = accrued_lookup.get(due_date)
+        additional_interest = (
+            Decimal(str(accrued.interest_amount)) if accrued else Decimal("0.00")
+        )
+        total_debit = (current_emi + additional_interest).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        status = "pending" if due_date >= today else "overdue"
+        rows[period] = {
+            "period": period,
+            "loan": loan,
+            "payment": None,
             "due_date": due_date,
-            "status": "paid" if is_paid else "projected",
-            "payment_date": actual_payment.payment_date if is_paid else None,
-            "additional_interest": additional_interest,
-            "accrued_status": accrued_status,
+            "payment_date": None,
+            "status": status,
+            "regular_emi": current_emi,
+            "principal": principal,
+            "interest": interest,
+            "additional_interest": additional_interest.quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            ),
+            "total_debit": total_debit,
+            "balance": projected_balance,
+            "payment_mode": ("auto_debit" if loan.auto_debit else "manual"),
+            "payment_type": "emi",
+            "is_paid": False,
+            "is_pending": status == "pending",
+            "is_overdue": status == "overdue",
+            "is_projected": True,
         }
-        schedule.append(row)
-        balance = new_balance
+        balance = projected_balance
+    return rows
+
+
+def merge_schedule(loan):
+    """
+    Merge paid schedule with projected schedule.
+
+    Paid payments always override projected rows.
+    """
+    projected = build_projected_schedule(loan)
+    paid = build_paid_schedule(loan)
+    projected.update(paid)
+    schedule = list(projected.values())
+    schedule.sort(key=lambda row: (row["period"], row["due_date"]))
     return schedule
+
+
+def generate_full_schedule(loan):
+    """
+    Public API used by dashboard, reports,
+    analytics and payment history.
+    """
+    return merge_schedule(loan)
 
 
 def generate_projected_schedule(loan):
     """
-    Generate projected amortization from the CURRENT remaining balance.
-    Used for charts and future projections.
+    Returns only future pending EMIs.
+
+    Used for:
+        • Dashboard Upcoming EMI
+        • Payment Forecast
+        • Charts
     """
-    balance = Decimal(str(loan.remaining_balance))
-    frequency = getattr(loan, "emi_frequency", "monthly")
-    _, periods_per_year = get_period_details(frequency)
+    today = date.today()
+    return [
+        row
+        for row in generate_full_schedule(loan)
+        if row["status"] == "pending" and row["due_date"] >= today
+    ]
 
-    R = (
-        Decimal(str(loan.interest_rate))
-        / Decimal(str(periods_per_year))
-        / Decimal("100")
-    )
-    emi = Decimal(str(loan.emi))
-    start_month = loan.payments.filter(status="paid").count()
 
-    schedule = []
-    month_num = start_month + 1
-    max_periods = (loan.tenure_years * periods_per_year) + 20
-    for _ in range(max_periods):
-        if balance <= Decimal("0.01"):
-            break
+def get_next_emi(loan):
+    """
+    Returns next payable EMI for a loan.
+    """
+    projected = generate_projected_schedule(loan)
+    return projected[0] if projected else None
 
-        interest = balance * R
-        principal = emi - interest
-        if principal >= balance:
-            principal = balance
-            actual_emi = principal + interest
+
+def get_overdue_emis(loan):
+    """
+    Returns all overdue EMIs.
+    """
+    return [row for row in generate_full_schedule(loan) if row["status"] == "overdue"]
+
+
+def get_schedule_summary(loan):
+    """
+    Dashboard helper.
+
+    Returns payment summary generated from schedule instead
+    of depending only on Payment records.
+    """
+    schedule = generate_full_schedule(loan)
+
+    paid = 0
+    pending = 0
+    overdue = 0
+
+    paid_amount = Decimal("0.00")
+    pending_amount = Decimal("0.00")
+    overdue_amount = Decimal("0.00")
+
+    principal_paid = Decimal("0.00")
+    interest_paid = Decimal("0.00")
+    additional_interest = Decimal("0.00")
+
+    for row in schedule:
+        if row["status"] == "paid":
+            paid += 1
+            paid_amount += row["total_debit"]
+            principal_paid += row["principal"]
+            interest_paid += row["interest"]
+            additional_interest += row["additional_interest"]
+        elif row["status"] == "pending":
+            pending += 1
+            pending_amount += row["total_debit"]
         else:
-            actual_emi = emi
-        balance = max(balance - principal, Decimal("0.00"))
-        due_date = add_periods(loan.schedule_start_date, month_num - 1, frequency)
-        schedule.append(
-            {
-                "period": month_num,
-                "emi": actual_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-                "principal": principal.quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_UP
-                ),
-                "interest": interest.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-                "balance": balance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-                "due_date": due_date,
-            }
-        )
-        month_num += 1
-    return schedule
+            overdue += 1
+            overdue_amount += row["total_debit"]
+    return {
+        "paid": paid,
+        "pending": pending,
+        "overdue": overdue,
+        "paid_amount": paid_amount.quantize(Decimal("0.01")),
+        "pending_amount": pending_amount.quantize(Decimal("0.01")),
+        "overdue_amount": overdue_amount.quantize(Decimal("0.01")),
+        "principal_paid": principal_paid.quantize(Decimal("0.01")),
+        "interest_paid": interest_paid.quantize(Decimal("0.01")),
+        "additional_interest": additional_interest.quantize(Decimal("0.01")),
+    }
 
 
 def simulate_extra_emi(loan, extra_emi):
