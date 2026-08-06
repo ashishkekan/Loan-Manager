@@ -5,9 +5,12 @@ from django.urls import path
 from payments.views import (
     EMIScheduleView,
     TransactionLedgerView,
+    download_statement,
+    export_payment_excel,
     export_schedule_excel,
     make_prepayment,
     pay_emi,
+    payment_dashboard,
 )
 
 urlpatterns = [
@@ -26,4 +29,7 @@ urlpatterns = [
         TransactionLedgerView.as_view(),
         name="transaction_ledger",
     ),
+    path("payments/", payment_dashboard, name="payment_dashboard"),
+    path("export/excel/", export_payment_excel, name="export_payment_excel"),
+    path("statement/", download_statement, name="download_statement"),
 ]

@@ -3721,3 +3721,72 @@ FORECLOSURE CALCULATOR STYLES
     padding:40px;
     color:#94a3b8;
 }
+
+.analytics-card{
+    margin-bottom:30px;
+}
+
+.analytics-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px;
+    margin-top:25px;
+}
+
+.analytics-item{
+    padding:22px;
+    border-radius:18px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.12);
+    transition:.25s;
+}
+
+.analytics-item:hover{
+    transform:translateY(-4px);
+}
+
+.analytics-label{
+    display:block;
+    font-size:.82rem;
+    color:var(--text-muted);
+    margin-bottom:10px;
+}
+
+.analytics-item h3{
+    margin:0;
+    font-size:26px;
+    font-weight:700;
+}
+
+.download-card{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:22px;
+    margin-bottom:20px;
+    border-radius:18px;
+    border:1px solid var(--border-color);
+    background:rgba(255,255,255,.04);
+}
+
+.download-card h4{
+    margin-bottom:6px;
+}
+
+.download-card small{
+    opacity:.7;
+}
+
+@media(max-width:768px){
+
+    .download-card{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:15px;
+
+    }
+
+}

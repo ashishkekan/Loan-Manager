@@ -4,6 +4,7 @@ These are POST-only actions that redirect back to the loan detail page.
 """
 
 import math
+from datetime import date
 from decimal import Decimal
 
 import openpyxl
@@ -11,11 +12,22 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
+from django.db.models import Avg, Count, Max, Q, Sum
 from django.http import FileResponse, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import TemplateView
 from openpyxl.styles import Alignment, Font, PatternFill
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 from dashboard.utils import add_activity
 from loans.models import Loan
@@ -285,3 +297,293 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
         context["loan"] = loan
         context["transactions"] = transactions
         return context
+
+
+@login_required
+def payment_dashboard(request):
+    today = date.today()
+    loans = (
+        Loan.objects.filter(user=request.user)
+        .prefetch_related("payments")
+        .order_by("loan_name")
+    )
+    from django.core.paginator import Paginator
+
+    payment_queryset = (
+        Payment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("-due_date", "-payment_number")
+    )
+
+    paginator = Paginator(payment_queryset, 15)
+
+    page_number = request.GET.get("page")
+
+    payments = paginator.get_page(page_number)
+    summary = payment_queryset.aggregate(
+        total_paid=Sum("total_debit_amount", filter=Q(status="paid")),
+        total_paid_count=Count("id", filter=Q(status="paid")),
+        pending_count=Count("id", filter=Q(status="pending")),
+        overdue_count=Count("id", filter=Q(status="overdue")),
+    )
+    upcoming_emi = (
+        payment_queryset.filter(status="pending", due_date__gte=today)
+        .order_by("due_date")
+        .first()
+    )
+    overdue_emi = payment_queryset.filter(status="overdue").order_by("due_date").first()
+    if overdue_emi:
+        overdue_days = (today - overdue_emi.due_date).days
+        late_interest = overdue_emi.additional_interest or 0
+        total_payable = overdue_emi.total_debit_amount or overdue_emi.amount
+    else:
+        overdue_days = 0
+        late_interest = 0
+        total_payable = 0
+    auto_debit_count = Loan.objects.filter(
+        user=request.user, auto_debit=True, status="active"
+    ).count()
+    recent_payments = payment_queryset.filter(status="paid")[:5]
+    pending_amount = (
+        payment_queryset.filter(status="pending").aggregate(
+            total=Sum("total_debit_amount")
+        )["total"]
+        or 0
+    )
+    overdue_amount = (
+        payment_queryset.filter(status="overdue").aggregate(
+            total=Sum("total_debit_amount")
+        )["total"]
+        or 0
+    )
+    stats = {
+        "paid": payment_queryset.filter(status="paid").count(),
+        "pending": payment_queryset.filter(status="pending").count(),
+        "overdue": payment_queryset.filter(status="overdue").count(),
+    }
+
+    loan_payment_summary = (
+        Loan.objects.filter(user=request.user)
+        .annotate(
+            paid_count=Count("payments", filter=Q(payments__status="paid")),
+            pending_count=Count("payments", filter=Q(payments__status="pending")),
+            overdue_count=Count("payments", filter=Q(payments__status="overdue")),
+            total_paid=Sum(
+                "payments__total_debit_amount",
+                filter=Q(payments__status="paid"),
+            ),
+        )
+        .order_by("loan_name")
+    )
+
+    analytics = payment_queryset.aggregate(
+        avg_emi=Avg("regular_emi_amount"),
+        highest_emi=Max("regular_emi_amount"),
+        additional_interest=Sum("additional_interest"),
+        principal_paid=Sum(
+            "principal_component",
+            filter=Q(status="paid"),
+        ),
+        interest_paid=Sum(
+            "interest_component",
+            filter=Q(status="paid"),
+        ),
+    )
+
+    late_payments = payment_queryset.filter(status="overdue").count()
+
+    auto_total = payment_queryset.filter(
+        payment_mode="auto_debit",
+    ).count()
+
+    auto_success = payment_queryset.filter(
+        payment_mode="auto_debit",
+        status="paid",
+    ).count()
+
+    analytics["late_payments"] = late_payments
+
+    analytics["auto_debit_rate"] = (
+        round(auto_success * 100 / auto_total, 1) if auto_total else 0
+    )
+
+    context = {
+        "page_title": "Payments",
+        "loans": loans,
+        "payments": payments,
+        "summary": summary,
+        "upcoming_emi": upcoming_emi,
+        "overdue_emi": overdue_emi,
+        "overdue_days": overdue_days,
+        "late_interest": late_interest,
+        "total_payable": total_payable,
+        "auto_debit_count": auto_debit_count,
+        "pending_amount": pending_amount,
+        "overdue_amount": overdue_amount,
+        "recent_payments": recent_payments,
+        "stats": stats,
+        "loan_payment_summary": loan_payment_summary,
+        "analytics": analytics,
+    }
+
+    return render(request, "payments/payment_dashboard.html", context)
+
+
+@login_required
+def export_payment_excel(request):
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Payments"
+
+    headers = [
+        "Payment No",
+        "Loan",
+        "Due Date",
+        "Payment Date",
+        "Status",
+        "Payment Mode",
+        "Regular EMI",
+        "Additional Interest",
+        "Total Debit",
+        "Principal",
+        "Interest",
+        "Balance After",
+    ]
+
+    for col, header in enumerate(headers, start=1):
+        sheet.cell(row=1, column=col).value = header
+
+    payments = (
+        Payment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("payment_number")
+    )
+
+    row = 2
+
+    for payment in payments:
+        sheet.cell(row=row, column=1).value = payment.payment_number
+        sheet.cell(row=row, column=2).value = payment.loan.loan_name
+        sheet.cell(row=row, column=3).value = (
+            payment.due_date.strftime("%d-%m-%Y") if payment.due_date else ""
+        )
+        sheet.cell(row=row, column=4).value = (
+            payment.payment_date.strftime("%d-%m-%Y") if payment.payment_date else ""
+        )
+        sheet.cell(row=row, column=5).value = payment.get_status_display()
+        sheet.cell(row=row, column=6).value = payment.get_payment_mode_display()
+        sheet.cell(row=row, column=7).value = float(payment.regular_emi_amount)
+        sheet.cell(row=row, column=8).value = float(payment.additional_interest)
+        sheet.cell(row=row, column=9).value = float(payment.total_debit_amount)
+        sheet.cell(row=row, column=10).value = float(payment.principal_component)
+        sheet.cell(row=row, column=11).value = float(payment.interest_component)
+        sheet.cell(row=row, column=12).value = float(payment.balance_after)
+
+        row += 1
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    response["Content-Disposition"] = 'attachment; filename="payment_history.xlsx"'
+
+    workbook.save(response)
+
+    return response
+
+
+@login_required
+def download_statement(request):
+
+    payments = (
+        Payment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("due_date")
+    )
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="Payment_Statement.pdf"'
+
+    doc = SimpleDocTemplate(response)
+
+    styles = getSampleStyleSheet()
+
+    elements = []
+
+    elements.append(Paragraph("<b>NexusLoan Payment Statement</b>", styles["Title"]))
+
+    elements.append(
+        Paragraph(
+            f"Customer : {request.user.get_full_name() or request.user.username}",
+            styles["Normal"],
+        )
+    )
+
+    elements.append(Spacer(1, 0.30 * inch))
+
+    data = [
+        [
+            "Loan",
+            "EMI",
+            "Due Date",
+            "Payment Date",
+            "Status",
+            "Amount",
+        ]
+    ]
+
+    total = 0
+
+    for payment in payments:
+
+        total += payment.total_debit_amount
+
+        data.append(
+            [
+                payment.loan.loan_name,
+                payment.payment_number,
+                payment.due_date.strftime("%d-%m-%Y"),
+                (
+                    payment.payment_date.strftime("%d-%m-%Y")
+                    if payment.payment_date
+                    else "-"
+                ),
+                payment.get_status_display(),
+                f"₹ {payment.total_debit_amount}",
+            ]
+        )
+
+    data.append(
+        [
+            "",
+            "",
+            "",
+            "",
+            "Total",
+            f"₹ {total}",
+        ]
+    )
+
+    table = Table(data)
+
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e40af")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("BACKGROUND", (0, 1), (-1, -2), colors.whitesmoke),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+            ]
+        )
+    )
+
+    elements.append(table)
+
+    doc.build(elements)
+
+    return response

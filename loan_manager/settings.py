@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "payments",
     "dashboard",
     "marketplace.apps.MarketplaceConfig",
+    "django.contrib.humanize",
 ]
 
 MIDDLEWARE = [
