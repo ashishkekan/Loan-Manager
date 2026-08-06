@@ -3,6 +3,54 @@
 {% load static %}
 {% block title %}Payments — NexusLoan{% endblock %}
 {% block app_content %}
+<style>
+    .card-header{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:20px;
+        margin-bottom:24px;
+        padding-bottom:18px;
+        border-bottom:1px solid #e5e7eb;
+    }
+
+    .badge{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:10px 16px;
+        border-radius:999px;
+        font-size:.85rem;
+        font-weight:600;
+        white-space:nowrap;
+    }
+
+    .badge-success{
+        background:#dcfce7;
+        color:#166534;
+    }
+
+    .badge-warning{
+        background:#fef3c7;
+        color:#92400e;
+    }
+
+    @media (max-width:768px){
+        .card-header{
+            flex-direction:column;
+            align-items:flex-start;
+        }
+
+        .badge{
+            width:100%;
+            justify-content:center;
+        }
+
+        .card-title {
+            width:100%;
+        }
+    }
+</style>
 <div class="page-header">
     <div>
         <div class="breadcrumb">
@@ -61,18 +109,34 @@
     </a>
 </div>
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
-    <div class="card-body">
+    <div class="card-header">
         <div class="card-title">
-            <div class="sc-icon"><i class="fas fa-calendar-check"></i>
+            <div class="sc-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="card-title-content">
                 <h3>Upcoming EMI</h3>
-                <p>{% if upcoming_emi %}Your next scheduled payment{% else %}No upcoming payments{% endif %}</p>
+                <p>
+                    {% if upcoming_emi %}
+                        Your next scheduled payment
+                    {% else %}
+                        No upcoming payments
+                    {% endif %}
+                </p>
             </div>
         </div>
+
         {% if upcoming_emi %}
             {% if upcoming_emi.loan.auto_debit %}
-                <span class="badge badge-success"><i class="fas fa-repeat"></i> Auto Debit Enabled</span>
+                <span class="badge badge-success">
+                    <i class="fas fa-repeat"></i>
+                    Auto Debit Enabled
+                </span>
             {% else %}
-                <span class="badge badge-warning"><i class="fas fa-hand-pointer"></i> Manual Payment</span>
+                <span class="badge badge-warning">
+                    <i class="fas fa-hand-pointer"></i>
+                    Manual Payment
+                </span>
             {% endif %}
         {% endif %}
     </div>
@@ -103,15 +167,34 @@
         </div>
         <div class="payment-actions">
             {% if upcoming_emi.loan.auto_debit %}
-                <button class="btn btn-success" disabled>
-                    <i class="fas fa-repeat"></i> Auto Debit Enabled
-                </button>
-                <span class="helper-text">Amount will be deducted automatically on {{ upcoming_emi.due_date|date:"d M Y" }}</span>
+                <div class="action-left">
+                    <button class="btn btn-success" disabled>
+                        <i class="fas fa-repeat"></i>
+                        Auto Debit Enabled
+                    </button>
+                </div>
+                <div class="action-right">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>
+                        Amount will be automatically debited on
+                        <strong>{{ upcoming_emi.due_date|date:"d M Y" }}</strong>.
+                    </span>
+                </div>
             {% else %}
-                <a href="{% url 'payment_create' upcoming_emi.loan.pk %}" class="btn btn-primary">
-                    <i class="fas fa-credit-card"></i> Pay Now
-                </a>
-                <span class="helper-text">Complete payment before due date to avoid late interest.</span>
+                <div class="action-left">
+                    <a href="{% url 'payment_create' upcoming_emi.loan.pk %}" class="btn btn-primary">
+                        <i class="fas fa-credit-card"></i>
+                        Pay Now
+                    </a>
+                </div>
+                <div class="action-right">
+                    <i class="fas fa-circle-info"></i>
+                    <span>
+                        Complete your payment before
+                        <strong>{{ upcoming_emi.due_date|date:"d M Y" }}</strong>
+                        to avoid additional interest charges.
+                    </span>
+                </div>
             {% endif %}
         </div>
     {% else %}
