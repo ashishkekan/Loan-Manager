@@ -375,15 +375,17 @@
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                 Last Payment
             </div>
-           {% if last_payment %}
-                {% if last_payment_type == "payment" %}
-                    Last EMI: ₹{{ last_payment.amount }} on {{ last_payment.payment_date }}
+            <div style="font-size:15px;font-weight:600;">
+                {% if last_payment %}
+                    {% if last_payment_type == "payment" %}
+                        Last EMI: ₹{{ last_payment.amount }} on {{ last_payment.payment_date }}
+                    {% else %}
+                        Last Prepayment: ₹{{ last_payment.amount }} on {{ last_payment.prepayment_date }}
+                    {% endif %}
                 {% else %}
-                    Last Prepayment: ₹{{ last_payment.amount }} on {{ last_payment.prepayment_date }}
+                    <strong>0</strong>
                 {% endif %}
-            {% else %}
-                <strong>0</strong>
-            {% endif %}
+            </div>
         </div>
         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
@@ -611,7 +613,7 @@
             <form method="get" class="mt-4">
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
                     <div>
-                        <label class="form-label">Monthly Income</label>
+                        <label style="font-size:15px;font-weight:600;">Monthly Income</label>
                         <input
                             type="number"
                             name="income"
@@ -622,7 +624,7 @@
                         >
                     </div>
                     <div>
-                        <label class="form-label">Monthly Expenses</label>
+                        <label style="font-size:15px;font-weight:600;">Monthly Expenses</label>
                         <input
                             type="number"
                             name="expenses"
