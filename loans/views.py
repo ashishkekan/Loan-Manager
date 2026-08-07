@@ -6,10 +6,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.storage import default_storage
+from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Sum
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.db.models import Q, Sum
+from django.http import FileResponse, Http404, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -25,6 +26,7 @@ from django.views.generic import (
 from dashboard.utils import add_activity
 from loans.forms import (
     LoanDisbursementForm,
+    LoanDocumentForm,
     LoanForm,
     LoanNoteForm,
 )
@@ -729,29 +731,32 @@ def export_loan_csv(request, loan_id):
 
 
 @login_required
-def upload_document(request, loan_id):
+def upload_document(request):
+    if request.method != "POST":
+        return redirect("documents_dashboard")
+    loan_id = request.POST.get("loan")
     loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    if request.method == "POST":
-        title = request.POST.get("title")
-        doc_type = request.POST.get("doc_type", "other")
-        file = request.FILES.get("file")
-        if title and file:
-            LoanDocument.objects.create(
-                loan=loan, title=title, doc_type=doc_type, file=file
-            )
-            messages.success(request, "Document uploaded.")
-    return redirect("loan_detail", pk=loan_id)
+    form = LoanDocumentForm(request.POST, request.FILES)
+    if form.is_valid():
+        document = form.save(commit=False)
+        document.loan = loan
+        document.save()
+        messages.success(request, f'"{document.title}" uploaded successfully.')
+    else:
+        for field_errors in form.errors.values():
+            for error in field_errors:
+                messages.error(request, error)
+    return redirect("documents_dashboard")
 
 
 @login_required
-def delete_document(request, loan_id, doc_id):
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    doc = get_object_or_404(LoanDocument, pk=doc_id, loan=loan)
-    if doc.file:
-        default_storage.delete(doc.file.path)
-    doc.delete()
-    messages.success(request, "Document deleted.")
-    return redirect("loan_detail", pk=loan_id)
+def delete_document(request, document_id):
+    document = get_object_or_404(LoanDocument, pk=document_id, loan__user=request.user)
+    if request.method == "POST":
+        title = document.title
+        document.delete()
+        messages.success(request, f'"{title}" deleted successfully.')
+    return redirect("documents_dashboard")
 
 
 @login_required
@@ -973,3 +978,92 @@ class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
             "loan_disbursement_list",
             loan_id=loan_id,
         )
+
+
+@login_required
+def documents_dashboard(request):
+    """
+    User Document Vault.
+
+    Features:
+        - Document listing
+        - Search
+        - Loan filter
+        - Document type filter
+        - Summary statistics
+        - Pagination
+    """
+    loans = Loan.objects.filter(user=request.user).order_by("loan_name")
+    documents = (
+        LoanDocument.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("-uploaded_at")
+    )
+    search = request.GET.get("search", "").strip()
+    if search:
+        documents = documents.filter(
+            Q(title__icontains=search) | Q(loan__loan_name__icontains=search)
+        )
+    loan_id = request.GET.get("loan")
+    if loan_id:
+        documents = documents.filter(loan_id=loan_id, loan__user=request.user)
+
+    doc_type = request.GET.get("doc_type")
+    if doc_type:
+        documents = documents.filter(doc_type=doc_type)
+
+    all_documents = LoanDocument.objects.filter(loan__user=request.user)
+    total_documents = all_documents.count()
+    loan_agreements = all_documents.filter(doc_type="agreement").count()
+    pending_uploads = loans.filter(documents__isnull=True).count()
+    storage_used = all_documents.aggregate(total=Sum("file_size"))["total"] or 0
+    paginator = Paginator(documents, 12)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    form = LoanDocumentForm()
+    context = {
+        "page_title": "Documents",
+        "documents": page_obj,
+        "page_obj": page_obj,
+        "loans": loans,
+        "form": form,
+        "total_documents": total_documents,
+        "loan_agreements": loan_agreements,
+        "pending_uploads": pending_uploads,
+        "storage_used": storage_used,
+        "search": search,
+        "selected_loan": loan_id,
+        "selected_doc_type": doc_type,
+        "doc_types": LoanDocument.DOC_TYPES,
+    }
+    return render(request, "loans/documents_dashboard.html", context)
+
+
+@login_required
+def download_document(request, document_id):
+    document = get_object_or_404(
+        LoanDocument.objects.select_related("loan"),
+        pk=document_id,
+        loan__user=request.user,
+    )
+    if not document.file:
+        raise Http404("Document file not found.")
+    response = FileResponse(
+        document.file.open("rb"),
+        as_attachment=True,
+        filename=document.file.name.split("/")[-1],
+    )
+    return response
+
+
+@login_required
+def view_document(request, document_id):
+    document = get_object_or_404(
+        LoanDocument.objects.select_related("loan"),
+        pk=document_id,
+        loan__user=request.user,
+    )
+    if not document.file:
+        raise Http404("Document file not found.")
+    response = FileResponse(document.file.open("rb"), as_attachment=False)
+    return response

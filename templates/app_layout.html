@@ -40,7 +40,7 @@
                     <i class="fas fa-money-bill-transfer"></i>
                     <span>Prepayments</span>
                 </a>
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <a href="{% url 'documents_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'documents_dashboard' %}active{% endif %}">
                     <i class="fas fa-folder-open"></i>
                     <span>Documents</span>
                 </a>

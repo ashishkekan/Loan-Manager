@@ -1,5 +1,6 @@
 """Loan model — core entity with health scoring, types, and notes."""
 
+import os
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
@@ -360,23 +361,77 @@ class LoanNote(models.Model):
 
 
 class LoanDocument(models.Model):
-    """Uploaded documents for a loan (Agreement, ID proof, etc.)."""
+    """Uploaded documents for a loan."""
 
     DOC_TYPES = [
         ("agreement", "Loan Agreement"),
+        ("sanction_letter", "Sanction Letter"),
+        ("insurance", "Insurance"),
+        ("property_papers", "Property Papers"),
         ("id_proof", "ID Proof"),
         ("income_proof", "Income Proof"),
-        ("property_papers", "Property Papers"),
         ("other", "Other"),
+    ]
+    VERIFICATION_STATUS = [
+        ("pending", "Pending"),
+        ("verified", "Verified"),
+        ("rejected", "Rejected"),
     ]
     loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name="documents")
     title = models.CharField(max_length=200)
-    doc_type = models.CharField(max_length=20, choices=DOC_TYPES, default="other")
+    doc_type = models.CharField(max_length=30, choices=DOC_TYPES, default="other")
     file = models.FileField(upload_to="loan_documents/%Y/%m/")
+    file_size = models.PositiveIntegerField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    verification_status = models.CharField(
+        max_length=20, choices=VERIFICATION_STATUS, default="pending"
+    )
+    notes = models.TextField(blank=True)
+
+    @property
+    def file_extension(self):
+        return os.path.splitext(self.file.name)[1].replace(".", "").upper()
+
+    @property
+    def icon(self):
+        icons = {
+            "PDF": "fa-file-pdf",
+            "DOC": "fa-file-word",
+            "DOCX": "fa-file-word",
+            "JPG": "fa-file-image",
+            "JPEG": "fa-file-image",
+            "PNG": "fa-file-image",
+        }
+        return icons.get(self.file_extension, "fa-file")
+
+    @property
+    def icon_class(self):
+        extension = self.file_extension.lower()
+        if extension == "pdf":
+            return "document-icon-pdf"
+        if extension in ["doc", "docx"]:
+            return "document-icon-word"
+        if extension in ["jpg", "jpeg", "png"]:
+            return "document-icon-image"
+        return "document-icon-other"
+
+    @property
+    def formatted_size(self):
+        if not self.file_size:
+            return "Unknown"
+        if self.file_size < 1024:
+            return f"{self.file_size} B"
+        if self.file_size < 1024 * 1024:
+            return f"{self.file_size / 1024:.1f} KB"
+        return f"{self.file_size / (1024 * 1024):.1f} MB"
+
+    def save(self, *args, **kwargs):
+        if self.file:
+            self.file_size = self.file.size
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.title} ({self.loan.loan_name})"
+        return f"{self.title} — {self.loan.loan_name}"
 
 
 class Investment(models.Model):

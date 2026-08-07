@@ -1,0 +1,383 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+{% block title %}Documents — NexusLoan{% endblock %}
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <h1>Documents</h1>
+        <p class="text-muted">Manage all your loan-related documents in one place.</p>
+    </div>
+    <a href="#upload-document" class="btn btn-primary">
+        <i class="fas fa-upload"></i>
+        Upload Document
+    </a>
+</div>
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-folder-open"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Documents</span>
+            <span class="sc-value">{{ total_documents }}</span>
+            <small>All uploaded documents</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-file-signature"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Loan Agreements</span>
+            <span class="sc-value">{{ loan_agreements }}</span>
+            <small>Loan agreement documents</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Pending Uploads</span>
+            <span class="sc-value">{{ pending_uploads }}</span>
+            <small>Documents yet to be uploaded</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-database"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Storage Used</span>
+            <span class="sc-value">{{ storage_used }}</span>
+            <small>Total document storage</small>
+        </div>
+    </div>
+</div>
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="card-title">
+            <div class="sc-icon">
+                <i class="fas fa-folder-open"></i>
+            </div>
+            <div>
+                <h3>Document Vault</h3>
+                <p>Search and manage your loan documents.</p>
+            </div>
+        </div>
+    </div>
+    <form method="get" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;">
+        <div class="filter-search">
+            <label class="form-label">Search</label>
+            <input
+                type="text"
+                name="search"
+                class="filter-input"
+                value="{{ search }}"
+                placeholder="Search document or loan..."
+            >
+        </div>
+        <div>
+            <label class="form-label">Loan</label>
+            <select name="loan" class="form-input">
+                <option value="">All Loans</option>
+                {% for loan in loans %}
+                    <option
+                        value="{{ loan.id }}"
+                        {% if selected_loan == loan.id|stringformat:"s" %}selected{% endif %}
+                    >
+                        {{ loan.loan_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Document Type</label>
+            <select name="doc_type" class="form-input">
+                <option value="">All Types</option>
+                {% for value, label in doc_types %}
+                    <option
+                        value="{{ value }}"
+                        {% if selected_doc_type == value %}selected{% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i>
+                Search
+            </button>
+            <a href="{% url 'documents_dashboard' %}" class="btn btn-outline">
+                <i class="fas fa-rotate-left"></i>
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="card-title">
+            <div class="sc-icon">
+                <i class="fas fa-file-lines"></i>
+            </div>
+            <div>
+                <h3>My Documents</h3>
+                <p>View, download or remove your uploaded documents.</p>
+            </div>
+        </div>
+        {% if documents %}
+            <span class="text-muted">
+                {{ page_obj.paginator.count }} document{{ page_obj.paginator.count|pluralize }}
+            </span>
+        {% endif %}
+    </div>
+    {% if documents %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;">
+            {% for document in documents %}
+                <div
+                    style="border:1px solid #e5e7eb;border-radius:14px;padding:20px;background:rgba(255,255,255,0.4);"
+                >
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div
+                                style="width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;"
+                            >
+                                <i class="fas {{ document.icon }}" style="font-size:22px;"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin:0 0 4px 0;">
+                                    {{ document.title }}
+                                </h4>
+                                <small class="text-muted">
+                                    {{ document.file_extension }}
+                                </small>
+                            </div>
+                        </div>
+                        {% if document.is_verified %}
+                            <span
+                                style="font-size:12px;padding:5px 9px;border-radius:999px;background:#dcfce7;color:#166534;"
+                            >
+                                Verified
+                            </span>
+                        {% else %}
+                            <span
+                                style="font-size:12px;padding:5px 9px;border-radius:999px;background:#fef3c7;color:#92400e;"
+                            >
+                                Pending
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                            <span class="text-muted">Loan</span>
+                            <strong>{{ document.loan.loan_name }}</strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                            <span class="text-muted">Type</span>
+                            <strong>{{ document.get_doc_type_display }}</strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                            <span class="text-muted">Uploaded</span>
+                            <strong>{{ document.uploaded_at|date:"d M Y" }}</strong>
+                        </div>
+                        {% if document.file_size %}
+                            <div style="display:flex;justify-content:space-between;">
+                                <span class="text-muted">Size</span>
+                                <strong>
+                                    {% widthratio document.file_size 1048576 1 %} MB
+                                </strong>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if document.notes %}
+                        <div
+                            style="padding:10px 12px;margin-bottom:16px;border-radius:8px;background:#f8fafc;font-size:13px;color:#64748b;"
+                        >
+                            <strong>Notes:</strong>
+                            {{ document.notes }}
+                        </div>
+                    {% endif %}
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <a
+                            href="{% url 'view_document' document.id %}"
+                            target="_blank"
+                            class="btn btn-outline btn-sm"
+                        >
+                            <i class="fas fa-eye"></i>
+                            View
+                        </a>
+                        <a
+                            href="{% url 'download_document' document.id %}"
+                            class="btn btn-outline btn-sm"
+                        >
+                            <i class="fas fa-download"></i>
+                            Download
+                        </a>
+                        <form
+                            method="post"
+                            action="{% url 'document_delete' document.id %}"
+                            style="margin:0;"
+                            onsubmit="return confirm('Are you sure you want to delete this document?');"
+                        >
+                            {% csrf_token %}
+                            <button
+                                type="submit"
+                                class="btn btn-outline btn-sm"
+                                title="Delete"
+                            >
+                                <i class="fas fa-trash"></i>
+                                Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        {% if page_obj.has_other_pages %}
+            <div
+                style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:24px;"
+            >
+                {% if page_obj.has_previous %}
+                    <a
+                        href="?page={{ page_obj.previous_page_number }}&search={{ search }}&loan={{ selected_loan }}&doc_type={{ selected_doc_type }}"
+                        class="btn btn-outline btn-sm"
+                    >
+                        <i class="fas fa-chevron-left"></i>
+                        Previous
+                    </a>
+                {% endif %}
+                <span class="text-muted">
+                    Page {{ page_obj.number }}
+                    of {{ page_obj.paginator.num_pages }}
+                </span>
+                {% if page_obj.has_next %}
+                    <a
+                        href="?page={{ page_obj.next_page_number }}&search={{ search }}&loan={{ selected_loan }}&doc_type={{ selected_doc_type }}"
+                        class="btn btn-outline btn-sm"
+                    >
+                        Next
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="empty-card" style="padding:50px 20px;text-align:center;">
+            <div class="empty-icon">
+                <i class="fas fa-folder-open"></i>
+            </div>
+            {% if search or selected_loan or selected_doc_type %}
+                <h4>No Documents Found</h4>
+                <p>
+                    No documents match your current filters.
+                    Try changing the filters or upload a new document.
+                </p>
+                <a
+                    href="{% url 'documents_dashboard' %}"
+                    class="btn btn-outline"
+                >
+                    <i class="fas fa-rotate-left"></i>
+                    Clear Filters
+                </a>
+            {% else %}
+                <h4>No Documents Yet</h4>
+                <p>
+                    Your loan documents will appear here.
+                    Upload agreements, ID proofs, income proofs and other
+                    important documents to keep everything organized.
+                </p>
+            {% endif %}
+            <a
+                href="#upload-document"
+                class="btn btn-primary"
+                style="margin-top:12px;"
+            >
+                <i class="fas fa-upload"></i>
+                Upload Document
+            </a>
+        </div>
+    {% endif %}
+</div>
+<div id="upload-document" class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div class="card-title">
+            <div class="sc-icon">
+                <i class="fas fa-cloud-arrow-up"></i>
+            </div>
+            <div>
+                <h3>Upload Document</h3>
+                <p>Upload a document and associate it with one of your loans.</p>
+            </div>
+        </div>
+    <form method="post" action="{% url 'document_upload' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+            <div>
+                <label class="form-label">Loan</label>
+                <select
+                    name="loan"
+                    class="form-input"
+                    required
+                >
+                    <option value="">Select Loan</option>
+                    {% for loan in loans %}
+                        <option value="{{ loan.id }}">
+                            {{ loan.loan_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Document Title</label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                    <div class="form-error">
+                        {{ form.title.errors|striptags }}
+                    </div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="form-label">Document Type</label>
+                {{ form.doc_type }}
+                {% if form.doc_type.errors %}
+                    <div class="form-error">
+                        {{ form.doc_type.errors|striptags }}
+                    </div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="form-label">Document File</label>
+                {{ form.file }}
+                <small class="text-muted">
+                    PDF, JPG, PNG, DOC or DOCX · Max 10 MB
+                </small>
+                {% if form.file.errors %}
+                    <div class="form-error">
+                        {{ form.file.errors|striptags }}
+                    </div>
+                {% endif %}
+            </div>
+            <div style="grid-column:1 / -1;">
+                <label class="form-label">Notes</label>
+                {{ form.notes }}
+                {% if form.notes.errors %}
+                    <div class="form-error">
+                        {{ form.notes.errors|striptags }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                <i class="fas fa-upload"></i>
+                Upload Document
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,12 +1,13 @@
 """Forms for creating and managing loans."""
 
+import os
 from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from loans.models import Loan, LoanDisbursement, LoanNote
+from loans.models import Loan, LoanDisbursement, LoanDocument, LoanNote
 
 
 class LoanForm(forms.ModelForm):
@@ -231,3 +232,58 @@ class LoanDisbursementForm(forms.ModelForm):
         if commit:
             obj.save()
         return obj
+
+
+class LoanDocumentForm(forms.ModelForm):
+
+    class Meta:
+        model = LoanDocument
+        fields = ["title", "doc_type", "file", "notes"]
+        widgets = {
+            "title": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "Agreement Copy"}
+            ),
+            "doc_type": forms.Select(attrs={"class": "form-input"}),
+            "file": forms.FileInput(
+                attrs={
+                    "class": "form-input",
+                    "accept": ".pdf,.jpg,.jpeg,.png,.doc,.docx",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "Add notes about this document...",
+                    "rows": 4,
+                }
+            ),
+        }
+
+    def clean_file(self):
+        file = self.cleaned_data.get("file")
+        if not file:
+            raise ValidationError("Please select a document.")
+        max_size = 10 * 1024 * 1024
+        if file.size > max_size:
+            raise ValidationError("Maximum file size is 10 MB.")
+        allowed_extensions = {
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".doc",
+            ".docx",
+        }
+        extension = os.path.splitext(file.name)[1].lower()
+        if extension not in allowed_extensions:
+            raise ValidationError("Only PDF, JPG, PNG, DOC and DOCX files are allowed.")
+        allowed_content_types = {
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
+        if file.content_type not in allowed_content_types:
+            raise ValidationError("Invalid file type.")
+        return file
