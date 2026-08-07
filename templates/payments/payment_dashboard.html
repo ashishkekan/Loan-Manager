@@ -4,6 +4,15 @@
 {% block title %}Payments — NexusLoan{% endblock %}
 {% block app_content %}
 <style>
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .payment-table {
+        min-width: 1400px;
+    }
+
     .card-header{
         display:flex;
         justify-content:space-between;
@@ -36,12 +45,12 @@
     }
 
     @media (max-width:768px){
-        .card-header{
+        .card-header {
             flex-direction:column;
             align-items:flex-start;
         }
 
-        .badge{
+        .badge {
             width:100%;
             justify-content:center;
         }
@@ -93,6 +102,19 @@
             <span class="sc-label">Overdue</span>
             <span class="sc-value">{{ overdue_emis }}</span>
             <small>₹{{ overdue_amount|floatformat:0 }} Due</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon info"><i class="fas fa-rotate"></i></div>
+        <div class="sc-info">
+            <span class="sc-label">Auto Debit</span>
+            {% if auto_debit_enabled %}
+                <h4 class="text-success">Enabled</h4>
+                <small>Next debit on {{ next_auto_debit|date:"d M Y" }}</small>
+            {% else %}
+                <h4 class="text-danger">Disabled</h4>
+                <small>Manual Payments</small>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -419,7 +441,12 @@
         <div class="table-responsive">
             <table class="data-table payment-table" id="paymentTable">
                 <thead>
-                    <tr>
+                    <tr
+                        data-status="{{ payment.status }}"
+                        data-mode="{{ payment.payment_mode }}"
+                        data-loan="{{ payment.loan.loan_name|lower }}"
+                        data-date="{{ payment.due_date|date:'Y-m-d' }}"
+                    >
                         <th>#</th>
                         <th>Loan</th>
                         <th>Due Date</th>

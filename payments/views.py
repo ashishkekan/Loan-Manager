@@ -333,6 +333,8 @@ def payment_dashboard(request):
     emi_values = []
     auto_total = 0
     auto_success = 0
+    auto_debit_enabled = False
+    next_auto_debit = None
     for loan in loans:
         schedule = generate_full_schedule(loan)
         stats = get_schedule_summary(loan)
@@ -369,6 +371,14 @@ def payment_dashboard(request):
                 if overdue_emi is None or row["due_date"] < overdue_emi["due_date"]:
                     overdue_emi = row.copy()
                     overdue_emi["loan"] = loan
+
+        if loan.auto_debit:
+            auto_debit_enabled = True
+            for row in schedule:
+                if row["status"] == "pending" and row["payment_mode"] == "auto_debit":
+                    if next_auto_debit is None or row["due_date"] < next_auto_debit:
+                        next_auto_debit = row["due_date"]
+                    break
         loan_payment_summary.append(
             {
                 "loan": loan,
@@ -405,7 +415,6 @@ def payment_dashboard(request):
         "overdue_days": overdue_days,
         "late_interest": late_interest,
         "total_payable": total_payable,
-        "auto_debit_count": auto_debit_count,
         "pending_amount": pending_amount,
         "overdue_amount": overdue_amount,
         "recent_payments": recent_payments,
@@ -416,6 +425,9 @@ def payment_dashboard(request):
         },
         "loan_payment_summary": loan_payment_summary,
         "analytics": analytics,
+        "auto_debit_count": auto_debit_count,
+        "auto_debit_enabled": auto_debit_enabled,
+        "next_auto_debit": next_auto_debit,
     }
 
     return render(request, "payments/payment_dashboard.html", context)
