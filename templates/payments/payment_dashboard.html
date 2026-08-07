@@ -209,10 +209,9 @@
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-header">
         <div class="card-title">
-            <div class="card-icon danger"><i class="fas fa-triangle-exclamation"></i></div>
+            <div class="sc-icon"><i class="fas fa-triangle-exclamation"></i></div>
             <div>
                 <h3>Overdue EMI</h3>
-                <p>{% if overdue_emi %}Immediate payment recommended{% else %}No overdue payments{% endif %}</p>
             </div>
         </div>
         {% if overdue_emi %}
@@ -220,37 +219,33 @@
         {% endif %}
     </div>
     {% if overdue_emi %}
-        <div class="payment-details">
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="label">Loan</span>
-                    <span class="value">{{ overdue_emi.loan.loan_name }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Due Date</span>
-                    <span class="value text-danger">{{ overdue_emi.due_date|date:"d M Y" }}</span>
-                </div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="label">Regular EMI</span>
-                    <span class="value">₹{{ overdue_emi.regular_emi_amount|floatformat:0 }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Late Interest</span>
-                    <span class="value text-danger">₹{{ overdue_emi.additional_interest|floatformat:0 }}</span>
-                </div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="label">Total Payable</span>
-                    <span class="value total-amount text-danger">₹{{ overdue_emi.total_debit_amount|floatformat:0 }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Status</span>
-                    <span class="status-badge status-overdue"><i class="fas fa-circle-exclamation"></i> Overdue</span>
-                </div>
-            </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Loan</th>
+                        <th>Due Date</th>
+                        <th>Regular EMI</th>
+                        <th>Late Interest</th>
+                        <th>Total Payable</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ overdue_emi.loan.loan_name }}</td>
+                        <td>{{ overdue_emi.due_date|date:"d M Y" }}</td>
+                        <td>₹{{ overdue_emi.regular_emi_amount|floatformat:0 }}</td>
+                        <td class="text-danger">₹{{ overdue_emi.additional_interest|floatformat:0 }}</td>
+                        <td class="text-danger">₹{{ overdue_emi.total_debit_amount|floatformat:0 }}</td>
+                        <td>
+                            <span class="status-badge status-overdue">
+                                <i class="fas fa-circle-exclamation"></i> Overdue
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
         <div class="payment-actions">
             <a href="{% url 'payment_create' overdue_emi.loan.pk %}" class="btn btn-danger">
@@ -267,100 +262,133 @@
     {% endif %}
 </div>
 
-<div class="glass-card loan-summary-card">
-    <div class="section-header">
-        <div>
-            <h2><i class="fas fa-wallet"></i> Loan Wise Payments</h2>
-            <p>Payment progress for each loan.</p>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div class="card-title">
+            <div class="sc-icon"><i class="fas fa-wallet"></i></div>
+            <div>
+                <h3> Loan Wise Payments</h3>
+            </div>
         </div>
+        <p class="text-muted">Payment progress for each loan.</p>
     </div>
-    <div class="loan-summary-grid">
-        {% for loan in loan_payment_summary %}
-        <div class="loan-summary-item">
-            <div class="loan-summary-top">
-                <h3>{{ loan.loan_name }}</h3>
-                <a href="{% url 'loan_detail' loan.loan.pk %}" class="btn btn-outline btn-sm">View Details</a>
-            </div>
-            <div class="loan-summary-stats">
-                <div>
-                    <span class="count success">{{ loan.paid_count }}</span>
-                    <small>Paid</small>
-                </div>
-                <div>
-                    <span class="count warning">{{ loan.pending_count }}</span>
-                    <small>Pending</small>
-                </div>
-                <div>
-                    <span class="count danger">{{ loan.overdue_count }}</span>
-                    <small>Overdue</small>
-                </div>
-            </div>
-            <div class="loan-summary-footer">
-                Total Paid
-                <strong>₹{{ loan.total_paid|default:0|floatformat:0 }}</strong>
-            </div>
-        </div>
-        {% empty %}
-            <div class="empty-state">No Loans Found</div>
-        {% endfor %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Loan</th>
+                    <th>Paid EMI</th>
+                    <th>Pending EMI</th>
+                    <th>Overdue EMI</th>
+                    <th>Total Paid</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in loan_payment_summary %}
+                    <tr>
+                        <td>{{ loan.loan_name }}</td>
+                        <td>{{ loan.paid_count }}</td>
+                        <td>{{ loan.pending_count }}</td>
+                        <td>{{ loan.overdue_count }}</td>
+                        <td>₹{{ loan.total_paid|default:0|floatformat:0 }}</td>
+                        <td>
+                            <a href="{% url 'loan_detail' loan.loan.pk %}" class="btn btn-primary btn-sm">
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            No Loans Found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<div class="glass-card analytics-card">
-    <div class="section-header">
-        <div>
-            <h2>
-                <i class="fas fa-chart-line"></i>
-                Payment Analytics
-            </h2>
-            <p>
-                Insights based on your payment history.
-            </p>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div class="card-title">
+            <div class="sc-icon"><i class="fas fa-chart-line"></i></div>
+            <div>
+                <h3> Payment Analytics</h3>
+            </div>
         </div>
-    </div>
-    <div class="analytics-grid">
-        <div class="analytics-item">
-            <span class="analytics-label">Average EMI</span>
-            <h3>₹{{ analytics.avg_emi|floatformat:0 }}</h3>
-        </div>
-        <div class="analytics-item">
-            <span class="analytics-label">Highest EMI</span>
-            <h3>₹{{ analytics.highest_emi|floatformat:0 }}</h3>
-        </div>
-        <div class="analytics-item">
-            <span class="analytics-label">Additional Interest Paid</span>
-            <h3 class="text-danger">
-                ₹{{ analytics.additional_interest|floatformat:0 }}
-            </h3>
-        </div>
-        <div class="analytics-item">
-            <span class="analytics-label">Late Payments</span>
-            <h3>{{ analytics.late_payments }}</h3>
-        </div>
-        <div class="analytics-item">
-            <span class="analytics-label">Auto Debit Success</span>
-            <h3>{{ analytics.auto_debit_rate }}%</h3>
-        </div>
-        <div class="analytics-item">
-            <span class="analytics-label">Principal Paid</span>
-            <h3>
-                ₹{{ analytics.principal_paid|floatformat:0 }}
-            </h3>
-        </div>
-        <div class="analytics-item">
-            <span class="analytics-label">Interest Paid</span>
-            <h3>
-                ₹{{ analytics.interest_paid|floatformat:0 }}
-            </h3>
+        <p style="color: #64748b; margin-top: 4px;">Insights based on your payment history.</p>
+        <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Average EMI
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ analytics.avg_emi|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Highest EMI
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ analytics.highest_emi|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Additional Interest Paid
+                </div>
+                <div style="font-size:16px;font-weight:600;color:#dc2626;">
+                    ₹{{ analytics.additional_interest|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Late Payments
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    {{ analytics.late_payments }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Auto Debit Success
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    {{ analytics.auto_debit_rate }}%
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Principal Paid
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ analytics.principal_paid|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Interest Paid
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ analytics.interest_paid|floatformat:0 }}
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="glass-card payment-history-card">
-    <div class="section-header">
-        <div>
-            <h2><i class="fas fa-clock-rotate-left"></i> Payment History</h2>
-            <p>Complete history of all EMI payments.</p>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-header">
+        <div class="card-title">
+            <div class="sc-icon"><i class="fas fa-clock-rotate-left"></i></div>
+            <div>
+                <h3> Payment History</h3>
+                <p>Complete history of all EMI payments.</p>
+            </div>
         </div>
         <div class="section-actions">
             <button class="btn btn-outline" onclick="window.print()">
@@ -388,108 +416,103 @@
         </div>
     </div>
     {% if payments %}
-    <div class="table-responsive">
-        <table class="data-table payment-table" id="paymentTable">
-            <thead>
-                <tr
-                    data-status="{{ payment.status }}"
-                    data-mode="{{ payment.payment_mode }}"
-                    data-loan="{{ payment.loan.loan_name|lower }}"
-                    data-date="{{ payment.due_date|date:'Y-m-d' }}"
-                >
-                    <th>#</th>
-                    <th>Loan</th>
-                    <th>Due Date</th>
-                    <th>Payment Date</th>
-                    <th>Regular EMI</th>
-                    <th>Additional Interest</th>
-                    <th>Total Debit</th>
-                    <th>Principal</th>
-                    <th>Interest</th>
-                    <th>Balance</th>
-                    <th>Mode</th>
-                    <th>Status</th>
-                    <th style="width:120px;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payment in payments %}
-                <tr data-status="{{ payment.status }}">
-                    <td><strong>#{{ payment.payment_number }}</strong></td>
-                    <td>
-                        <div class="loan-info">
-                            <strong>{{ payment.loan.loan_name }}</strong>
-                            <small>{{ payment.loan.bank_name }}</small>
-                        </div>
-                    </td>
-                    <td>{{ payment.due_date|date:"d M Y" }}</td>
-                    <td>
-                        {% if payment.payment_date %}
-                            {{ payment.payment_date|date:"d M Y" }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>₹{{ payment.regular_emi_amount|floatformat:0 }}</td>
-                    <td>
-                        {% if payment.additional_interest > 0 %}
-                            <span class="text-danger">₹{{ payment.additional_interest|floatformat:0 }}</span>
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td><strong>₹{{ payment.total_debit_amount|floatformat:0 }}</strong></td>
-                    <td>₹{{ payment.principal_component|floatformat:0 }}</td>
-                    <td>₹{{ payment.interest_component|floatformat:0 }}</td>
-                    <td>₹{{ payment.balance_after|floatformat:0 }}</td>
-                    <td>
-                        {% if payment.payment_mode == "manual" %}
-                            <span class="badge badge-light"><i class="fas fa-hand-pointer"></i> Manual</span>
-                        {% elif payment.payment_mode == "auto_debit" %}
-                            <span class="badge badge-info"><i class="fas fa-repeat"></i> Auto Debit</span>
-                        {% elif payment.payment_mode == "upi" %}
-                            <span class="badge badge-primary"><i class="fas fa-mobile-screen"></i> UPI</span>
-                        {% else %}
-                            <span class="badge badge-secondary"><i class="fas fa-building-columns"></i> Net Banking</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if payment.status == "paid" %}
-                            <span class="status-badge status-paid"><i class="fas fa-circle-check"></i> Paid</span>
-                        {% elif payment.status == "pending" %}
-                            <span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>
-                        {% else %}
-                            <span class="status-badge status-overdue"><i class="fas fa-triangle-exclamation"></i> Overdue</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="table-actions">
-                            <a href="{% url 'loan_detail' payment.loan.pk %}" class="icon-btn" title="Loan Details">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            {% if payment.status != "paid" %}
-                                <a href="{% url 'payment_create' payment.loan.pk %}" class="icon-btn success" title="Pay Now">
-                                    <i class="fas fa-credit-card"></i>
-                                </a>
+        <div class="table-responsive">
+            <table class="data-table payment-table" id="paymentTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Loan</th>
+                        <th>Due Date</th>
+                        <th>Payment Date</th>
+                        <th>Regular EMI</th>
+                        <th>Additional Interest</th>
+                        <th>Total Debit</th>
+                        <th>Principal</th>
+                        <th>Interest</th>
+                        <th>Balance</th>
+                        <th>Mode</th>
+                        <th>Status</th>
+                        <th style="width:120px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr data-status="{{ payment.status }}">
+                        <td><strong>#{{ payment.payment_number }}</strong></td>
+                        <td>
+                            <div class="loan-info">
+                                <strong>{{ payment.loan.loan_name }}</strong>
+                                <small>{{ payment.loan.bank_name }}</small>
+                            </div>
+                        </td>
+                        <td>{{ payment.due_date|date:"d M Y" }}</td>
+                        <td>
+                            {% if payment.payment_date %}
+                                {{ payment.payment_date|date:"d M Y" }}
+                            {% else %}
+                                —
                             {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% if payments.has_other_pages %}
-            <div class="pagination-wrapper">
-                {% include "includes/pagination.html" with page_obj=payments %}
-            </div>
-        {% endif %}
-    </div>
+                        </td>
+                        <td>₹{{ payment.regular_emi_amount|floatformat:0 }}</td>
+                        <td>
+                            {% if payment.additional_interest > 0 %}
+                                <span class="text-danger">₹{{ payment.additional_interest|floatformat:0 }}</span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td><strong>₹{{ payment.total_debit_amount|floatformat:0 }}</strong></td>
+                        <td>₹{{ payment.principal_component|floatformat:0 }}</td>
+                        <td>₹{{ payment.interest_component|floatformat:0 }}</td>
+                        <td>₹{{ payment.balance_after|floatformat:0 }}</td>
+                        <td>
+                            {% if payment.payment_mode == "manual" %}
+                                <span class="badge badge-light"><i class="fas fa-hand-pointer"></i> Manual</span>
+                            {% elif payment.payment_mode == "auto_debit" %}
+                                <span class="badge badge-info"><i class="fas fa-repeat"></i> Auto Debit</span>
+                            {% elif payment.payment_mode == "upi" %}
+                                <span class="badge badge-primary"><i class="fas fa-mobile-screen"></i> UPI</span>
+                            {% else %}
+                                <span class="badge badge-secondary"><i class="fas fa-building-columns"></i> Net Banking</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if payment.status == "paid" %}
+                                <span class="status-badge status-paid"><i class="fas fa-circle-check"></i> Paid</span>
+                            {% elif payment.status == "pending" %}
+                                <span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>
+                            {% else %}
+                                <span class="status-badge status-overdue"><i class="fas fa-triangle-exclamation"></i> Overdue</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{% url 'loan_detail' payment.loan.pk %}" class="icon-btn" title="Loan Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if payment.status != "paid" %}
+                                    <a href="{% url 'payment_create' payment.loan.pk %}" class="icon-btn success" title="Pay Now">
+                                        <i class="fas fa-credit-card"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if payments.has_other_pages %}
+                <div class="pagination-wrapper">
+                    {% include "includes/pagination.html" with page_obj=payments %}
+                </div>
+            {% endif %}
+        </div>
     {% else %}
-    <div class="empty-state">
-        <i class="fas fa-wallet"></i>
-        <h3>No Payments Yet</h3>
-        <p>Your payment history will appear here.</p>
-    </div>
+        <div class="empty-state">
+            <i class="fas fa-wallet"></i>
+            <h3>No Payments Yet</h3>
+            <p>Your payment history will appear here.</p>
+        </div>
     {% endif %}
 </div>
 {% endblock %}
