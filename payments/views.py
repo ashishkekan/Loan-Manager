@@ -566,3 +566,347 @@ def download_statement(request):
     elements.append(table)
     doc.build(elements)
     return response
+
+
+@login_required
+def prepayment_dashboard(request):
+    """
+    User-side Prepayments Dashboard.
+
+    Provides:
+        - User's loans
+        - All prepayments
+        - Total prepaid amount
+        - Total interest saved
+        - Loans benefited
+        - Total tenure reduced
+        - Loan-wise prepayment summary
+        - Empty-state handling
+    """
+    loans = Loan.objects.filter(user=request.user).order_by("loan_name")
+    prepayments = (
+        Prepayment.objects.filter(loan__user=request.user, status="paid")
+        .select_related("loan")
+        .order_by("-prepayment_date", "-created_at")
+    )
+    summary = prepayments.aggregate(
+        total_prepaid_amount=Sum("amount"),
+        total_interest_saved=Sum("interest_saved"),
+        total_tenure_reduced=Sum("months_reduced"),
+        loans_benefited=Count("loan", distinct=True),
+    )
+    total_prepaid_amount = summary["total_prepaid_amount"] or Decimal("0.00")
+    total_interest_saved = summary["total_interest_saved"] or Decimal("0.00")
+    total_tenure_reduced = summary["total_tenure_reduced"] or 0
+    loans_benefited = summary["loans_benefited"] or 0
+    loan_prepaid_data = []
+    for loan in loans:
+        loan_prepayments = prepayments.filter(loan=loan)
+        loan_summary = loan_prepayments.aggregate(
+            total_prepaid_amount=Sum("amount"),
+            total_interest_saved=Sum("interest_saved"),
+            total_months_reduced=Sum("months_reduced"),
+            last_prepayment_date=Max("prepayment_date"),
+            prepayment_count=Count("id"),
+        )
+        if not loan_summary["prepayment_count"]:
+            continue
+        loan_prepaid_data.append(
+            {
+                "loan": loan,
+                "total_prepaid_amount": (
+                    loan_summary["total_prepaid_amount"] or Decimal("0.00")
+                ),
+                "total_interest_saved": (
+                    loan_summary["total_interest_saved"] or Decimal("0.00")
+                ),
+                "months_reduced": (loan_summary["total_months_reduced"] or 0),
+                "last_prepayment_date": (loan_summary["last_prepayment_date"]),
+                "prepayment_count": (loan_summary["prepayment_count"] or 0),
+            }
+        )
+
+    context = {
+        "page_title": "Prepayments",
+        "loans": loans,
+        "prepayments": prepayments,
+        "total_prepaid_amount": total_prepaid_amount,
+        "total_interest_saved": total_interest_saved,
+        "loans_benefited": loans_benefited,
+        "total_tenure_reduced": total_tenure_reduced,
+        "loan_prepayment_summary": loan_prepaid_data,
+        "has_prepayments": prepayments.exists(),
+    }
+    return render(request, "payments/prepayment_dashboard.html", context)
+
+
+@login_required
+def export_prepayment_excel(request):
+    """Export user's complete prepayment history to Excel."""
+
+    prepayments = (
+        Prepayment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("-prepayment_date")
+    )
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Prepayments"
+
+    headers = [
+        "Loan Name",
+        "Date",
+        "Amount",
+        "Payment Type",
+        "Payment Mode",
+        "Interest Saved",
+        "Months Reduced",
+        "Status",
+    ]
+
+    for col, header in enumerate(headers, start=1):
+        cell = sheet.cell(row=1, column=col)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(
+            start_color="1E40AF",
+            end_color="1E40AF",
+            fill_type="solid",
+        )
+        cell.alignment = Alignment(horizontal="center")
+
+    row = 2
+
+    total_amount = Decimal("0.00")
+    total_interest_saved = Decimal("0.00")
+    total_months_reduced = 0
+
+    for prepayment in prepayments:
+        sheet.cell(row=row, column=1).value = prepayment.loan.loan_name
+        sheet.cell(row=row, column=2).value = prepayment.prepayment_date.strftime(
+            "%d-%m-%Y"
+        )
+        sheet.cell(row=row, column=3).value = float(prepayment.amount)
+        sheet.cell(row=row, column=4).value = prepayment.get_payment_type_display()
+        sheet.cell(row=row, column=5).value = prepayment.get_payment_mode_display()
+        sheet.cell(row=row, column=6).value = float(prepayment.interest_saved)
+        sheet.cell(row=row, column=7).value = prepayment.months_reduced
+        sheet.cell(row=row, column=8).value = prepayment.get_status_display()
+
+        total_amount += prepayment.amount
+        total_interest_saved += prepayment.interest_saved
+        total_months_reduced += prepayment.months_reduced
+
+        row += 1
+
+    # Summary
+    row += 1
+
+    sheet.cell(row=row, column=1).value = "SUMMARY"
+    sheet.cell(row=row, column=1).font = Font(bold=True)
+
+    row += 1
+    sheet.cell(row=row, column=1).value = "Total Prepaid Amount"
+    sheet.cell(row=row, column=2).value = float(total_amount)
+
+    row += 1
+    sheet.cell(row=row, column=1).value = "Total Interest Saved"
+    sheet.cell(row=row, column=2).value = float(total_interest_saved)
+
+    row += 1
+    sheet.cell(row=row, column=1).value = "Total Tenure Reduced"
+    sheet.cell(row=row, column=2).value = total_months_reduced
+
+    # Column widths
+    widths = {
+        "A": 30,
+        "B": 15,
+        "C": 18,
+        "D": 18,
+        "E": 18,
+        "F": 20,
+        "G": 18,
+        "H": 15,
+    }
+
+    for column, width in widths.items():
+        sheet.column_dimensions[column].width = width
+
+    response = HttpResponse(
+        content_type=(
+            "application/vnd.openxmlformats-officedocument." "spreadsheetml.sheet"
+        )
+    )
+
+    response["Content-Disposition"] = 'attachment; filename="prepayment_report.xlsx"'
+
+    workbook.save(response)
+
+    return response
+
+
+@login_required
+def export_prepayment_pdf(request):
+    """Export user's complete prepayment report to PDF."""
+
+    prepayments = (
+        Prepayment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("-prepayment_date")
+    )
+
+    total_amount = Decimal("0.00")
+    total_interest_saved = Decimal("0.00")
+    total_months_reduced = 0
+
+    for prepayment in prepayments:
+        total_amount += prepayment.amount
+        total_interest_saved += prepayment.interest_saved
+        total_months_reduced += prepayment.months_reduced
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="Prepayment_Report.pdf"'
+
+    doc = SimpleDocTemplate(
+        response,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=30,
+    )
+
+    styles = getSampleStyleSheet()
+
+    elements = []
+
+    elements.append(
+        Paragraph(
+            "<b>NexusLoan Prepayment Report</b>",
+            styles["Title"],
+        )
+    )
+
+    elements.append(
+        Paragraph(
+            f"Customer: " f"{request.user.get_full_name() or request.user.username}",
+            styles["Normal"],
+        )
+    )
+
+    elements.append(Spacer(1, 0.25 * inch))
+
+    summary_data = [
+        ["Metric", "Value"],
+        [
+            "Total Prepaid Amount",
+            f"₹ {total_amount:,.2f}",
+        ],
+        [
+            "Total Interest Saved",
+            f"₹ {total_interest_saved:,.2f}",
+        ],
+        [
+            "Total Tenure Reduced",
+            f"{total_months_reduced} months",
+        ],
+    ]
+
+    summary_table = Table(summary_data, colWidths=[3.2 * inch, 2.5 * inch])
+
+    summary_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e40af")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+            ]
+        )
+    )
+
+    elements.append(summary_table)
+    elements.append(Spacer(1, 0.35 * inch))
+
+    elements.append(
+        Paragraph(
+            "<b>Prepayment History</b>",
+            styles["Heading2"],
+        )
+    )
+
+    data = [
+        [
+            "Loan",
+            "Date",
+            "Amount",
+            "Type",
+            "Mode",
+            "Interest Saved",
+            "Months",
+        ]
+    ]
+
+    for prepayment in prepayments:
+        data.append(
+            [
+                prepayment.loan.loan_name,
+                prepayment.prepayment_date.strftime("%d-%m-%Y"),
+                f"₹ {prepayment.amount:,.2f}",
+                prepayment.get_payment_type_display(),
+                prepayment.get_payment_mode_display(),
+                f"₹ {prepayment.interest_saved:,.2f}",
+                str(prepayment.months_reduced),
+            ]
+        )
+
+    if len(data) == 1:
+        data.append(
+            [
+                "No prepayments found",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+            ]
+        )
+
+    table = Table(
+        data,
+        repeatRows=1,
+        colWidths=[
+            1.35 * inch,
+            0.85 * inch,
+            0.9 * inch,
+            0.75 * inch,
+            0.75 * inch,
+            1.0 * inch,
+            0.55 * inch,
+        ],
+    )
+
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e40af")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+
+    elements.append(table)
+
+    doc.build(elements)
+
+    return response
