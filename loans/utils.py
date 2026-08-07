@@ -536,3 +536,65 @@ def get_support_ticket_summary(user):
         "resolved": resolved_count,
         "avg_response_time": avg_response_time,
     }
+
+
+def ensure_user_settings(user):
+    from loans.models import (
+        AppearancePreference,
+        NotificationPreference,
+        PrivacySetting,
+        SecuritySetting,
+        UserProfile,
+    )
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    notification_preferences, _ = NotificationPreference.objects.get_or_create(
+        user=user
+    )
+    appearance_preferences, _ = AppearancePreference.objects.get_or_create(user=user)
+    privacy_settings, _ = PrivacySetting.objects.get_or_create(user=user)
+    security_settings, _ = SecuritySetting.objects.get_or_create(user=user)
+    return {
+        "profile": profile,
+        "notification_preferences": notification_preferences,
+        "appearance_preferences": appearance_preferences,
+        "privacy_settings": privacy_settings,
+        "security_settings": security_settings,
+    }
+
+
+def get_account_statistics(user):
+    from .models import Loan
+
+    loans = Loan.objects.filter(user=user)
+    total_loans = loans.count()
+    active_loans = loans.filter(status="active").count()
+    closed_loans = loans.filter(status="closed").count()
+    total_paid = 0
+    total_interest_paid = 0
+    try:
+        from payments.models import Payment
+
+        payments = Payment.objects.filter(loan__user=user, status="paid")
+        total_paid = payments.aggregate(total=models.Sum("amount"))["total"] or 0
+        total_interest_paid = (
+            payments.aggregate(total=models.Sum("interest_amount"))["total"] or 0
+        )
+    except Exception:
+        pass
+    try:
+        from .models import SupportTicket
+
+        total_support_tickets = SupportTicket.objects.filter(user=user).count()
+    except Exception:
+        total_support_tickets = 0
+    return {
+        "total_loans": total_loans,
+        "active_loans": active_loans,
+        "closed_loans": closed_loans,
+        "total_paid": total_paid,
+        "total_interest_paid": total_interest_paid,
+        "total_support_tickets": total_support_tickets,
+        "last_login": user.last_login,
+        "account_status": "Active" if user.is_active else "Inactive",
+    }

@@ -753,3 +753,138 @@ class SupportMessage(models.Model):
 
     def __str__(self):
         return f"{self.ticket.ticket_number} - {self.user}"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="loan_profile",
+    )
+    phone = models.CharField(max_length=20, blank=True)
+    photo = models.ImageField(upload_to="profile_photos/", blank=True, null=True)
+    dob = models.DateField(blank=True, null=True)
+    address = models.TextField(blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    pincode = models.CharField(max_length=10, blank=True)
+    occupation = models.CharField(max_length=150, blank=True)
+    annual_income = models.DecimalField(
+        max_digits=15, decimal_places=2, blank=True, null=True
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+
+
+class NotificationPreference(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_preferences",
+    )
+    email_emi = models.BooleanField(default=True)
+    email_payment = models.BooleanField(default=True)
+    email_updates = models.BooleanField(default=True)
+    email_promotional = models.BooleanField(default=False)
+    inapp_emi = models.BooleanField(default=True)
+    inapp_support = models.BooleanField(default=True)
+    inapp_documents = models.BooleanField(default=True)
+    inapp_loan_updates = models.BooleanField(default=True)
+    sms_emi = models.BooleanField(default=True)
+    sms_otp = models.BooleanField(default=True)
+    sms_payment = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Notification Preferences"
+
+
+class AppearancePreference(models.Model):
+    THEME_CHOICES = [
+        ("light", "Light"),
+        ("dark", "Dark"),
+        ("system", "System"),
+    ]
+    LANGUAGE_CHOICES = [
+        ("en", "English"),
+        ("hi", "Hindi"),
+    ]
+    DATE_FORMAT_CHOICES = [
+        ("DD MMM YYYY", "07 Aug 2026"),
+        ("DD/MM/YYYY", "07/08/2026"),
+        ("MM/DD/YYYY", "08/07/2026"),
+    ]
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="appearance_preferences",
+    )
+    theme = models.CharField(max_length=20, choices=THEME_CHOICES, default="system")
+    language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")
+    currency = models.CharField(max_length=10, default="INR")
+    date_format = models.CharField(
+        max_length=30,
+        choices=DATE_FORMAT_CHOICES,
+        default="DD MMM YYYY",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Appearance Preferences"
+
+
+class PrivacySetting(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="privacy_settings",
+    )
+    hide_balance = models.BooleanField(default=False)
+    hide_loan_amount = models.BooleanField(default=False)
+    hide_emi_values = models.BooleanField(default=False)
+    analytics = models.BooleanField(default=True)
+    marketing = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Privacy Settings"
+
+
+class SecuritySetting(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="security_settings",
+    )
+    two_factor = models.BooleanField(default=False)
+    last_password_change = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Security Settings"
+
+
+class BankAccount(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bank_accounts",
+    )
+    bank_name = models.CharField(max_length=150)
+    account_holder = models.CharField(max_length=150)
+    account_number = models.CharField(max_length=50)
+    ifsc = models.CharField(max_length=20)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def masked_account_number(self):
+        if len(self.account_number) <= 4:
+            return self.account_number
+        return f"•••• {self.account_number[-4:]}"
+
+    def __str__(self):
+        return f"{self.bank_name} - {self.masked_account_number}"

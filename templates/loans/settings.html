@@ -1,0 +1,435 @@
+{% extends 'app_layout.html' %}
+{% load %}
+{% load static %}
+{% block title %}Support — NexusLoan{% endblock %}
+{% block app_content %}
+<style>
+    .settings-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:24px;align-items:start}
+    .settings-sidebar{position:sticky;top:20px}
+    .settings-nav{display:flex;flex-direction:column;gap:6px}
+    .settings-nav a{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;color:#475569;text-decoration:none;transition:.2s}
+    .settings-nav a:hover,.settings-nav a.active{background:#f1f5f9;color:#0f172a}
+    .settings-nav i{width:20px;text-align:center}
+    .settings-section{margin-bottom:24px;scroll-margin-top:20px}
+    .settings-section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+    .settings-section-header h3{margin:0}
+    .settings-section-header p{margin:5px 0 0;color:#64748b;font-size:14px}
+    .settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .settings-field{display:flex;flex-direction:column;gap:7px}
+    .settings-field.full{grid-column:1/-1}
+    .settings-field label{font-size:13px;font-weight:600;color:#334155}
+    .settings-avatar{display:flex;align-items:center;gap:18px;margin-bottom:24px}
+    .settings-avatar img{width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #e2e8f0}
+    .settings-avatar-placeholder{width:80px;height:80px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:28px;color:#64748b}
+    .settings-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+    .preference-list{display:flex;flex-direction:column;gap:12px}
+    .preference-row{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px}
+    .preference-row strong{display:block;font-size:14px}
+    .preference-row small{display:block;color:#64748b;margin-top:3px}
+    .preference-row input{width:18px;height:18px}
+    .bank-card{padding:18px;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:12px}
+    .bank-header{display:flex;justify-content:space-between;align-items:center}
+    .bank-actions{display:flex;gap:8px;margin-top:14px}
+    .stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .stat-box{padding:18px;border:1px solid #e5e7eb;border-radius:12px}
+    .stat-box span{display:block;color:#64748b;font-size:13px}
+    .stat-box strong{display:block;font-size:22px;margin-top:7px}
+    .danger-zone{border:1px solid #fecaca}
+    .danger-zone h3{color:#dc2626}
+    .danger-action{display:flex;justify-content:space-between;align-items:center;padding:15px 0;border-top:1px solid #fee2e2}
+    @media(max-width:900px){.settings-layout{grid-template-columns:1fr}.settings-sidebar{position:static}.settings-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.settings-grid{grid-template-columns:1fr}.settings-field.full{grid-column:auto}.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:600px){.settings-nav{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr}.settings-section-header{align-items:flex-start;flex-direction:column;gap:10px}.preference-row{gap:15px}.settings-actions{justify-content:stretch;flex-direction:column}}
+</style>
+<div class="page-header" style="margin-bottom:24px;">
+    <div>
+        <h1><i class="fas fa-sliders"></i> Settings</h1>
+        <p class="text-muted">Manage your profile, security, preferences and account settings.</p>
+    </div>
+</div>
+<div class="settings-layout">
+    <aside class="glass-card settings-sidebar" style="padding:14px;">
+        <nav class="settings-nav">
+            <a href="#profile" class="active"><i class="fas fa-user"></i><span>Profile</span></a>
+            <a href="#security"><i class="fas fa-shield-halved"></i><span>Security</span></a>
+            <a href="#notifications"><i class="fas fa-bell"></i><span>Notifications</span></a>
+            <a href="#banks"><i class="fas fa-building-columns"></i><span>Banks</span></a>
+            <a href="#payments"><i class="fas fa-credit-card"></i><span>Payment Methods</span></a>
+            <a href="#documents"><i class="fas fa-folder"></i><span>Documents</span></a>
+            <a href="#kyc"><i class="fas fa-id-card"></i><span>KYC</span></a>
+            <a href="#appearance"><i class="fas fa-palette"></i><span>Appearance</span></a>
+            <a href="#privacy"><i class="fas fa-user-shield"></i><span>Privacy</span></a>
+            <a href="#preferences"><i class="fas fa-sliders"></i><span>Preferences</span></a>
+            <a href="#statistics"><i class="fas fa-chart-line"></i><span>Statistics</span></a>
+            <a href="#support"><i class="fas fa-headset"></i><span>Support</span></a>
+            <a href="#danger"><i class="fas fa-triangle-exclamation"></i><span>Danger Zone</span></a>
+        </nav>
+    </aside>
+    <main>
+        <section id="profile" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Profile Information</h3>
+                        <p>Manage your personal information and contact details.</p>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'update_profile' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="settings-avatar">
+                        {% if profile.photo %}
+                            <img src="{{ profile.photo.url }}" alt="Profile Photo">
+                        {% else %}
+                            <div class="settings-avatar-placeholder"><i class="fas fa-user"></i></div>
+                        {% endif %}
+                        <div>
+                            <strong>Profile Photo</strong>
+                            <div style="margin-top:8px;">{{ profile_form.photo }}</div>
+                        </div>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-field">
+                            <label>First Name</label>
+                            {{ profile_form.first_name }}
+                        </div>
+                        <div class="settings-field">
+                            <label>Last Name</label>
+                            {{ profile_form.last_name }}
+                        </div>
+                        <div class="settings-field">
+                            <label>Email</label>
+                            {{ profile_form.email }}
+                        </div>
+                        <div class="settings-field">
+                            <label>Phone Number</label>
+                            {{ profile_form.phone }}
+                        </div>
+                        <div class="settings-field">
+                            <label>Date of Birth</label>
+                            {{ profile_form.dob }}
+                        </div>
+                        <div class="settings-field">
+                            <label>Occupation</label>
+                            {{ profile_form.occupation }}
+                        </div>
+                        <div class="settings-field full">
+                            <label>Address</label>
+                            {{ profile_form.address }}
+                        </div>
+                        <div class="settings-field">
+                            <label>City</label>
+                            {{ profile_form.city }}
+                        </div>
+                        <div class="settings-field">
+                            <label>State</label>
+                            {{ profile_form.state }}
+                        </div>
+                        <div class="settings-field">
+                            <label>Pincode</label>
+                            {{ profile_form.pincode }}
+                        </div>
+                        <div class="settings-field">
+                            <label>Annual Income</label>
+                            {{ profile_form.annual_income }}
+                        </div>
+                    </div>
+                    <div class="settings-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Update Profile</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <section id="security" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Security</h3>
+                        <p>Keep your account secure with password controls.</p>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'update_password' %}">
+                    {% csrf_token %}
+                    {% if password_form %}
+                        {{ password_form.non_field_errors }}
+                        <div class="settings-grid">
+                            <div class="settings-field">
+                                <label>Current Password</label>
+                                {{ password_form.old_password }}
+                            </div>
+                            <div></div>
+                            <div class="settings-field">
+                                <label>New Password</label>
+                                {{ password_form.new_password1 }}
+                            </div>
+                            <div class="settings-field">
+                                <label>Confirm New Password</label>
+                                {{ password_form.new_password2 }}
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Change your password regularly to keep your account secure.</p>
+                    {% endif %}
+                    <div style="margin-top:18px;color:#64748b;font-size:13px;">
+                        Last password change:
+                        {% if security_settings.last_password_change %}
+                            {{ security_settings.last_password_change|date:"d M Y, h:i A" }}
+                        {% else %}
+                            Not changed yet
+                        {% endif %}
+                    </div>
+                    <div class="settings-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-key"></i> Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <section id="notifications" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Notification Preferences</h3>
+                        <p>Choose which alerts you want to receive.</p>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'update_notification_preferences' %}">
+                    {% csrf_token %}
+                    <div class="preference-list">
+                        <div class="preference-row"><div><strong>EMI Reminder</strong><small>Receive reminders before EMI due dates.</small></div><input type="checkbox" name="email_emi" {% if notification_preferences.email_emi %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Payment Success</strong><small>Receive successful payment notifications.</small></div><input type="checkbox" name="email_payment" {% if notification_preferences.email_payment %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Loan Updates</strong><small>Receive loan status and approval updates.</small></div><input type="checkbox" name="email_updates" {% if notification_preferences.email_updates %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Promotional Emails</strong><small>Receive offers and promotional communication.</small></div><input type="checkbox" name="email_promotional" {% if notification_preferences.email_promotional %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>In-App EMI Reminders</strong><small>Show EMI reminders inside NexusLoan.</small></div><input type="checkbox" name="inapp_emi" {% if notification_preferences.inapp_emi %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Support Updates</strong><small>Receive updates about support tickets.</small></div><input type="checkbox" name="inapp_support" {% if notification_preferences.inapp_support %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Document Requests</strong><small>Receive document-related alerts.</small></div><input type="checkbox" name="inapp_documents" {% if notification_preferences.inapp_documents %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Loan Status Updates</strong><small>Receive loan activity notifications.</small></div><input type="checkbox" name="inapp_loan_updates" {% if notification_preferences.inapp_loan_updates %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>SMS EMI Reminder</strong><small>Receive EMI reminders through SMS.</small></div><input type="checkbox" name="sms_emi" {% if notification_preferences.sms_emi %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>SMS OTP</strong><small>Allow OTP messages through SMS.</small></div><input type="checkbox" name="sms_otp" {% if notification_preferences.sms_otp %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>SMS Payment Confirmation</strong><small>Receive payment confirmations through SMS.</small></div><input type="checkbox" name="sms_payment" {% if notification_preferences.sms_payment %}checked{% endif %}></div>
+                    </div>
+                    <div class="settings-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Notifications</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <section id="banks" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Bank Accounts</h3>
+                        <p>Manage bank accounts used for loan payments.</p>
+                    </div>
+                </div>
+                {% for bank in bank_accounts %}
+                    <div class="bank-card">
+                        <div class="bank-header">
+                            <div>
+                                <strong>{{ bank.bank_name }}</strong>
+                                {% if bank.is_default %}<span class="badge badge-success" style="margin-left:8px;">Default</span>{% endif %}
+                            </div>
+                            <strong>{{ bank.masked_account_number }}</strong>
+                        </div>
+                        <div style="margin-top:8px;color:#64748b;font-size:13px;">{{ bank.account_holder }} · {{ bank.ifsc }}</div>
+                        <div class="bank-actions">
+                            {% if not bank.is_default %}
+                                <form method="post" action="{% url 'set_default_bank_account' bank.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-outline btn-sm" type="submit">Set Default</button>
+                                </form>
+                            {% endif %}
+                            <form method="post" action="{% url 'delete_bank_account' bank.pk %}" onsubmit="return confirm('Remove this bank account?');">
+                                {% csrf_token %}
+                                <button class="btn btn-outline btn-sm" type="submit">Remove</button>
+                            </form>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="empty-card">
+                        <div class="empty-icon"><i class="fas fa-building-columns"></i></div>
+                        <h4>No Bank Accounts</h4>
+                        <p>Add a bank account for future loan payment integrations.</p>
+                    </div>
+                {% endfor %}
+                <form method="post" action="{% url 'add_bank_account' %}" style="margin-top:20px;">
+                    {% csrf_token %}
+                    <div class="settings-grid">
+                        <div class="settings-field"><label>Bank Name</label><input type="text" name="bank_name" class="form-input" placeholder="Bank of Maharashtra" required></div>
+                        <div class="settings-field"><label>Account Holder</label><input type="text" name="account_holder" class="form-input" placeholder="Account Holder Name" required></div>
+                        <div class="settings-field"><label>Account Number</label><input type="password" name="account_number" class="form-input" placeholder="Account Number" required></div>
+                        <div class="settings-field"><label>IFSC</label><input type="text" name="ifsc" class="form-input" placeholder="XXXX0000000" required></div>
+                    </div>
+                    <div class="settings-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Add Bank Account</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <section id="payments" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Saved Payment Methods</h3>
+                        <p>Payment gateway integration can be connected here in the future.</p>
+                    </div>
+                </div>
+                <div class="empty-card">
+                    <div class="empty-icon"><i class="fas fa-credit-card"></i></div>
+                    <h4>No Saved Payment Methods</h4>
+                    <p>UPI, debit card and credit card support can be added when the payment gateway is integrated.</p>
+                </div>
+            </div>
+        </section>
+        <section id="documents" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>My Documents</h3>
+                        <p>Access documents already uploaded to your loans.</p>
+                    </div>
+                    <a href="{% url 'documents_dashboard' %}" class="btn btn-outline btn-sm">View Documents</a>
+                </div>
+                <div class="empty-card">
+                    <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
+                    <h4>Document Vault</h4>
+                    <p>Manage agreements, income proofs, identity documents and property papers.</p>
+                </div>
+            </div>
+        </section>
+        <section id="kyc" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>KYC & Verification</h3>
+                        <p>Current identity and verification status.</p>
+                    </div>
+                </div>
+                <div class="settings-grid">
+                    <div class="stat-box"><span>PAN</span><strong>Pending</strong></div>
+                    <div class="stat-box"><span>Aadhaar</span><strong>Pending</strong></div>
+                    <div class="stat-box"><span>Bank Verification</span><strong>Pending</strong></div>
+                    <div class="stat-box"><span>Address Verification</span><strong>Pending</strong></div>
+                </div>
+                <div style="margin-top:18px;padding:14px;background:#f8fafc;border-radius:10px;color:#64748b;font-size:13px;">KYC verification workflow can be connected here when the actual verification provider is integrated.</div>
+            </div>
+        </section>
+        <section id="appearance" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Appearance</h3>
+                        <p>Customize the way NexusLoan looks for you.</p>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'update_appearance_preferences' %}">
+                    {% csrf_token %}
+                    <div class="settings-grid">
+                        <div class="settings-field"><label>Theme</label><select name="theme" class="form-input">{% for value,label in appearance_preferences.THEME_CHOICES %}<option value="{{ value }}" {% if appearance_preferences.theme == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                        <div class="settings-field"><label>Language</label><select name="language" class="form-input"><option value="en" {% if appearance_preferences.language == "en" %}selected{% endif %}>English</option><option value="hi" {% if appearance_preferences.language == "hi" %}selected{% endif %}>Hindi</option></select></div>
+                        <div class="settings-field"><label>Currency</label><input type="text" name="currency" class="form-input" value="{{ appearance_preferences.currency }}"></div>
+                        <div class="settings-field"><label>Date Format</label><select name="date_format" class="form-input"><option value="DD MMM YYYY" {% if appearance_preferences.date_format == "DD MMM YYYY" %}selected{% endif %}>07 Aug 2026</option><option value="DD/MM/YYYY" {% if appearance_preferences.date_format == "DD/MM/YYYY" %}selected{% endif %}>07/08/2026</option><option value="MM/DD/YYYY" {% if appearance_preferences.date_format == "MM/DD/YYYY" %}selected{% endif %}>08/07/2026</option></select></div>
+                    </div>
+                    <div class="settings-actions"><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Appearance</button></div>
+                </form>
+            </div>
+        </section>
+        <section id="privacy" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Privacy</h3>
+                        <p>Control how sensitive financial information is displayed and used.</p>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'update_privacy_settings' %}">
+                    {% csrf_token %}
+                    <div class="preference-list">
+                        <div class="preference-row"><div><strong>Hide Balance</strong><small>Hide account balance values in the application.</small></div><input type="checkbox" name="hide_balance" {% if privacy_settings.hide_balance %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Hide Loan Amount</strong><small>Hide loan principal values from normal dashboard views.</small></div><input type="checkbox" name="hide_loan_amount" {% if privacy_settings.hide_loan_amount %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Hide EMI Values</strong><small>Hide EMI values from dashboard summaries.</small></div><input type="checkbox" name="hide_emi_values" {% if privacy_settings.hide_emi_values %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Analytics Permission</strong><small>Allow anonymous application analytics.</small></div><input type="checkbox" name="analytics" {% if privacy_settings.analytics %}checked{% endif %}></div>
+                        <div class="preference-row"><div><strong>Marketing Emails</strong><small>Receive optional marketing communication.</small></div><input type="checkbox" name="marketing" {% if privacy_settings.marketing %}checked{% endif %}></div>
+                    </div>
+                    <div class="settings-actions"><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Privacy Settings</button></div>
+                </form>
+            </div>
+        </section>
+        <section id="preferences" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Application Preferences</h3>
+                        <p>General application preferences.</p>
+                    </div>
+                </div>
+                <div class="settings-grid">
+                    <div class="settings-field"><label>Default Dashboard</label><select class="form-input"><option>Loan Dashboard</option><option>Payments Dashboard</option><option>Prepayments Dashboard</option></select></div>
+                    <div class="settings-field"><label>Items Per Page</label><select class="form-input"><option>10</option><option>20</option><option>50</option></select></div>
+                    <div class="settings-field"><label>Default Loan Sorting</label><select class="form-input"><option>Loan Name</option><option>Newest First</option><option>Highest Amount</option></select></div>
+                    <div class="settings-field"><label>Auto Download Receipts</label><select class="form-input"><option>No</option><option>Yes</option></select></div>
+                </div>
+            </div>
+        </section>
+        <section id="statistics" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Account Statistics</h3>
+                        <p>Overview of your NexusLoan account activity.</p>
+                    </div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-box"><span>Member Since</span><strong>{{ request.user.date_joined|date:"d M Y" }}</strong></div>
+                    <div class="stat-box"><span>Total Loans</span><strong>{{ total_loans }}</strong></div>
+                    <div class="stat-box"><span>Active Loans</span><strong>{{ active_loans }}</strong></div>
+                    <div class="stat-box"><span>Closed Loans</span><strong>{{ closed_loans }}</strong></div>
+                    <div class="stat-box"><span>Total Paid</span><strong>₹{{ total_paid|floatformat:0 }}</strong></div>
+                    <div class="stat-box"><span>Interest Paid</span><strong>₹{{ total_interest_paid|floatformat:0 }}</strong></div>
+                    <div class="stat-box"><span>Support Tickets</span><strong>{{ total_support_tickets }}</strong></div>
+                    <div class="stat-box"><span>Account Status</span><strong>{{ account_status }}</strong></div>
+                </div>
+                <div style="margin-top:18px;color:#64748b;font-size:13px;">Last Login: {% if last_login %}{{ last_login|date:"d M Y, h:i A" }}{% else %}First login{% endif %}</div>
+            </div>
+        </section>
+        <section id="support" class="settings-section">
+            <div class="glass-card" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Support</h3>
+                        <p>Get help with your loans, payments and account.</p>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <a href="{% url 'support_dashboard' %}" class="btn btn-primary"><i class="fas fa-headset"></i> Support Center</a>
+                    <a href="{% url 'support_dashboard' %}#create-ticket" class="btn btn-outline">Create Ticket</a>
+                    <a href="{% url 'support_dashboard' %}" class="btn btn-outline">View Tickets</a>
+                </div>
+            </div>
+        </section>
+        <section id="danger" class="settings-section">
+            <div class="glass-card danger-zone" style="padding:24px;">
+                <div class="settings-section-header">
+                    <div>
+                        <h3>Danger Zone</h3>
+                        <p>Actions that affect access to your account.</p>
+                    </div>
+                </div>
+                <div class="danger-action">
+                    <div><strong>Deactivate Account</strong><div style="color:#64748b;font-size:13px;margin-top:4px;">Temporarily disable your account.</div></div>
+                    <button type="button" class="btn btn-outline" onclick="alert('Account deactivation workflow will be added later.')">Deactivate</button>
+                </div>
+                <div class="danger-action">
+                    <div><strong>Delete Account Request</strong><div style="color:#64748b;font-size:13px;margin-top:4px;">Request permanent account deletion.</div></div>
+                    <button type="button" class="btn btn-outline" onclick="alert('Account deletion request workflow will be added later.')">Request Delete</button>
+                </div>
+                <div class="danger-action">
+                    <div><strong>Download Personal Data</strong><div style="color:#64748b;font-size:13px;margin-top:4px;">Download your account information.</div></div>
+                    <button type="button" class="btn btn-outline" onclick="alert('Personal data export will be added later.')">Download</button>
+                </div>
+                <div class="danger-action">
+                    <div><strong>Logout All Devices</strong><div style="color:#64748b;font-size:13px;margin-top:4px;">End all active sessions.</div></div>
+                    <button type="button" class="btn btn-outline" onclick="alert('Multi-device logout will be added later.')">Logout All</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+{% endblock %}

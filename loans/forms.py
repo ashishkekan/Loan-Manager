@@ -4,17 +4,26 @@ import os
 from decimal import Decimal
 
 from django import forms
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from loans.models import (
+    AppearancePreference,
+    BankAccount,
     Loan,
     LoanDisbursement,
     LoanDocument,
     LoanNote,
+    NotificationPreference,
+    PrivacySetting,
     SupportMessage,
     SupportTicket,
+    UserProfile,
 )
+
+User = get_user_model()
 
 
 class LoanForm(forms.ModelForm):
@@ -387,3 +396,183 @@ class SupportReplyForm(forms.ModelForm):
         if extension not in allowed_extensions:
             raise ValidationError("Allowed files: PDF, JPG, JPEG, PNG, DOC and DOCX.")
         return attachment
+
+
+class SettingsProfileForm(forms.ModelForm):
+    first_name = forms.CharField(
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": "First Name",
+            }
+        ),
+    )
+    last_name = forms.CharField(
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": "Last Name",
+            }
+        ),
+    )
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": "Email Address",
+            }
+        ),
+    )
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            "phone",
+            "photo",
+            "dob",
+            "address",
+            "city",
+            "state",
+            "pincode",
+            "occupation",
+            "annual_income",
+        ]
+        widgets = {
+            "phone": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "Phone Number"}
+            ),
+            "photo": forms.FileInput(attrs={"class": "form-input"}),
+            "dob": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "address": forms.Textarea(
+                attrs={"class": "form-input", "rows": 3, "placeholder": "Address"}
+            ),
+            "city": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "City"}
+            ),
+            "state": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "State"}
+            ),
+            "pincode": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "Pincode"}
+            ),
+            "occupation": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "Occupation"}
+            ),
+            "annual_income": forms.NumberInput(
+                attrs={"class": "form-input", "placeholder": "Annual Income"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.user:
+            self.fields["first_name"].initial = self.instance.user.first_name
+            self.fields["last_name"].initial = self.instance.user.last_name
+            self.fields["email"].initial = self.instance.user.email
+
+
+class SettingsPasswordForm(PasswordChangeForm):
+    old_password = forms.CharField(
+        label="Current Password",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": "Current Password",
+            }
+        ),
+    )
+    new_password1 = forms.CharField(
+        label="New Password",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": "New Password",
+            }
+        ),
+    )
+    new_password2 = forms.CharField(
+        label="Confirm New Password",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": "Confirm New Password",
+            }
+        ),
+    )
+
+
+class NotificationPreferenceForm(forms.ModelForm):
+    class Meta:
+        model = NotificationPreference
+        fields = [
+            "email_emi",
+            "email_payment",
+            "email_updates",
+            "email_promotional",
+            "inapp_emi",
+            "inapp_support",
+            "inapp_documents",
+            "inapp_loan_updates",
+            "sms_emi",
+            "sms_otp",
+            "sms_payment",
+        ]
+
+
+class AppearancePreferenceForm(forms.ModelForm):
+    class Meta:
+        model = AppearancePreference
+        fields = ["theme", "language", "currency", "date_format"]
+        widgets = {
+            "theme": forms.Select(attrs={"class": "form-input"}),
+            "language": forms.Select(attrs={"class": "form-input"}),
+            "currency": forms.TextInput(attrs={"class": "form-input"}),
+            "date_format": forms.Select(attrs={"class": "form-input"}),
+        }
+
+
+class PrivacySettingForm(forms.ModelForm):
+    class Meta:
+        model = PrivacySetting
+        fields = [
+            "hide_balance",
+            "hide_loan_amount",
+            "hide_emi_values",
+            "analytics",
+            "marketing",
+        ]
+
+
+class BankAccountForm(forms.ModelForm):
+    class Meta:
+        model = BankAccount
+        fields = [
+            "bank_name",
+            "account_holder",
+            "account_number",
+            "ifsc",
+            "is_default",
+        ]
+        widgets = {
+            "bank_name": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "Bank Name"}
+            ),
+            "account_holder": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "Account Holder"}
+            ),
+            "account_number": forms.PasswordInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "Account Number",
+                    "render_value": False,
+                }
+            ),
+            "ifsc": forms.TextInput(
+                attrs={"class": "form-input", "placeholder": "IFSC Code"}
+            ),
+        }

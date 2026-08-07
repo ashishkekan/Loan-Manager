@@ -3,8 +3,10 @@ from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.sessions.models import Session
 from django.core.files.storage import default_storage
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -25,13 +27,21 @@ from django.views.generic import (
 
 from dashboard.utils import add_activity
 from loans.forms import (
+    AppearancePreferenceForm,
+    BankAccountForm,
     LoanDisbursementForm,
     LoanDocumentForm,
     LoanForm,
     LoanNoteForm,
+    NotificationPreferenceForm,
+    PrivacySettingForm,
+    SettingsPasswordForm,
+    SettingsProfileForm,
     SupportTicketForm,
 )
 from loans.models import (
+    AppearancePreference,
+    BankAccount,
     Loan,
     LoanAccruedInterest,
     LoanDisbursement,
@@ -47,8 +57,10 @@ from loans.utils import (
     calculate_foreclosure,
     compare_loans,
     create_notification,
+    ensure_user_settings,
     generate_full_schedule,
     generate_projected_schedule,
+    get_account_statistics,
     get_support_ticket_summary,
     simulate_extra_emi,
 )
@@ -1315,3 +1327,414 @@ def support_ticket_detail(request, ticket_id):
             "form": form,
         },
     )
+
+
+@login_required
+def request_account_deactivation(request):
+    if request.method != "POST":
+        return redirect("settings")
+
+    messages.success(
+        request,
+        "Your account deactivation request has been submitted.",
+    )
+
+    return redirect("settings")
+
+
+@login_required
+def request_account_deletion(request):
+    if request.method != "POST":
+        return redirect("settings")
+
+    messages.success(
+        request,
+        "Your account deletion request has been submitted.",
+    )
+
+    return redirect("settings")
+
+
+@login_required
+def update_settings_profile(request):
+    settings_data = ensure_user_settings(request.user)
+    profile = settings_data["profile"]
+
+    if request.method != "POST":
+        return redirect("settings")
+
+    form = SettingsProfileForm(
+        request.POST,
+        request.FILES,
+        instance=profile,
+    )
+
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Profile updated successfully.")
+    else:
+        messages.error(
+            request,
+            "Please correct the errors in your profile information.",
+        )
+
+    return redirect("settings")
+
+
+@login_required
+def change_settings_password(request):
+    if request.method != "POST":
+        return redirect("settings")
+
+    form = SettingsPasswordForm(
+        request.user,
+        request.POST,
+    )
+
+    if form.is_valid():
+        user = form.save()
+        update_session_auth_hash(request, user)
+
+        messages.success(
+            request,
+            "Your password has been changed successfully.",
+        )
+    else:
+        messages.error(
+            request,
+            "Unable to change password. Please check the entered details.",
+        )
+
+    return redirect("settings")
+
+
+@login_required
+def update_notification_preferences(request):
+    settings_data = ensure_user_settings(request.user)
+    preferences = settings_data["notification_preferences"]
+
+    if request.method != "POST":
+        return redirect("settings")
+
+    form = NotificationPreferenceForm(
+        request.POST,
+        instance=preferences,
+    )
+
+    if form.is_valid():
+        form.save()
+
+        messages.success(
+            request,
+            "Notification preferences updated successfully.",
+        )
+    else:
+        messages.error(
+            request,
+            "Unable to update notification preferences.",
+        )
+
+    return redirect("settings")
+
+
+@login_required
+def update_appearance_preferences(request):
+    settings_data = ensure_user_settings(request.user)
+    preferences = settings_data["appearance_preferences"]
+
+    if request.method != "POST":
+        return redirect("settings")
+
+    form = AppearancePreferenceForm(
+        request.POST,
+        instance=preferences,
+    )
+
+    if form.is_valid():
+        form.save()
+
+        messages.success(
+            request,
+            "Appearance preferences updated successfully.",
+        )
+    else:
+        messages.error(
+            request,
+            "Unable to update appearance preferences.",
+        )
+
+    return redirect("settings")
+
+
+@login_required
+def update_privacy_settings(request):
+    settings_data = ensure_user_settings(request.user)
+    privacy_settings = settings_data["privacy_settings"]
+
+    if request.method != "POST":
+        return redirect("settings")
+
+    form = PrivacySettingForm(
+        request.POST,
+        instance=privacy_settings,
+    )
+
+    if form.is_valid():
+        form.save()
+
+        messages.success(
+            request,
+            "Privacy settings updated successfully.",
+        )
+    else:
+        messages.error(
+            request,
+            "Unable to update privacy settings.",
+        )
+
+    return redirect("settings")
+
+
+@login_required
+def update_settings_theme(request):
+    if request.method != "POST":
+        return redirect("settings")
+
+    theme = request.POST.get("theme")
+
+    allowed_themes = {value for value, label in AppearancePreference.THEME_CHOICES}
+
+    if theme not in allowed_themes:
+        messages.error(request, "Invalid theme selected.")
+        return redirect("settings")
+
+    settings_data = ensure_user_settings(request.user)
+    appearance = settings_data["appearance_preferences"]
+
+    appearance.theme = theme
+    appearance.save(update_fields=["theme"])
+
+    messages.success(request, "Theme preference updated.")
+
+    return redirect("settings")
+
+
+@login_required
+def logout_all_devices(request):
+    if request.method != "POST":
+        return redirect("settings")
+
+    current_session_key = request.session.session_key
+
+    Session.objects.filter(
+        expire_date__gte=timezone.now(),
+    ).exclude(
+        session_key=current_session_key,
+    ).delete()
+
+    messages.success(
+        request,
+        "You have been logged out from all other devices.",
+    )
+
+    return redirect("settings")
+
+
+@login_required
+def settings_dashboard(request):
+    settings_data = ensure_user_settings(request.user)
+    statistics = get_account_statistics(request.user)
+    context = {
+        "page_title": "Settings",
+        "profile_form": SettingsProfileForm(instance=settings_data["profile"]),
+        "password_form": SettingsPasswordForm(request.user),
+        "notification_form": NotificationPreferenceForm(
+            instance=settings_data["notification_preferences"]
+        ),
+        "appearance_form": AppearancePreferenceForm(
+            instance=settings_data["appearance_preferences"]
+        ),
+        "privacy_form": PrivacySettingForm(instance=settings_data["privacy_settings"]),
+        "bank_form": BankAccountForm(),
+        "bank_accounts": BankAccount.objects.filter(user=request.user).order_by(
+            "-is_default", "-created_at"
+        ),
+        "theme_choices": AppearancePreference.THEME_CHOICES,
+        "language_choices": AppearancePreference.LANGUAGE_CHOICES,
+        "date_format_choices": AppearancePreference.DATE_FORMAT_CHOICES,
+        **settings_data,
+        **statistics,
+    }
+    return render(request, "loans/settings.html", context)
+
+
+@login_required
+def add_bank_account(request):
+    if request.method == "POST":
+        form = BankAccountForm(request.POST)
+
+        if form.is_valid():
+            bank_account = form.save(commit=False)
+            bank_account.user = request.user
+
+            if bank_account.is_default:
+                BankAccount.objects.filter(user=request.user).update(is_default=False)
+
+            bank_account.save()
+
+            messages.success(request, "Bank account added successfully.")
+
+            return redirect("settings")
+    else:
+        form = BankAccountForm()
+
+    return render(
+        request,
+        "settings/add_bank_account.html",
+        {"form": form},
+    )
+
+
+@login_required
+def edit_bank_account(request, pk):
+    bank_account = get_object_or_404(
+        BankAccount,
+        pk=pk,
+        user=request.user,
+    )
+
+    if request.method == "POST":
+        form = BankAccountForm(
+            request.POST,
+            instance=bank_account,
+        )
+
+        if form.is_valid():
+            if form.cleaned_data.get("is_default"):
+                BankAccount.objects.filter(user=request.user).exclude(
+                    pk=bank_account.pk
+                ).update(is_default=False)
+
+            form.save()
+
+            messages.success(request, "Bank account updated successfully.")
+
+            return redirect("settings")
+    else:
+        form = BankAccountForm(instance=bank_account)
+
+    return render(
+        request,
+        "settings/edit_bank_account.html",
+        {
+            "form": form,
+            "bank_account": bank_account,
+        },
+    )
+
+
+@login_required
+def settings_dashboard(request):
+    settings_data = ensure_user_settings(request.user)
+    statistics = get_account_statistics(request.user)
+    context = {
+        "page_title": "Settings",
+        **settings_data,
+        **statistics,
+        "bank_accounts": BankAccount.objects.filter(user=request.user).order_by(
+            "-is_default", "-created_at"
+        ),
+    }
+    return render(request, "loans/settings.html", context)
+
+
+@login_required
+def update_profile(request):
+    profile = ensure_user_settings(request.user)["profile"]
+    if request.method == "POST":
+        form = SettingsProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            profile = form.save()
+            user = request.user
+            user.first_name = form.cleaned_data["first_name"]
+            user.last_name = form.cleaned_data["last_name"]
+            user.email = form.cleaned_data["email"]
+            user.save(update_fields=["first_name", "last_name", "email"])
+            messages.success(request, "Profile updated successfully.")
+            return redirect("settings_dashboard")
+    else:
+        form = SettingsProfileForm(instance=profile)
+    return render(
+        request,
+        "loans/settings.html",
+        {
+            "page_title": "Settings",
+            "profile_form": form,
+            **ensure_user_settings(request.user),
+            **get_account_statistics(request.user),
+            "bank_accounts": BankAccount.objects.filter(user=request.user).order_by(
+                "-is_default", "-created_at"
+            ),
+        },
+    )
+
+
+@login_required
+def update_password(request):
+    settings_data = ensure_user_settings(request.user)
+    if request.method == "POST":
+        form = SettingsPasswordForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            settings_data["security_settings"].last_password_change = timezone.now()
+            settings_data["security_settings"].save(
+                update_fields=["last_password_change", "updated_at"]
+            )
+            messages.success(request, "Password changed successfully.")
+            return redirect("settings_dashboard")
+    else:
+        form = SettingsPasswordForm(request.user)
+    return render(
+        request,
+        "loans/settings.html",
+        {
+            "page_title": "Settings",
+            "password_form": form,
+            **settings_data,
+            **get_account_statistics(request.user),
+            "bank_accounts": BankAccount.objects.filter(user=request.user).order_by(
+                "-is_default", "-created_at"
+            ),
+        },
+    )
+
+
+@login_required
+def delete_bank_account(request, pk):
+    bank = BankAccount.objects.filter(
+        pk=pk,
+        user=request.user,
+    ).first()
+    if not bank:
+        messages.error(request, "Bank account not found.")
+        return redirect("settings_dashboard")
+    bank.delete()
+    messages.success(request, "Bank account removed successfully.")
+    return redirect("settings_dashboard")
+
+
+@login_required
+def set_default_bank_account(request, pk):
+    bank = BankAccount.objects.filter(
+        pk=pk,
+        user=request.user,
+    ).first()
+    if not bank:
+        messages.error(request, "Bank account not found.")
+        return redirect("settings_dashboard")
+    BankAccount.objects.filter(user=request.user).update(is_default=False)
+    bank.is_default = True
+    bank.save(update_fields=["is_default", "updated_at"])
+    messages.success(request, "Default bank account updated.")
+    return redirect("settings_dashboard")
