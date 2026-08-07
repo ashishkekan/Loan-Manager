@@ -56,6 +56,13 @@ def pay_emi(request, loan_id):
             loan,
             f"₹{payment.amount:,.0f}",
         )
+        create_notification(
+            user=loan.user,
+            title="EMI Payment Successful",
+            message=f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} has been paid successfully.",
+            notification_type="payment",
+            loan=loan,
+        )
         messages.success(
             request,
             f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} paid successfully.",
@@ -116,6 +123,17 @@ def make_prepayment(request, loan_id):
                 payment_type="prepayment",
                 status="paid",
             )
+            create_notification(
+                user=loan.user,
+                title="Prepayment Successful",
+                message=(
+                    f"₹{amount:,.2f} prepayment was made towards {loan.loan_name}. "
+                    f"Approximately {months_reduced} months of tenure reduced "
+                    f"and ₹{interest_saved:,.2f} interest saved."
+                ),
+                notification_type="payment",
+                loan=loan,
+            )
 
             # Update loan balance
             loan.remaining_balance = max(new_balance, Decimal("0.00"))
@@ -136,12 +154,20 @@ def make_prepayment(request, loan_id):
                     f"~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.",
                 )
             loan.save()
+
             add_activity(
                 loan.user,
                 "prepayment",
                 "Prepayment Done",
                 loan,
                 f"₹{prepayment.amount:,.0f} prepaid.",
+            )
+            create_notification(
+                user=loan.user,
+                title="Loan Fully Repaid",
+                message=f"{loan.loan_name} has been fully repaid and is now closed.",
+                notification_type="loan",
+                loan=loan,
             )
         else:
             for errors in form.errors.values():

@@ -36,6 +36,7 @@ from loans.models import (
     LoanDisbursement,
     LoanDocument,
     LoanNote,
+    Notification,
 )
 from loans.services import AccruedInterestService
 from loans.utils import (
@@ -43,6 +44,7 @@ from loans.utils import (
     calculate_emi,
     calculate_foreclosure,
     compare_loans,
+    create_notification,
     generate_full_schedule,
     generate_projected_schedule,
     simulate_extra_emi,
@@ -94,6 +96,14 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
             f"{self.object.loan_name} created",
             self.object,
             f"Loan of ₹{self.object.amount:,.0f} added.",
+        )
+
+        create_notification(
+            user=self.request.user,
+            title="Loan Created",
+            message=f"Your loan '{self.object.loan_name}' has been created successfully.",
+            notification_type="loan",
+            loan=self.object,
         )
 
         messages.success(self.request, f'"{self.object.loan_name}" created!')
@@ -782,6 +792,13 @@ def close_loan(request, pk):
             loan,
             "Congratulations! Loan completed.",
         )
+        create_notification(
+            user=loan.user,
+            title="Loan Closed",
+            message=f"{loan.loan_name} has been closed successfully.",
+            notification_type="loan",
+            loan=loan,
+        )
         messages.success(request, "Loan closed successfully.")
     return redirect("loan_detail", pk=loan.pk)
 
@@ -1067,3 +1084,97 @@ def view_document(request, document_id):
         raise Http404("Document file not found.")
     response = FileResponse(document.file.open("rb"), as_attachment=False)
     return response
+
+
+@login_required
+def notifications_dashboard(request):
+    notifications = Notification.objects.filter(user=request.user).select_related(
+        "loan"
+    )
+
+    search = request.GET.get("search", "").strip()
+    notification_type = request.GET.get("type", "").strip()
+    status = request.GET.get("status", "").strip()
+
+    if search:
+        notifications = notifications.filter(
+            Q(title__icontains=search)
+            | Q(message__icontains=search)
+            | Q(loan__loan_name__icontains=search)
+        )
+
+    if notification_type:
+        notifications = notifications.filter(notification_type=notification_type)
+
+    if status == "read":
+        notifications = notifications.filter(is_read=True)
+    elif status == "unread":
+        notifications = notifications.filter(is_read=False)
+
+    all_notifications = Notification.objects.filter(user=request.user)
+
+    total_notifications = all_notifications.count()
+
+    unread_count = all_notifications.filter(is_read=False).count()
+
+    payment_alerts = all_notifications.filter(notification_type="payment").count()
+
+    loan_updates = all_notifications.filter(notification_type="loan").count()
+
+    paginator = Paginator(notifications, 12)
+
+    page_number = request.GET.get("page")
+
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_title": "Notifications",
+        "notifications": page_obj.object_list,
+        "page_obj": page_obj,
+        "total_notifications": total_notifications,
+        "unread_count": unread_count,
+        "payment_alerts": payment_alerts,
+        "loan_updates": loan_updates,
+        "search": search,
+        "selected_type": notification_type,
+        "selected_status": status,
+        "notification_types": Notification.TYPE_CHOICES,
+        "has_notifications": total_notifications > 0,
+    }
+
+    return render(
+        request,
+        "loans/notifications_dashboard.html",
+        context,
+    )
+
+
+@login_required
+def mark_notification_read(request, notification_id):
+    notification = get_object_or_404(
+        Notification,
+        id=notification_id,
+        user=request.user,
+    )
+
+    if request.method == "POST":
+        notification.is_read = True
+        notification.save(update_fields=["is_read"])
+
+    next_url = request.POST.get("next")
+
+    if next_url:
+        return redirect(next_url)
+
+    return redirect("notifications_dashboard")
+
+
+@login_required
+def mark_all_notifications_read(request):
+    if request.method == "POST":
+        Notification.objects.filter(
+            user=request.user,
+            is_read=False,
+        ).update(is_read=True)
+
+    return redirect("notifications_dashboard")

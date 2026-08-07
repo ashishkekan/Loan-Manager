@@ -610,3 +610,46 @@ class LoanAccruedInterest(models.Model):
     @property
     def is_recovered(self):
         return self.status == "recovered"
+
+
+class Notification(models.Model):
+    TYPE_CHOICES = [
+        ("loan", "Loan"),
+        ("payment", "Payment"),
+        ("document", "Document"),
+        ("reminder", "Reminder"),
+        ("system", "System"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    loan = models.ForeignKey(
+        "loans.Loan",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default="system",
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_read"]),
+            models.Index(fields=["user", "notification_type"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.user}"

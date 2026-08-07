@@ -21,6 +21,9 @@ from loans.views import (
     documents_dashboard,
     download_document,
     export_loan_csv,
+    mark_all_notifications_read,
+    mark_notification_read,
+    notifications_dashboard,
     upload_document,
     view_document,
 )
@@ -83,5 +86,16 @@ urlpatterns = [
         "disbursement/<int:pk>/delete/",
         LoanDisbursementDeleteView.as_view(),
         name="delete_disbursement",
+    ),
+    path("notifications/", notifications_dashboard, name="notifications_dashboard"),
+    path(
+        "<int:notification_id>/read/",
+        mark_notification_read,
+        name="mark_notification_read",
+    ),
+    path(
+        "mark-all-read/",
+        mark_all_notifications_read,
+        name="mark_all_notifications_read",
     ),
 ]

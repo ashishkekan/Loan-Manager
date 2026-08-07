@@ -492,3 +492,15 @@ def calculate_foreclosure(loan):
         ),
         "remaining_periods": remaining_periods,
     }
+
+
+def create_notification(user, title, message, notification_type="system", loan=None):
+    from loans.models import Notification
+
+    return Notification.objects.create(
+        user=user,
+        loan=loan,
+        title=title,
+        message=message,
+        notification_type=notification_type,
+    )

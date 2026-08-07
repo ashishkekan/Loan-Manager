@@ -1,0 +1,788 @@
+{% extends 'app_layout.html' %}
+{% load  %}
+{% load static %}
+{% block title %}Notifications — NexusLoan{% endblock %}
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <h1>
+            <i class="fas fa-bell"></i>
+            Notifications
+        </h1>
+        <p class="text-muted">
+            Stay updated with your loan activities, payments and important alerts.
+        </p>
+    </div>
+    {% if unread_count %}
+        <form
+            method="post"
+            action="{% url 'mark_all_notifications_read' %}"
+        >
+            {% csrf_token %}
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                <i class="fas fa-check-double"></i>
+                Mark All as Read
+            </button>
+        </form>
+    {% endif %}
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-bell"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">
+                Total Notifications
+            </span>
+            <span class="sc-value">
+                {{ total_notifications }}
+            </span>
+            <small>
+                All your notifications
+            </small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-envelope"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">
+                Unread
+            </span>
+            <span class="sc-value">
+                {{ unread_count }}
+            </span>
+            <small>
+                Notifications pending
+            </small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-credit-card"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">
+                Payment Alerts
+            </span>
+            <span class="sc-value">
+                {{ payment_alerts }}
+            </span>
+            <small>
+                EMI and payment notifications
+            </small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-landmark"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">
+                Loan Updates
+            </span>
+            <span class="sc-value">
+                {{ loan_updates }}
+            </span>
+            <small>
+                Loan related updates
+            </small>
+        </div>
+    </div>
+</div>
+
+<div
+    class="glass-card"
+    style="padding:24px;margin-bottom:24px;"
+>
+    <div style="margin-bottom:20px;">
+        <h3 style="margin:0 0 6px 0;">
+            <i class="fas fa-filter"></i>
+            Filter Notifications
+        </h3>
+        
+        <p class="text-muted" style="margin:0;">
+            Search and filter your notifications.
+        </p>
+    </div>
+    <form
+        method="get"
+        style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;"
+    >
+       <div class="filter-search">
+            <label class="form-label">
+                Search
+            </label>
+            <input
+                type="text"
+                name="search"
+                class="filter-input"
+                value="{{ search }}"
+                placeholder="Search notification or loan..."
+            >
+        </div>
+        <div>
+            <label class="form-label">
+                Notification Type
+            </label>
+            <select
+                name="type"
+                class="form-input"
+            >
+                <option value="">
+                    All
+                </option>
+                {% for value, label in notification_types %}
+                    <option
+                        value="{{ value }}"
+                        {% if selected_type == value %}selected{% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">
+                Status
+            </label>
+            <select
+                name="status"
+                class="form-input"
+            >
+                <option value="">
+                    All
+                </option>
+                <option
+                    value="unread"
+                    {% if selected_status == "unread" %}selected{% endif %}
+                >
+                    Unread
+                </option>
+                <option
+                    value="read"
+                    {% if selected_status == "read" %}selected{% endif %}
+                >
+                    Read
+                </option>
+            </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                <i class="fas fa-filter"></i>
+                Filter
+            </button>
+            <a
+                href="{% url 'notifications_dashboard' %}"
+                class="btn btn-outline"
+            >
+                <i class="fas fa-rotate-left"></i>
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if notifications %}
+    <div
+        class="glass-card"
+        style="padding:24px;margin-bottom:24px;"
+    >
+        <div
+            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;"
+        >
+            <div>
+                <h3 style="margin:0 0 6px 0;">
+                    <i class="fas fa-bell"></i>
+                    Your Notifications
+                </h3>
+                <p
+                    class="text-muted"
+                    style="margin:0;"
+                >
+                    Recent updates and alerts related to your loans.
+                </p>
+            </div>
+            <span class="text-muted">
+                {{ page_obj.paginator.count }}
+                notification{{ page_obj.paginator.count|pluralize }}
+            </span>
+        </div>
+        <div
+            style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;"
+        >
+            {% for notification in notifications %}
+                {% if notification.notification_type == "loan" %}
+                    {% with icon="fa-landmark" icon_bg="#dbeafe" icon_color="#2563eb" %}
+                        <div
+                            style="border:1px solid {% if not notification.is_read %}#bfdbfe{% else %}#e5e7eb{% endif %};border-radius:14px;padding:20px;background:{% if not notification.is_read %}#f8fbff{% else %}rgba(255,255,255,0.4){% endif %};"
+                        >
+                            <div
+                                style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;"
+                            >
+                                <div
+                                    style="display:flex;align-items:center;gap:12px;"
+                                >
+                                    <div
+                                        style="width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:{{ icon_bg }};color:{{ icon_color }};"
+                                    >
+                                        <i class="fas {{ icon }}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="margin:0 0 5px 0;">
+                                            {{ notification.title }}
+                                        </h4>
+                                        {% if not notification.is_read %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-weight:600;"
+                                            >
+                                                UNREAD
+                                            </span>
+                                        {% else %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:600;"
+                                            >
+                                                READ
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <p
+                                style="margin:0 0 14px 0;color:#475569;line-height:1.6;"
+                            >
+                                {{ notification.message }}
+                            </p>
+                            {% if notification.loan %}
+                                <div
+                                    style="display:flex;justify-content:space-between;margin-bottom:10px;"
+                                >
+                                    <span class="text-muted">
+                                        Loan
+                                    </span>
+                                    <strong>
+                                        {{ notification.loan.loan_name }}
+                                    </strong>
+                                </div>
+                            {% endif %}
+                            <div
+                                style="font-size:13px;color:#64748b;margin-bottom:16px;"
+                            >
+                                <i class="far fa-clock"></i>
+                                {{ notification.created_at|date:"d M Y, h:i A" }}
+                            </div>
+                            <div
+                                style="display:flex;gap:8px;flex-wrap:wrap;"
+                            >
+                                {% if notification.loan %}
+                                    <a
+                                        href="{% url 'loan_detail' notification.loan.pk %}"
+                                        class="btn btn-outline btn-sm"
+                                    >
+                                        <i class="fas fa-eye"></i>
+                                        View
+                                    </a>
+                                {% endif %}
+                                {% if not notification.is_read %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'mark_notification_read' notification.id %}"
+                                        style="margin:0;"
+                                    >
+                                        {% csrf_token %}
+                                        <input
+                                            type="hidden"
+                                            name="next"
+                                            value="{{ request.get_full_path }}"
+                                        >
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline btn-sm"
+                                        >
+                                            <i class="fas fa-check"></i>
+                                            Mark as Read
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endwith %}
+                {% elif notification.notification_type == "payment" %}
+                    {% with icon="fa-credit-card" icon_bg="#dcfce7" icon_color="#16a34a" %}
+                        <div
+                            style="border:1px solid {% if not notification.is_read %}#bbf7d0{% else %}#e5e7eb{% endif %};border-radius:14px;padding:20px;background:{% if not notification.is_read %}#f7fff9{% else %}rgba(255,255,255,0.4){% endif %};"
+                        >
+                            <div
+                                style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;"
+                            >
+                                <div
+                                    style="display:flex;align-items:center;gap:12px;"
+                                >
+                                    <div
+                                        style="width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:{{ icon_bg }};color:{{ icon_color }};"
+                                    >
+                                        <i class="fas {{ icon }}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="margin:0 0 5px 0;">
+                                            {{ notification.title }}
+                                        </h4>
+                                        {% if not notification.is_read %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:600;"
+                                            >
+                                                UNREAD
+                                            </span>
+                                        {% else %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:600;"
+                                            >
+                                                READ
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <p
+                                style="margin:0 0 14px 0;color:#475569;line-height:1.6;"
+                            >
+                                {{ notification.message }}
+                            </p>
+                            {% if notification.loan %}
+                                <div
+                                    style="display:flex;justify-content:space-between;margin-bottom:10px;"
+                                >
+                                    <span class="text-muted">
+                                        Loan
+                                    </span>
+                                    <strong>
+                                        {{ notification.loan.loan_name }}
+                                    </strong>
+                                </div>
+                            {% endif %}
+                            <div
+                                style="font-size:13px;color:#64748b;margin-bottom:16px;"
+                            >
+                                <i class="far fa-clock"></i>
+                                {{ notification.created_at|date:"d M Y, h:i A" }}
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                {% if notification.loan %}
+                                    <a
+                                        href="{% url 'loan_detail' notification.loan.pk %}"
+                                        class="btn btn-outline btn-sm"
+                                    >
+                                        <i class="fas fa-eye"></i>
+                                        View
+                                    </a>
+                                {% endif %}
+                                {% if not notification.is_read %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'mark_notification_read' notification.id %}"
+                                        style="margin:0;"
+                                    >
+                                        {% csrf_token %}
+                                        <input
+                                            type="hidden"
+                                            name="next"
+                                            value="{{ request.get_full_path }}"
+                                        >
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline btn-sm"
+                                        >
+                                            <i class="fas fa-check"></i>
+                                            Mark as Read
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endwith %}
+                {% elif notification.notification_type == "document" %}
+                    {% with icon="fa-file-lines" icon_bg="#f3e8ff" icon_color="#9333ea" %}
+                        <div
+                            style="border:1px solid {% if not notification.is_read %}#e9d5ff{% else %}#e5e7eb{% endif %};border-radius:14px;padding:20px;background:{% if not notification.is_read %}#fcfaff{% else %}rgba(255,255,255,0.4){% endif %};"
+                        >
+                            <div
+                                style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;"
+                            >
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <div
+                                        style="width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:{{ icon_bg }};color:{{ icon_color }};"
+                                    >
+                                        <i class="fas {{ icon }}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="margin:0 0 5px 0;">
+                                            {{ notification.title }}
+                                        </h4>
+                                        {% if not notification.is_read %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#f3e8ff;color:#7e22ce;font-weight:600;"
+                                            >
+                                                UNREAD
+                                            </span>
+                                        {% else %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:600;"
+                                            >
+                                                READ
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <p style="margin:0 0 14px 0;color:#475569;line-height:1.6;">
+                                {{ notification.message }}
+                            </p>
+                            {% if notification.loan %}
+                                <div
+                                    style="display:flex;justify-content:space-between;margin-bottom:10px;"
+                                >
+                                    <span class="text-muted">
+                                        Loan
+                                    </span>
+                                    <strong>
+                                        {{ notification.loan.loan_name }}
+                                    </strong>
+                                </div>
+                            {% endif %}
+                            <div
+                                style="font-size:13px;color:#64748b;margin-bottom:16px;"
+                            >
+                                <i class="far fa-clock"></i>
+                                {{ notification.created_at|date:"d M Y, h:i A" }}
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                {% if notification.loan %}
+                                    <a
+                                        href="{% url 'loan_detail' notification.loan.pk %}"
+                                        class="btn btn-outline btn-sm"
+                                    >
+                                        <i class="fas fa-eye"></i>
+                                        View
+                                    </a>
+                                {% endif %}
+                                {% if not notification.is_read %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'mark_notification_read' notification.id %}"
+                                        style="margin:0;"
+                                    >
+                                        {% csrf_token %}
+                                        <input
+                                            type="hidden"
+                                            name="next"
+                                            value="{{ request.get_full_path }}"
+                                        >
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline btn-sm"
+                                        >
+                                            <i class="fas fa-check"></i>
+                                            Mark as Read
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endwith %}
+                {% elif notification.notification_type == "reminder" %}
+                    {% with icon="fa-clock" icon_bg="#ffedd5" icon_color="#ea580c" %}
+                        <div
+                            style="border:1px solid {% if not notification.is_read %}#fed7aa{% else %}#e5e7eb{% endif %};border-radius:14px;padding:20px;background:{% if not notification.is_read %}#fffaf5{% else %}rgba(255,255,255,0.4){% endif %};"
+                        >
+                            <div
+                                style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;"
+                            >
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <div
+                                        style="width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:{{ icon_bg }};color:{{ icon_color }};"
+                                    >
+                                        <i class="fas {{ icon }}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="margin:0 0 5px 0;">
+                                            {{ notification.title }}
+                                        </h4>
+                                        {% if not notification.is_read %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#ffedd5;color:#c2410c;font-weight:600;"
+                                            >
+                                                UNREAD
+                                            </span>
+                                        {% else %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:600;"
+                                            >
+                                                READ
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <p style="margin:0 0 14px 0;color:#475569;line-height:1.6;">
+                                {{ notification.message }}
+                            </p>
+                            {% if notification.loan %}
+                                <div
+                                    style="display:flex;justify-content:space-between;margin-bottom:10px;"
+                                >
+                                    <span class="text-muted">
+                                        Loan
+                                    </span>
+                                    <strong>
+                                        {{ notification.loan.loan_name }}
+                                    </strong>
+                                </div>
+                            {% endif %}
+                            <div
+                                style="font-size:13px;color:#64748b;margin-bottom:16px;"
+                            >
+                                <i class="far fa-clock"></i>
+                                {{ notification.created_at|date:"d M Y, h:i A" }}
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                {% if notification.loan %}
+                                    <a
+                                        href="{% url 'loan_detail' notification.loan.pk %}"
+                                        class="btn btn-outline btn-sm"
+                                    >
+                                        <i class="fas fa-eye"></i>
+                                        View
+                                    </a>
+                                {% endif %}
+                                {% if not notification.is_read %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'mark_notification_read' notification.id %}"
+                                        style="margin:0;"
+                                    >
+                                        {% csrf_token %}
+                                        <input
+                                            type="hidden"
+                                            name="next"
+                                            value="{{ request.get_full_path }}"
+                                        >
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline btn-sm"
+                                        >
+                                            <i class="fas fa-check"></i>
+                                            Mark as Read
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endwith %}
+                {% else %}
+                    {% with icon="fa-gear" icon_bg="#f1f5f9" icon_color="#64748b" %}
+                        <div
+                            style="border:1px solid {% if not notification.is_read %}#cbd5e1{% else %}#e5e7eb{% endif %};border-radius:14px;padding:20px;background:{% if not notification.is_read %}#fafafa{% else %}rgba(255,255,255,0.4){% endif %};"
+                        >
+                            <div
+                                style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;"
+                            >
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <div
+                                        style="width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:{{ icon_bg }};color:{{ icon_color }};"
+                                    >
+                                        <i class="fas {{ icon }}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="margin:0 0 5px 0;">
+                                            {{ notification.title }}
+                                        </h4>
+                                        {% if not notification.is_read %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#e2e8f0;color:#475569;font-weight:600;"
+                                            >
+                                                UNREAD
+                                            </span>
+                                        {% else %}
+                                            <span
+                                                style="font-size:11px;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:600;"
+                                            >
+                                                READ
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <p style="margin:0 0 14px 0;color:#475569;line-height:1.6;">
+                                {{ notification.message }}
+                            </p>
+                            {% if notification.loan %}
+                                <div
+                                    style="display:flex;justify-content:space-between;margin-bottom:10px;"
+                                >
+                                    <span class="text-muted">
+                                        Loan
+                                    </span>
+                                    <strong>
+                                        {{ notification.loan.loan_name }}
+                                    </strong>
+                                </div>
+                            {% endif %}
+                            <div
+                                style="font-size:13px;color:#64748b;margin-bottom:16px;"
+                            >
+                                <i class="far fa-clock"></i>
+                                {{ notification.created_at|date:"d M Y, h:i A" }}
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                {% if notification.loan %}
+                                    <a
+                                        href="{% url 'loan_detail' notification.loan.pk %}"
+                                        class="btn btn-outline btn-sm"
+                                    >
+                                        <i class="fas fa-eye"></i>
+                                        View
+                                    </a>
+                                {% endif %}
+                                {% if not notification.is_read %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'mark_notification_read' notification.id %}"
+                                        style="margin:0;"
+                                    >
+                                        {% csrf_token %}
+                                        <input
+                                            type="hidden"
+                                            name="next"
+                                            value="{{ request.get_full_path }}"
+                                        >
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline btn-sm"
+                                        >
+                                            <i class="fas fa-check"></i>
+                                            Mark as Read
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endwith %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% if page_obj.has_other_pages %}
+            <div
+                style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:24px;"
+            >
+                {% if page_obj.has_previous %}
+                    <a
+                        href="?page={{ page_obj.previous_page_number }}&search={{ search }}&type={{ selected_type }}&status={{ selected_status }}"
+                        class="btn btn-outline btn-sm"
+                    >
+                        <i class="fas fa-chevron-left"></i>
+                        Previous
+                    </a>
+                {% endif %}
+                <span class="text-muted">
+                    Page {{ page_obj.number }}
+                    of {{ page_obj.paginator.num_pages }}
+                </span>
+                {% if page_obj.has_next %}
+                    <a
+                        href="?page={{ page_obj.next_page_number }}&search={{ search }}&type={{ selected_type }}&status={{ selected_status }}"
+                        class="btn btn-outline btn-sm"
+                    >
+                        Next
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+{% else %}
+    <div
+        class="glass-card"
+        style="padding:60px 24px;text-align:center;margin-bottom:24px;"
+    >
+        <div class="empty-icon">
+            <i class="fas fa-bell"></i>
+        </div>
+        <h3 style="margin:16px 0 8px 0;">
+            No Notifications Found
+        </h3>
+        <p
+            class="text-muted"
+            style="max-width:500px;margin:0 auto 20px auto;"
+        >
+            {% if search or selected_type or selected_status %}
+                No notifications match your current filters.
+                Try changing the filters to see more notifications.
+            {% else %}
+                You are all caught up.
+            {% endif %}
+        </p>
+        {% if search or selected_type or selected_status %}
+            <a
+                href="{% url 'notifications_dashboard' %}"
+                class="btn btn-outline"
+            >
+                <i class="fas fa-rotate-left"></i>
+                Clear Filters
+            </a>
+        {% else %}
+            <a
+                href="{% url 'dashboard' %}"
+                class="btn btn-primary"
+            >
+                <i class="fas fa-home"></i>
+                Back to Dashboard
+            </a>
+        {% endif %}
+    </div>
+{% endif %}
+
+<style>
+    @media (max-width: 900px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 16px;
+        }
+        .page-header form {
+            width: 100%;
+        }
+        .page-header form button {
+            width: 100%;
+        }
+        .summary-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+        }
+    }
+    @media (max-width: 700px) {
+        .summary-grid {
+            grid-template-columns: 1fr !important;
+        }
+        .glass-card form[method="get"] {
+            grid-template-columns: 1fr !important;
+        }
+        .glass-card form[method="get"] > div {
+            width: 100%;
+        }
+        .glass-card form[method="get"] .btn {
+            flex: 1;
+        }
+        .glass-card > div[style*="repeat(auto-fit,minmax(340px"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+{% endblock %}
