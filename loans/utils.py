@@ -8,7 +8,8 @@ import math
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal, getcontext
 
-from django.db.models import Sum
+from django.db.models import Avg, Sum
+from django.utils import timezone
 
 getcontext().prec = 50
 
@@ -504,3 +505,34 @@ def create_notification(user, title, message, notification_type="system", loan=N
         message=message,
         notification_type=notification_type,
     )
+
+
+def get_support_ticket_summary(user):
+
+    from loans.models import SupportTicket
+
+    tickets = SupportTicket.objects.filter(user=user)
+    total = tickets.count()
+    open_count = tickets.filter(status__in=["open", "in_progress"]).count()
+    resolved_count = tickets.filter(status__in=["resolved", "closed"]).count()
+    response_times = []
+    for ticket in tickets:
+        if ticket.last_response_at:
+            response_time = (
+                ticket.last_response_at - ticket.created_at
+            ).total_seconds() / 3600
+            response_times.append(response_time)
+    if response_times:
+        average_hours = sum(response_times) / len(response_times)
+        if average_hours < 1:
+            avg_response_time = f"{round(average_hours * 60)} Minutes"
+        else:
+            avg_response_time = f"{round(average_hours, 1)} Hours"
+    else:
+        avg_response_time = "—"
+    return {
+        "total": total,
+        "open": open_count,
+        "resolved": resolved_count,
+        "avg_response_time": avg_response_time,
+    }

@@ -29,6 +29,7 @@ from loans.forms import (
     LoanDocumentForm,
     LoanForm,
     LoanNoteForm,
+    SupportTicketForm,
 )
 from loans.models import (
     Loan,
@@ -37,6 +38,7 @@ from loans.models import (
     LoanDocument,
     LoanNote,
     Notification,
+    SupportTicket,
 )
 from loans.services import AccruedInterestService
 from loans.utils import (
@@ -47,6 +49,7 @@ from loans.utils import (
     create_notification,
     generate_full_schedule,
     generate_projected_schedule,
+    get_support_ticket_summary,
     simulate_extra_emi,
 )
 
@@ -1178,3 +1181,137 @@ def mark_all_notifications_read(request):
         ).update(is_read=True)
 
     return redirect("notifications_dashboard")
+
+
+@login_required
+def support_dashboard(request):
+    tickets = (
+        SupportTicket.objects.filter(user=request.user)
+        .select_related("loan")
+        .order_by("-created_at")
+    )
+    search = request.GET.get("search", "").strip()
+    status = request.GET.get("status", "").strip()
+    category = request.GET.get("category", "").strip()
+    if search:
+        tickets = tickets.filter(
+            Q(ticket_number__icontains=search)
+            | Q(subject__icontains=search)
+            | Q(message__icontains=search)
+        )
+    if status:
+        tickets = tickets.filter(status=status)
+    if category:
+        tickets = tickets.filter(category=category)
+    paginator = Paginator(tickets, 10)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    summary = get_support_ticket_summary(request.user)
+    context = {
+        "page_title": "Support Center",
+        "tickets": page_obj.object_list,
+        "page_obj": page_obj,
+        "summary": summary,
+        "search": search,
+        "selected_status": status,
+        "selected_category": category,
+        "status_choices": SupportTicket.STATUS_CHOICES,
+        "category_choices": SupportTicket.CATEGORY_CHOICES,
+    }
+    return render(
+        request,
+        "loans/support_dashboard.html",
+        context,
+    )
+
+
+@login_required
+def create_support_ticket(request):
+    if request.method == "POST":
+        form = SupportTicketForm(
+            request.POST,
+            request.FILES,
+            user=request.user,
+        )
+        if form.is_valid():
+            ticket = form.save(commit=False)
+            ticket.user = request.user
+            ticket.save()
+            SupportMessage.objects.create(
+                ticket=ticket,
+                user=request.user,
+                message=ticket.message,
+                attachment=ticket.attachment,
+                is_staff_reply=False,
+            )
+            create_notification(
+                request.user,
+                "Support Ticket Created",
+                f"Your support ticket #{ticket.ticket_number} has been created.",
+                "system",
+                ticket.loan,
+            )
+            return redirect(
+                "support_ticket_detail",
+                ticket_id=ticket.id,
+            )
+    else:
+        form = SupportTicketForm(user=request.user)
+    return render(
+        request,
+        "loans/support_create_ticket.html",
+        {
+            "page_title": "Create Support Ticket",
+            "form": form,
+        },
+    )
+
+
+@login_required
+def support_ticket_detail(request, ticket_id):
+    ticket = get_object_or_404(
+        SupportTicket.objects.select_related("loan"),
+        id=ticket_id,
+        user=request.user,
+    )
+    if request.method == "POST":
+        if ticket.status in ["resolved", "closed"]:
+            return redirect(
+                "support_ticket_detail",
+                ticket_id=ticket.id,
+            )
+        form = SupportReplyForm(
+            request.POST,
+            request.FILES,
+        )
+        if form.is_valid():
+            reply = form.save(commit=False)
+            reply.ticket = ticket
+            reply.user = request.user
+            reply.is_staff_reply = False
+            reply.save()
+            ticket.status = "open"
+            ticket.last_response_at = timezone.now()
+            ticket.save(
+                update_fields=[
+                    "status",
+                    "last_response_at",
+                    "updated_at",
+                ]
+            )
+            return redirect(
+                "support_ticket_detail",
+                ticket_id=ticket.id,
+            )
+    else:
+        form = SupportReplyForm()
+    messages = ticket.messages.select_related("user").all()
+    return render(
+        request,
+        "loans/support_ticket_detail.html",
+        {
+            "page_title": f"Ticket {ticket.ticket_number}",
+            "ticket": ticket,
+            "ticket_messages": messages,
+            "form": form,
+        },
+    )

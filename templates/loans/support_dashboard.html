@@ -1,0 +1,137 @@
+{% extends 'app_layout.html' %}
+{% load %}
+{% load static %}
+{% block title %}Support — NexusLoan{% endblock %}
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <h1>Support Center</h1>
+        <p class="text-muted">Get help with your loans, payments and account related queries.</p>
+    </div>
+    <a href="{% url 'create_support_ticket' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Create New Ticket
+    </a>
+</div>
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-ticket"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Tickets</span>
+            <span class="sc-value">{{ summary.total }}</span>
+            <small>Total support requests</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Open Tickets</span>
+            <span class="sc-value">{{ summary.open }}</span>
+            <small>Pending support requests</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-circle-check"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Resolved Tickets</span>
+            <span class="sc-value">{{ summary.resolved }}</span>
+            <small>Completed support requests</small>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-stopwatch"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Avg Response Time</span>
+            <span class="sc-value">{{ summary.avg_response_time }}</span>
+            <small>Based on support responses</small>
+        </div>
+    </div>
+</div>
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:15px;flex-wrap:wrap;">
+        <div>
+            <h3 style="margin:0 0 5px;">My Support Tickets</h3>
+            <p class="text-muted" style="margin:0;">Track your support requests and their current status.</p>
+        </div>
+        <a href="{% url 'create_support_ticket' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Ticket
+        </a>
+    </div>
+    <form method="get" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;margin-bottom:24px;">
+        <input type="text" name="search" class="filter-input" value="{{ search }}" placeholder="Search ticket...">
+        <select name="status" class="filter-input">
+            <option value="">All Status</option>
+            {% for value,label in status_choices %}
+                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="category" class="filter-input">
+            <option value="">All Categories</option>
+            {% for value,label in category_choices %}
+                <option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline">
+            <i class="fas fa-filter"></i> Filter
+        </button>
+    </form>
+    {% if tickets %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;">
+            {% for ticket in tickets %}
+                <div style="border:1px solid #e5e7eb;border-radius:14px;padding:20px;background:rgba(255,255,255,.5);">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;">
+                        <div>
+                            <div style="font-size:13px;color:#64748b;margin-bottom:5px;">#{{ ticket.ticket_number }}</div>
+                            <h3 style="margin:0;font-size:18px;">{{ ticket.subject }}</h3>
+                        </div>
+                        {% if ticket.status == "open" %}
+                            <span style="padding:5px 10px;border-radius:20px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:600;">Pending</span>
+                        {% elif ticket.status == "in_progress" %}
+                            <span style="padding:5px 10px;border-radius:20px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:600;">Working</span>
+                        {% elif ticket.status == "resolved" %}
+                            <span style="padding:5px 10px;border-radius:20px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;">Solved</span>
+                        {% else %}
+                            <span style="padding:5px 10px;border-radius:20px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600;">Closed</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size:13px;color:#64748b;margin-bottom:10px;">{{ ticket.get_category_display }} · {{ ticket.get_priority_display }} Priority</div>
+                    <p style="margin:0 0 15px;color:#475569;line-height:1.6;">{{ ticket.message|truncatechars:120 }}</p>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                        <small style="color:#64748b;">{{ ticket.created_at|date:"d M Y, h:i A" }}</small>
+                        <a href="{% url 'support_ticket_detail' ticket.id %}" class="btn btn-outline btn-sm">View Details</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        {% if page_obj.has_other_pages %}
+            <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:24px;">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ selected_status }}&category={{ selected_category }}" class="btn btn-outline btn-sm">Previous</a>
+                {% endif %}
+                <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ selected_status }}&category={{ selected_category }}" class="btn btn-outline btn-sm">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="empty-card" style="padding:50px 20px;text-align:center;">
+            <div class="empty-icon">
+                <i class="fas fa-headset"></i>
+            </div>
+            <h4>No Support Tickets</h4>
+            <p>Need help? Create your first support request.</p>
+            <a href="{% url 'create_support_ticket' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create Ticket
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -7,7 +7,14 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from loans.models import Loan, LoanDisbursement, LoanDocument, LoanNote
+from loans.models import (
+    Loan,
+    LoanDisbursement,
+    LoanDocument,
+    LoanNote,
+    SupportMessage,
+    SupportTicket,
+)
 
 
 class LoanForm(forms.ModelForm):
@@ -287,3 +294,96 @@ class LoanDocumentForm(forms.ModelForm):
         if file.content_type not in allowed_content_types:
             raise ValidationError("Invalid file type.")
         return file
+
+
+class SupportTicketForm(forms.ModelForm):
+    class Meta:
+        model = SupportTicket
+        fields = ["loan", "category", "subject", "message", "attachment"]
+        widgets = {
+            "loan": forms.Select(attrs={"class": "form-input"}),
+            "category": forms.Select(attrs={"class": "form-input"}),
+            "subject": forms.TextInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "Enter your issue title",
+                }
+            ),
+            "message": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 6,
+                    "placeholder": "Describe your problem...",
+                }
+            ),
+            "attachment": forms.FileInput(attrs={"class": "form-input"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        if self.user:
+            self.fields["loan"].queryset = Loan.objects.filter(user=self.user).order_by(
+                "loan_name"
+            )
+            self.fields["loan"].required = False
+        self.fields["loan"].empty_label = "General / No Specific Loan"
+
+    def clean_attachment(self):
+        attachment = self.cleaned_data.get("attachment")
+        if not attachment:
+            return attachment
+        max_size = 10 * 1024 * 1024
+        if attachment.size > max_size:
+            raise ValidationError("Maximum attachment size is 10MB.")
+        allowed_extensions = {
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".doc",
+            ".docx",
+        }
+        import os
+
+        extension = os.path.splitext(attachment.name)[1].lower()
+        if extension not in allowed_extensions:
+            raise ValidationError("Allowed files: PDF, JPG, JPEG, PNG, DOC and DOCX.")
+        return attachment
+
+
+class SupportReplyForm(forms.ModelForm):
+    class Meta:
+        model = SupportMessage
+        fields = ["message", "attachment"]
+        widgets = {
+            "message": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 4,
+                    "placeholder": "Type your reply...",
+                }
+            ),
+            "attachment": forms.FileInput(attrs={"class": "form-input"}),
+        }
+
+    def clean_attachment(self):
+        attachment = self.cleaned_data.get("attachment")
+        if not attachment:
+            return attachment
+        if attachment.size > 10 * 1024 * 1024:
+            raise ValidationError("Maximum attachment size is 10MB.")
+        import os
+
+        allowed_extensions = {
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".doc",
+            ".docx",
+        }
+        extension = os.path.splitext(attachment.name)[1].lower()
+        if extension not in allowed_extensions:
+            raise ValidationError("Allowed files: PDF, JPG, JPEG, PNG, DOC and DOCX.")
+        return attachment

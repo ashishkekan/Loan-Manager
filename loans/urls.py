@@ -16,6 +16,7 @@ from loans.views import (
     LoanUpdateView,
     add_note,
     close_loan,
+    create_support_ticket,
     delete_document,
     delete_note,
     documents_dashboard,
@@ -24,6 +25,8 @@ from loans.views import (
     mark_all_notifications_read,
     mark_notification_read,
     notifications_dashboard,
+    support_dashboard,
+    support_ticket_detail,
     upload_document,
     view_document,
 )
@@ -97,5 +100,12 @@ urlpatterns = [
         "mark-all-read/",
         mark_all_notifications_read,
         name="mark_all_notifications_read",
+    ),
+    path("support/", support_dashboard, name="support_dashboard"),
+    path("support/create/", create_support_ticket, name="create_support_ticket"),
+    path(
+        "support/ticket/<int:ticket_id>/",
+        support_ticket_detail,
+        name="support_ticket_detail",
     ),
 ]

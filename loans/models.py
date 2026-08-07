@@ -653,3 +653,103 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.user}"
+
+
+class SupportTicket(models.Model):
+    CATEGORY_CHOICES = [
+        ("loan", "Loan Issue"),
+        ("payment", "Payment Issue"),
+        ("document", "Document Issue"),
+        ("account", "Account Issue"),
+        ("technical", "Technical Issue"),
+        ("other", "Other"),
+    ]
+    STATUS_CHOICES = [
+        ("open", "Open"),
+        ("in_progress", "In Progress"),
+        ("resolved", "Resolved"),
+        ("closed", "Closed"),
+    ]
+    PRIORITY_CHOICES = [
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
+        ("urgent", "Urgent"),
+    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="support_tickets",
+    )
+    loan = models.ForeignKey(
+        "Loan",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="support_tickets",
+    )
+    ticket_number = models.CharField(max_length=30, unique=True, editable=False)
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    attachment = models.FileField(
+        upload_to="support_tickets/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default="medium",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    last_response_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["ticket_number"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.ticket_number:
+            super().save(*args, **kwargs)
+            self.ticket_number = f"TKT-{self.pk:04d}"
+            super().save(update_fields=["ticket_number"])
+            return
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"#{self.ticket_number} - {self.subject}"
+
+
+class SupportMessage(models.Model):
+    ticket = models.ForeignKey(
+        SupportTicket,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="support_messages",
+    )
+    message = models.TextField()
+    attachment = models.FileField(
+        upload_to="support_messages/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    is_staff_reply = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.ticket.ticket_number} - {self.user}"

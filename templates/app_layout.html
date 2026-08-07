@@ -45,7 +45,7 @@
                     <span>Documents</span>
                 </a>
                 <li>
-                    <a href="{% url 'notifications_dashboard' %}" class="nav-item">
+                    <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
                         <i class="fas fa-bell"></i>
                         <span>Notifications</span>
                         {% if unread_notification_count %}
@@ -55,7 +55,7 @@
                         {% endif %}
                     </a>
                 </li>
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <a href="{% url 'support_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'support_dashboard' %}active{% endif %}">
                     <i class="fas fa-headset"></i>
                     <span>Support</span>
                 </a>
