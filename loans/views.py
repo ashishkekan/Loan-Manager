@@ -1545,23 +1545,11 @@ def settings_dashboard(request):
     settings_data = ensure_user_settings(request.user)
     statistics = get_account_statistics(request.user)
     context = {
-        "page_title": "Settings",
         "profile_form": SettingsProfileForm(instance=settings_data["profile"]),
         "password_form": SettingsPasswordForm(request.user),
-        "notification_form": NotificationPreferenceForm(
-            instance=settings_data["notification_preferences"]
-        ),
-        "appearance_form": AppearancePreferenceForm(
-            instance=settings_data["appearance_preferences"]
-        ),
-        "privacy_form": PrivacySettingForm(instance=settings_data["privacy_settings"]),
-        "bank_form": BankAccountForm(),
         "bank_accounts": BankAccount.objects.filter(user=request.user).order_by(
             "-is_default", "-created_at"
         ),
-        "theme_choices": AppearancePreference.THEME_CHOICES,
-        "language_choices": AppearancePreference.LANGUAGE_CHOICES,
-        "date_format_choices": AppearancePreference.DATE_FORMAT_CHOICES,
         **settings_data,
         **statistics,
     }
@@ -1584,7 +1572,7 @@ def add_bank_account(request):
 
             messages.success(request, "Bank account added successfully.")
 
-            return redirect("settings")
+            return redirect("settings_dashboard")
     else:
         form = BankAccountForm()
 
@@ -1631,21 +1619,6 @@ def edit_bank_account(request, pk):
             "bank_account": bank_account,
         },
     )
-
-
-@login_required
-def settings_dashboard(request):
-    settings_data = ensure_user_settings(request.user)
-    statistics = get_account_statistics(request.user)
-    context = {
-        "page_title": "Settings",
-        **settings_data,
-        **statistics,
-        "bank_accounts": BankAccount.objects.filter(user=request.user).order_by(
-            "-is_default", "-created_at"
-        ),
-    }
-    return render(request, "loans/settings.html", context)
 
 
 @login_required
