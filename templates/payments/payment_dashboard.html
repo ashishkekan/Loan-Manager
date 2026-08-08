@@ -85,7 +85,7 @@
         <div class="sc-info">
             <span class="sc-label">Total Paid</span>
             <span class="sc-value">₹{{ total_paid|floatformat:0 }}</span>
-            <small>{{ paid_emis }} EMI{{ paid_emis }} Paid</small>
+            <span class="sc-sub">{{ paid_emis }} EMI{{ paid_emis }} Paid</span>
         </div>
     </div>
     <div class="summary-card glass-card">
@@ -93,7 +93,7 @@
         <div class="sc-info">
             <span class="sc-label">Pending EMIs</span>
             <span class="sc-value">{{ pending_emis }}</span>
-            <small>₹{{ pending_amount|floatformat:0 }} Outstanding</small>
+            <span class="sc-sub">₹{{ pending_amount|floatformat:0 }} Outstanding</span>
         </div>
     </div>
     <div class="summary-card glass-card">
@@ -101,7 +101,7 @@
         <div class="sc-info">
             <span class="sc-label">Overdue</span>
             <span class="sc-value">{{ overdue_emis }}</span>
-            <small>₹{{ overdue_amount|floatformat:0 }} Due</small>
+            <span class="sc-sub">₹{{ overdue_amount|floatformat:0 }} Due</span>
         </div>
     </div>
     <div class="summary-card glass-card">
@@ -110,10 +110,10 @@
             <span class="sc-label">Auto Debit</span>
             {% if auto_debit_enabled %}
                 <h4 class="text-success">Enabled</h4>
-                <small>Next debit on {{ next_auto_debit|date:"d M Y" }}</small>
+                <span class="sc-sub">Next debit on {{ next_auto_debit|date:"d M Y" }}</span>
             {% else %}
                 <h4 class="text-danger">Disabled</h4>
-                <small>Manual Payments</small>
+                <span class="sc-sub">Manual Payments</span>
             {% endif %}
         </div>
     </div>
@@ -127,7 +127,7 @@
     </div>
     <a href="{% url 'download_statement' %}" class="btn btn-primary">
         <i class="fas fa-file-pdf"></i>
-        Download Statement
+        Download
     </a>
 </div>
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">

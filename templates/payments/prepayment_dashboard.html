@@ -53,9 +53,9 @@
             <span class="sc-value">
                 ₹{{ total_prepaid_amount|floatformat:0 }}
             </span>
-            <small>
+            <span class="sc-sub">
                 Total extra principal paid
-            </small>
+            </span>
         </div>
     </div>
 
@@ -68,9 +68,9 @@
             <span class="sc-value">
                 ₹{{ total_interest_saved|floatformat:0 }}
             </span>
-            <small>
+            <span class="sc-sub">
                 Estimated future interest saved
-            </small>
+            </span>
         </div>
     </div>
 
@@ -83,9 +83,9 @@
             <span class="sc-value">
                 {{ loans_benefited }}
             </span>
-            <small>
+            <span class="sc-sub">
                 Loan{{ loans_benefited|pluralize }} with prepayments
-            </small>
+            </span>
         </div>
     </div>
 
@@ -98,9 +98,9 @@
             <span class="sc-value">
                 {{ total_tenure_reduced }}
             </span>
-            <small>
+            <span class="sc-sub">
                 Month{{ total_tenure_reduced|pluralize }} saved
-            </small>
+            </span>
         </div>
     </div>
 </div>
@@ -213,7 +213,7 @@
             <div class="sc-info">
                 <span class="sc-label">Principal Prepaid</span>
                 <span class="sc-value">₹{{ total_prepaid_amount|floatformat:0 }}</span>
-                <small>Extra amount paid towards loan principal</small>
+                <span class="sc-sub">Extra amount paid towards loan principal</span>
             </div>
         </div>
         <div class="summary-card glass-card">
@@ -223,7 +223,7 @@
             <div class="sc-info">
                 <span class="sc-label">Interest Saved</span>
                 <span class="sc-value text-success">₹{{ total_interest_saved|floatformat:0 }}</span>
-                <small>Estimated future interest avoided</small>
+                <span class="sc-sub">Estimated future interest avoided</span>
             </div>
         </div>
         <div class="summary-card glass-card">
@@ -233,7 +233,7 @@
             <div class="sc-info">
                 <span class="sc-label">Tenure Reduced</span>
                 <span class="sc-value">{{ total_tenure_reduced }}</span>
-                <small>Months saved from loan tenure</small>
+                <span class="sc-sub">Months saved from loan tenure</span>
             </div>
         </div>
         <div class="summary-card glass-card">
@@ -243,7 +243,7 @@
             <div class="sc-info">
                 <span class="sc-label">Loans Benefited</span>
                 <span class="sc-value">{{ loans_benefited }}</span>
-                <small>Loans impacted by prepayment</small>
+                <span class="sc-sub">Loans impacted by prepayment</span>
             </div>
         </div>
     </div>
