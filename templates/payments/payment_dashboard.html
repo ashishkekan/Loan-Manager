@@ -179,9 +179,9 @@
                     <tr>
                         <td>{{ upcoming_emi.loan.loan_name }}</td>
                         <td>{{ upcoming_emi.due_date|date:"d M Y" }}</td>
-                        <td>₹{{ upcoming_emi.regular_emi_amount|floatformat:0 }}</td>
+                        <td>₹{{ upcoming_emi.regular_emi|floatformat:0 }}</td>
                         <td>₹{{ upcoming_emi.additional_interest|floatformat:0 }}</td>
-                        <td>₹{{ upcoming_emi.total_debit_amount|floatformat:0 }}</td>
+                        <td>₹{{ upcoming_emi.total_debit|floatformat:0 }}</td>
                         <td>Pending</td>
                     </tr>
                 </tbody>
@@ -204,7 +204,7 @@
                 </div>
             {% else %}
                 <div class="action-left">
-                    <a href="{% url 'payment_create' upcoming_emi.loan.pk %}" class="btn btn-primary">
+                    <a href="{% url 'pay_emi' upcoming_emi.loan.pk %}" class="btn btn-primary">
                         <i class="fas fa-credit-card"></i>
                         Pay Now
                     </a>
@@ -257,9 +257,9 @@
                     <tr>
                         <td>{{ overdue_emi.loan.loan_name }}</td>
                         <td>{{ overdue_emi.due_date|date:"d M Y" }}</td>
-                        <td>₹{{ overdue_emi.regular_emi_amount|floatformat:0 }}</td>
+                        <td>₹{{ overdue_emi.regular_emi|floatformat:0 }}</td>
                         <td class="text-danger">₹{{ overdue_emi.additional_interest|floatformat:0 }}</td>
-                        <td class="text-danger">₹{{ overdue_emi.total_debit_amount|floatformat:0 }}</td>
+                        <td class="text-danger">₹{{ overdue_emi.total_debit|floatformat:0 }}</td>
                         <td>
                             <span class="status-badge status-overdue">
                                 <i class="fas fa-circle-exclamation"></i> Overdue
@@ -270,7 +270,7 @@
             </table>
         </div>
         <div class="payment-actions">
-            <a href="{% url 'payment_create' overdue_emi.loan.pk %}" class="btn btn-danger">
+            <a href="{% url 'pay_emi' overdue_emi.loan.pk %}" class="btn btn-danger">
                 <i class="fas fa-credit-card"></i> Pay Now
             </a>
             <span class="helper-text">Pay immediately to stop additional interest accumulation.</span>
@@ -309,7 +309,7 @@
             <tbody>
                 {% for loan in loan_payment_summary %}
                     <tr>
-                        <td>{{ loan.loan_name }}</td>
+                        <td>{{ loan.loan.loan_name }}</td>
                         <td>{{ loan.paid_count }}</td>
                         <td>{{ loan.pending_count }}</td>
                         <td>{{ loan.overdue_count }}</td>
@@ -518,7 +518,7 @@
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 {% if payment.status != "paid" %}
-                                    <a href="{% url 'payment_create' payment.loan.pk %}" class="icon-btn success" title="Pay Now">
+                                    <a href="{% url 'pay_emi' payment.loan.pk %}" class="icon-btn success" title="Pay Now">
                                         <i class="fas fa-credit-card"></i>
                                     </a>
                                 {% endif %}

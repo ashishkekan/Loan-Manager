@@ -435,27 +435,30 @@ def payment_dashboard(request):
         "page_title": "Payments",
         "loans": loans,
         "payments": payments,
+        "total_paid": summary["total_paid"],
+        "paid_emis": summary["total_paid_count"],
+        "pending_emis": summary["pending_count"],
+        "overdue_emis": summary["overdue_count"],
         "summary": summary,
+        "pending_amount": pending_amount,
+        "overdue_amount": overdue_amount,
         "upcoming_emi": upcoming_emi,
         "overdue_emi": overdue_emi,
         "overdue_days": overdue_days,
         "late_interest": late_interest,
         "total_payable": total_payable,
-        "pending_amount": pending_amount,
-        "overdue_amount": overdue_amount,
         "recent_payments": recent_payments,
-        "stats": {
-            "paid": summary["total_paid_count"],
-            "pending": summary["pending_count"],
-            "overdue": summary["overdue_count"],
-        },
         "loan_payment_summary": loan_payment_summary,
         "analytics": analytics,
         "auto_debit_count": auto_debit_count,
         "auto_debit_enabled": auto_debit_enabled,
         "next_auto_debit": next_auto_debit,
+        "stats": {
+            "paid": summary["total_paid_count"],
+            "pending": summary["pending_count"],
+            "overdue": summary["overdue_count"],
+        },
     }
-
     return render(request, "payments/payment_dashboard.html", context)
 
 

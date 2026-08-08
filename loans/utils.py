@@ -564,7 +564,10 @@ def ensure_user_settings(user):
 
 
 def get_account_statistics(user):
-    from .models import Loan
+    from loans.models import Loan
+    from payments.models import Payment
+
+    from .models import SupportTicket
 
     loans = Loan.objects.filter(user=user)
     total_loans = loans.count()
@@ -572,19 +575,13 @@ def get_account_statistics(user):
     closed_loans = loans.filter(status="closed").count()
     total_paid = 0
     total_interest_paid = 0
-    try:
-        from payments.models import Payment
 
-        payments = Payment.objects.filter(loan__user=user, status="paid")
-        total_paid = payments.aggregate(total=models.Sum("amount"))["total"] or 0
-        total_interest_paid = (
-            payments.aggregate(total=models.Sum("interest_amount"))["total"] or 0
-        )
-    except Exception:
-        pass
+    payments = Payment.objects.filter(loan__user=user, status="paid")
+    total_paid = payments.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    total_interest_paid = payments.aggregate(total=Sum("interest_component"))[
+        "total"
+    ] or Decimal("0.00")
     try:
-        from .models import SupportTicket
-
         total_support_tickets = SupportTicket.objects.filter(user=user).count()
     except Exception:
         total_support_tickets = 0
