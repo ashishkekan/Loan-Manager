@@ -15,10 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from loans.services import AccruedInterestService
-from loans.utils import (
-    add_periods,
-    get_period_details,
-)
+from loans.utils import add_periods, create_notification, get_period_details
 from payments.models import Payment
 
 

@@ -30,6 +30,7 @@ from loans.utils import (
     add_months,
     add_periods,
     calculate_remaining_periods,
+    create_notification,
     generate_full_schedule,
     get_period_details,
     get_schedule_summary,
