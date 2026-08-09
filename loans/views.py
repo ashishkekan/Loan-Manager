@@ -37,6 +37,7 @@ from loans.forms import (
     PrivacySettingForm,
     SettingsPasswordForm,
     SettingsProfileForm,
+    SupportReplyForm,
     SupportTicketForm,
 )
 from loans.models import (
@@ -48,6 +49,7 @@ from loans.models import (
     LoanDocument,
     LoanNote,
     Notification,
+    SupportMessage,
     SupportTicket,
 )
 from loans.services import AccruedInterestService
@@ -1463,7 +1465,7 @@ def update_appearance_preferences(request):
             "Unable to update appearance preferences.",
         )
 
-    return redirect("settings")
+    return redirect("settings_dashboard")
 
 
 @login_required

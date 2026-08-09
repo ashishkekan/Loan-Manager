@@ -106,11 +106,8 @@
 </div>
 
 <div class="glass-card" style="padding:24px;margin-bottom:24px;">
-    <h3 style="margin-bottom:6px;">
-        <i class="fas fa-chart-column"></i>
-        Loan Wise Prepayment Impact
-    </h3>
-    <p class="text-muted" style="margin-bottom:20px;">
+    <h3 style="margin-bottom: 16px;"><i class="fas fa-chart-column" style="color: var(--primary);"></i> Loan Wise Prepayment Impact
+    <p class="sc-sub" style="margin-bottom:20px;">
         See how your prepayments have affected each loan.
     </p>
     {% if loan_prepayment_summary %}
@@ -139,9 +136,9 @@
                         <div style="font-size:22px;font-weight:700;color:#0f172a;">
                             ₹{{ item.total_prepaid_amount|floatformat:0 }}
                         </div>
-                        <small style="color:#64748b;">
+                        <span class="sc-sub">
                             Additional principal payment
-                        </small>
+                        </span>
                     </div>
                     <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
                         <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
@@ -150,9 +147,9 @@
                         <div style="font-size:22px;font-weight:700;color:#16a34a;">
                             ₹{{ item.total_interest_saved|floatformat:0 }}
                         </div>
-                        <small style="color:#64748b;">
+                        <span class="sc-sub">
                             Estimated future savings
-                        </small>
+                        </span>
                     </div>
                     <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
                         <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
@@ -161,9 +158,9 @@
                         <div style="font-size:22px;font-weight:700;color:#d97706;">
                             {{ item.months_reduced }}
                         </div>
-                        <small style="color:#64748b;">
+                        <span class="sc-sub">
                             Months saved
-                        </small>
+                        </span>
                     </div>
                     <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
                         <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
@@ -172,9 +169,9 @@
                         <div style="font-size:22px;font-weight:700;color:#dc2626;">
                             {{ item.prepayment_count }}
                         </div>
-                        <small style="color:#64748b;">
+                        <span class="sc-sub">
                             Total transactions
-                        </small>
+                        </span>
                     </div>
                 </div>
                 <div style="margin-top:18px;padding:14px 18px;border:1px dashed #e5e7eb;border-radius:12px;display:flex;justify-content:space-between;">

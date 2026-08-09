@@ -253,7 +253,7 @@ def export_schedule_excel(request, loan_id):
             [
                 row["period"],
                 row["due_date"].strftime("%Y-%m-%d"),
-                float(row["emi"]),
+                float(row["regular_emi"]),
                 float(row["principal"]),
                 float(row["interest"]),
                 float(row["balance"]),
