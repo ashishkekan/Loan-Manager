@@ -3,7 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Avg, Count, DecimalField, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from django.views.generic import TemplateView
+from django.views.generic import ListView, TemplateView
 
 from dashboard.models import ActivityLog
 from loans.models import Loan
@@ -252,4 +252,61 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             .select_related("loan")
             .order_by("-created_at")[:10]
         )
+        return context
+
+
+class AdminUsersView(LoginRequiredMixin, ListView):
+    template_name = "dashboard/admin_users.html"
+    context_object_name = "users"
+    paginate_by = 15
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_staff:
+            from django.shortcuts import redirect
+
+            return redirect("dashboard")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        queryset = (
+            User.objects.filter(is_staff=False)
+            .select_related("profile")
+            .annotate(
+                total_loans=Count("loans", distinct=True),
+                total_loan_amount=Coalesce(
+                    Sum("loans__amount"),
+                    0,
+                    output_field=DecimalField(),
+                ),
+            )
+            .order_by("-date_joined")
+        )
+        search = self.request.GET.get("q", "").strip()
+        role = self.request.GET.get("role", "").strip()
+        status = self.request.GET.get("status", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(username__icontains=search)
+                | Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(email__icontains=search)
+                | Q(profile__phone__icontains=search)
+            )
+        if role:
+            queryset = queryset.filter(profile__role=role)
+        if status == "active":
+            queryset = queryset.filter(is_active=True)
+        elif status == "inactive":
+            queryset = queryset.filter(is_active=False)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        users = User.objects.filter(is_staff=False)
+        context["total_users"] = users.count()
+        context["active_users"] = users.filter(is_active=True).count()
+        context["inactive_users"] = users.filter(is_active=False).count()
+        context["search_query"] = self.request.GET.get("q", "")
+        context["role_filter"] = self.request.GET.get("role", "")
+        context["status_filter"] = self.request.GET.get("status", "")
         return context

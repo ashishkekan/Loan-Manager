@@ -64,7 +64,7 @@
                     <span>Settings</span>
                 </a>
             {% else %}
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <a href="{% url 'admin_users' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_users' %}active{% endif %}">
                     <i class="fas fa-users"></i>
                     <span>Users</span>
                 </a>
