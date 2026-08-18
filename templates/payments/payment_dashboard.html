@@ -1,18 +1,552 @@
 {% extends 'app_layout.html' %}
-{% load  %}
 {% load static %}
 {% block title %}Payments — NexusLoan{% endblock %}
 {% block app_content %}
+{% if admin_view %}
+<style>
+    .admin-payment-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px}
+    .admin-stat{padding:20px;border:1px solid var(--border);border-radius:16px;background:var(--card-bg,#fff)}
+    .admin-stat-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .admin-stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,.1);color:#2563eb}
+    .admin-stat-label{font-size:13px;color:#64748b}
+    .admin-stat-value{display:block;font-size:25px;font-weight:700;margin-top:5px}
+    .admin-stat-sub{display:block;font-size:12px;color:#64748b;margin-top:6px}
+    .admin-section{padding:24px;margin-bottom:24px}
+    .admin-section-header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:20px}
+    .admin-section-title{display:flex;align-items:center;gap:12px}
+    .admin-section-title h3{margin:0}
+    .admin-section-title p{margin:4px 0 0;color:#64748b;font-size:13px}
+    .admin-two-column{display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px}
+    .admin-three-column{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:24px}
+    .admin-table-wrapper{width:100%;overflow-x:auto}
+    .admin-table{width:100%;min-width:850px;border-collapse:collapse}
+    .admin-table th,.admin-table td{padding:13px 14px;text-align:left;border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap}
+    .admin-table th{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+    .admin-table td{font-size:13px}
+    .admin-user{display:flex;flex-direction:column}
+    .admin-user strong{font-size:13px}
+    .admin-user small{color:#64748b;margin-top:3px}
+    .admin-mode{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:600}
+    .mode-auto{background:#dcfce7;color:#166534}
+    .mode-manual{background:#f1f5f9;color:#475569}
+    .mode-upi{background:#dbeafe;color:#1d4ed8}
+    .mode-net{background:#ede9fe;color:#6d28d9}
+    .status-badge{white-space:nowrap}
+    .admin-progress{height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin-top:12px}
+    .admin-progress span{display:block;height:100%;border-radius:99px}
+    .admin-mode-row{margin-bottom:18px}
+    .admin-mode-head{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+    .admin-filter-bar{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+    .admin-filter-bar input,.admin-filter-bar select{height:42px;padding:0 13px;border:1px solid var(--border,#d1d5db);border-radius:10px;background:var(--card-bg,#fff);min-width:150px}
+    .admin-filter-bar input{min-width:220px}
+    .risk-high{color:#dc2626;font-weight:700}
+    .risk-medium{color:#d97706;font-weight:700}
+    .risk-low{color:#16a34a;font-weight:700}
+    .empty-admin{text-align:center;padding:30px;color:#64748b}
+    @media(max-width:1100px){
+        .admin-payment-grid{grid-template-columns:repeat(2,1fr)}
+        .admin-two-column{grid-template-columns:1fr}
+        .admin-three-column{grid-template-columns:1fr}
+    }
+    @media(max-width:650px){
+        .admin-payment-grid{grid-template-columns:1fr}
+        .admin-section{padding:16px}
+        .admin-section-header{align-items:flex-start;flex-direction:column}
+        .admin-filter-bar input,.admin-filter-bar select{width:100%}
+    }
+</style>
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}">Dashboard</a>
+            <i class="fas fa-chevron-right"></i>
+            <span>Payments</span>
+        </div>
+        <h1 class="page-title">Payment Management</h1>
+        <p class="page-subtitle">Monitor collections, outstanding payments, overdue EMIs and auto-debit activity.</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'export_payment_excel' %}" class="btn btn-success">
+            <i class="fas fa-file-excel"></i> Export Excel
+        </a>
+    </div>
+</div>
+<div class="admin-payment-grid">
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">Total Collections</span>
+            <div class="admin-stat-icon"><i class="fas fa-indian-rupee-sign"></i></div>
+        </div>
+        <strong class="admin-stat-value">₹{{ total_paid|floatformat:0 }}</strong>
+        <span class="admin-stat-sub">{{ paid_count }} successful payments</span>
+    </div>
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">Pending Payments</span>
+            <div class="admin-stat-icon"><i class="fas fa-clock"></i></div>
+        </div>
+        <strong class="admin-stat-value">{{ pending_count }}</strong>
+        <span class="admin-stat-sub">₹{{ pending_amount|floatformat:0 }} outstanding</span>
+    </div>
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">Overdue Payments</span>
+            <div class="admin-stat-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        </div>
+        <strong class="admin-stat-value">{{ overdue_count }}</strong>
+        <span class="admin-stat-sub">₹{{ overdue_amount|floatformat:0 }} overdue</span>
+    </div>
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">Today's Collection</span>
+            <div class="admin-stat-icon"><i class="fas fa-calendar-day"></i></div>
+        </div>
+        <strong class="admin-stat-value">₹{{ today_collection|floatformat:0 }}</strong>
+        <span class="admin-stat-sub">{{ today|date:"d M Y" }}</span>
+    </div>
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">This Month</span>
+            <div class="admin-stat-icon"><i class="fas fa-calendar"></i></div>
+        </div>
+        <strong class="admin-stat-value">₹{{ month_collection|floatformat:0 }}</strong>
+        <span class="admin-stat-sub">Current month collection</span>
+    </div>
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">Auto Debit Success</span>
+            <div class="admin-stat-icon"><i class="fas fa-repeat"></i></div>
+        </div>
+        <strong class="admin-stat-value">{{ auto_debit_rate }}%</strong>
+        <span class="admin-stat-sub">{{ auto_debit_success }}/{{ auto_debit_total }} successful</span>
+    </div>
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">Principal Collected</span>
+            <div class="admin-stat-icon"><i class="fas fa-wallet"></i></div>
+        </div>
+        <strong class="admin-stat-value">₹{{ principal_collected|floatformat:0 }}</strong>
+        <span class="admin-stat-sub">Principal component</span>
+    </div>
+    <div class="admin-stat glass-card">
+        <div class="admin-stat-top">
+            <span class="admin-stat-label">Interest Collected</span>
+            <div class="admin-stat-icon"><i class="fas fa-percent"></i></div>
+        </div>
+        <strong class="admin-stat-value">₹{{ interest_collected|floatformat:0 }}</strong>
+        <span class="admin-stat-sub">₹{{ late_interest_collected|floatformat:0 }} late interest</span>
+    </div>
+</div>
+<div class="admin-two-column">
+    <div class="glass-card admin-section">
+        <div class="admin-section-header">
+            <div class="admin-section-title">
+                <div class="sc-icon"><i class="fas fa-chart-line"></i></div>
+                <div>
+                    <h3>Collection Overview</h3>
+                    <p>Current collection performance.</p>
+                </div>
+            </div>
+        </div>
+        <div class="admin-payment-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0;">
+            <div class="admin-stat">
+                <span class="admin-stat-label">Today</span>
+                <strong class="admin-stat-value" style="font-size:20px;">₹{{ today_collection|floatformat:0 }}</strong>
+            </div>
+            <div class="admin-stat">
+                <span class="admin-stat-label">This Month</span>
+                <strong class="admin-stat-value" style="font-size:20px;">₹{{ month_collection|floatformat:0 }}</strong>
+            </div>
+            <div class="admin-stat">
+                <span class="admin-stat-label">This Year</span>
+                <strong class="admin-stat-value" style="font-size:20px;">₹{{ year_collection|floatformat:0 }}</strong>
+            </div>
+        </div>
+    </div>
+    <div class="glass-card admin-section">
+        <div class="admin-section-header">
+            <div class="admin-section-title">
+                <div class="sc-icon"><i class="fas fa-chart-pie"></i></div>
+                <div>
+                    <h3>Payment Modes</h3>
+                    <p>Payment distribution.</p>
+                </div>
+            </div>
+        </div>
+        {% for mode in payment_modes %}
+            <div class="admin-mode-row">
+                <div class="admin-mode-head">
+                    <span>{{ mode.label }}</span>
+                    <strong>{{ mode.percentage }}%</strong>
+                </div>
+                <div class="admin-progress">
+                    <span style="width:{{ mode.percentage }}%;"></span>
+                </div>
+                <small style="color:#64748b;">{{ mode.count }} payments · ₹{{ mode.amount|floatformat:0 }}</small>
+            </div>
+        {% empty %}
+            <div class="empty-admin">No payment data available.</div>
+        {% endfor %}
+    </div>
+</div>
+<div class="admin-two-column">
+    <div class="glass-card admin-section">
+        <div class="admin-section-header">
+            <div class="admin-section-title">
+                <div class="sc-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                <div>
+                    <h3>Overdue Payments</h3>
+                    <p>Payments requiring admin attention.</p>
+                </div>
+            </div>
+            <span class="badge badge-danger">{{ overdue_count }} Overdue</span>
+        </div>
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Loan</th>
+                        <th>Due Date</th>
+                        <th>Days Late</th>
+                        <th>Amount</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in overdue_rows %}
+                        <tr>
+                            <td>
+                                <div class="admin-user">
+                                    <strong>{{ row.payment.loan.user.get_full_name|default:row.payment.loan.user.username }}</strong>
+                                    <small>{{ row.payment.loan.user.username }}</small>
+                                </div>
+                            </td>
+                            <td>{{ row.payment.loan.loan_name }}</td>
+                            <td>{{ row.payment.due_date|date:"d M Y" }}</td>
+                            <td><strong class="risk-high">{{ row.days_late }} days</strong></td>
+                            <td>₹{{ row.payment.total_debit_amount|floatformat:0 }}</td>
+                            <td>
+                                <a href="{% url 'loan_detail' row.payment.loan.pk %}" class="icon-btn" title="View Loan">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="empty-admin">No overdue payments.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="glass-card admin-section">
+        <div class="admin-section-header">
+            <div class="admin-section-title">
+                <div class="sc-icon"><i class="fas fa-shield-halved"></i></div>
+                <div>
+                    <h3>High Risk Users</h3>
+                    <p>Users with overdue EMIs.</p>
+                </div>
+            </div>
+        </div>
+        <div class="admin-table-wrapper">
+            <table class="admin-table" style="min-width:500px;">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Overdue</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in high_risk_users %}
+                        <tr>
+                            <td>
+                                <div class="admin-user">
+                                    <strong>{{ user.loan__user__first_name }} {{ user.loan__user__last_name }}</strong>
+                                    <small>{{ user.loan__user__username }}</small>
+                                </div>
+                            </td>
+                            <td class="risk-high">{{ user.total_overdue }}</td>
+                            <td>₹{{ user.overdue_amount|floatformat:0 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-admin">No high-risk users.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<div class="glass-card admin-section">
+    <div class="admin-section-header">
+        <div class="admin-section-title">
+            <div class="sc-icon"><i class="fas fa-repeat"></i></div>
+            <div>
+                <h3>Auto Debit Monitoring</h3>
+                <p>Monitor automated EMI payment activity.</p>
+            </div>
+        </div>
+        <span class="badge badge-success">{{ auto_debit_rate }}% Success Rate</span>
+    </div>
+    <div class="admin-table-wrapper">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Loan</th>
+                    <th>Due Date</th>
+                    <th>Amount</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in auto_debit_list %}
+                    <tr>
+                        <td>
+                            <div class="admin-user">
+                                <strong>{{ payment.loan.user.get_full_name|default:payment.loan.user.username }}</strong>
+                                <small>{{ payment.loan.user.username }}</small>
+                            </div>
+                        </td>
+                        <td>{{ payment.loan.loan_name }}</td>
+                        <td>{{ payment.due_date|date:"d M Y" }}</td>
+                        <td>₹{{ payment.total_debit_amount|floatformat:0 }}</td>
+                        <td><span class="admin-mode mode-auto">Auto Debit</span></td>
+                        <td>
+                            {% if payment.status == "paid" %}
+                                <span class="status-badge status-paid"><i class="fas fa-circle-check"></i> Paid</span>
+                            {% elif payment.status == "pending" %}
+                                <span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>
+                            {% else %}
+                                <span class="status-badge status-overdue"><i class="fas fa-triangle-exclamation"></i> Overdue</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'loan_detail' payment.loan.pk %}" class="icon-btn" title="View Loan">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-admin">No auto-debit payments found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card admin-section">
+    <div class="admin-section-header">
+        <div class="admin-section-title">
+            <div class="sc-icon"><i class="fas fa-calendar-check"></i></div>
+            <div>
+                <h3>Upcoming Payments</h3>
+                <p>Next scheduled EMI collections.</p>
+            </div>
+        </div>
+    </div>
+    <div class="admin-table-wrapper">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Loan</th>
+                    <th>Due Date</th>
+                    <th>EMI</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in upcoming_payments %}
+                    <tr>
+                        <td>
+                            <div class="admin-user">
+                                <strong>{{ payment.loan.user.get_full_name|default:payment.loan.user.username }}</strong>
+                                <small>{{ payment.loan.user.username }}</small>
+                            </div>
+                        </td>
+                        <td>{{ payment.loan.loan_name }}</td>
+                        <td>{{ payment.due_date|date:"d M Y" }}</td>
+                        <td>₹{{ payment.total_debit_amount|floatformat:0 }}</td>
+                        <td>
+                            {% if payment.payment_mode == "auto_debit" %}
+                                <span class="admin-mode mode-auto">Auto Debit</span>
+                            {% elif payment.payment_mode == "upi" %}
+                                <span class="admin-mode mode-upi">UPI</span>
+                            {% else %}
+                                <span class="admin-mode mode-manual">Manual</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="status-badge status-pending">Pending</span></td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="empty-admin">No upcoming payments.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card admin-section">
+    <div class="admin-section-header">
+        <div class="admin-section-title">
+            <div class="sc-icon"><i class="fas fa-wallet"></i></div>
+            <div>
+                <h3>Loan-wise Collections</h3>
+                <p>Payment performance by loan.</p>
+            </div>
+        </div>
+    </div>
+    <div class="admin-table-wrapper">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Loan</th>
+                    <th>User</th>
+                    <th>Total EMI</th>
+                    <th>Paid</th>
+                    <th>Pending</th>
+                    <th>Overdue</th>
+                    <th>Collected</th>
+                    <th>Outstanding</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in loan_stats %}
+                    <tr>
+                        <td><strong>{{ loan.loan__loan_name }}</strong></td>
+                        <td>{{ loan.loan__user__username }}</td>
+                        <td>{{ loan.total }}</td>
+                        <td>{{ loan.paid }}</td>
+                        <td>{{ loan.pending }}</td>
+                        <td class="{% if loan.overdue %}risk-high{% endif %}">{{ loan.overdue }}</td>
+                        <td>₹{{ loan.collected|default:0|floatformat:0 }}</td>
+                        <td>₹{{ loan.outstanding|default:0|floatformat:0 }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="8" class="empty-admin">No loan payment data.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card admin-section">
+    <div class="admin-section-header">
+        <div class="admin-section-title">
+            <div class="sc-icon"><i class="fas fa-clock-rotate-left"></i></div>
+            <div>
+                <h3>Payment History</h3>
+                <p>All payment transactions across the platform.</p>
+            </div>
+        </div>
+    </div>
+    <div class="admin-filter-bar">
+        <input type="text" id="adminPaymentSearch" placeholder="Search user or loan...">
+        <select id="adminStatusFilter">
+            <option value="all">All Status</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="overdue">Overdue</option>
+        </select>
+        <select id="adminModeFilter">
+            <option value="all">All Modes</option>
+            <option value="auto_debit">Auto Debit</option>
+            <option value="manual">Manual</option>
+            <option value="upi">UPI</option>
+            <option value="net_banking">Net Banking</option>
+        </select>
+    </div>
+    <div class="admin-table-wrapper">
+        <table class="admin-table" id="adminPaymentTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>User</th>
+                    <th>Loan</th>
+                    <th>Due Date</th>
+                    <th>Payment Date</th>
+                    <th>Amount</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                    <tr data-status="{{ payment.status }}" data-mode="{{ payment.payment_mode }}" data-search="{{ payment.loan.user.username|lower }} {{ payment.loan.user.get_full_name|lower }} {{ payment.loan.loan_name|lower }}">
+                        <td><strong>#{{ payment.payment_number }}</strong></td>
+                        <td>
+                            <div class="admin-user">
+                                <strong>{{ payment.loan.user.get_full_name|default:payment.loan.user.username }}</strong>
+                                <small>{{ payment.loan.user.username }}</small>
+                            </div>
+                        </td>
+                        <td>{{ payment.loan.loan_name }}</td>
+                        <td>{{ payment.due_date|date:"d M Y" }}</td>
+                        <td>
+                            {% if payment.payment_date %}
+                                {{ payment.payment_date|date:"d M Y" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td><strong>₹{{ payment.total_debit_amount|floatformat:0 }}</strong></td>
+                        <td>
+                            {% if payment.payment_mode == "auto_debit" %}
+                                <span class="admin-mode mode-auto">Auto Debit</span>
+                            {% elif payment.payment_mode == "upi" %}
+                                <span class="admin-mode mode-upi">UPI</span>
+                            {% elif payment.payment_mode == "manual" %}
+                                <span class="admin-mode mode-manual">Manual</span>
+                            {% else %}
+                                <span class="admin-mode mode-net">Net Banking</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if payment.status == "paid" %}
+                                <span class="status-badge status-paid"><i class="fas fa-circle-check"></i> Paid</span>
+                            {% elif payment.status == "pending" %}
+                                <span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>
+                            {% else %}
+                                <span class="status-badge status-overdue"><i class="fas fa-triangle-exclamation"></i> Overdue</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'loan_detail' payment.loan.pk %}" class="icon-btn" title="View Loan">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9" class="empty-admin">No payments found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
 <style>
     .table-responsive {
         width: 100%;
         overflow-x: auto;
     }
-
     .payment-table {
         min-width: 1400px;
     }
-
     .card-header{
         display:flex;
         justify-content:space-between;
@@ -22,7 +556,6 @@
         padding-bottom:18px;
         border-bottom:1px solid #e5e7eb;
     }
-
     .badge{
         display:inline-flex;
         align-items:center;
@@ -33,28 +566,23 @@
         font-weight:600;
         white-space:nowrap;
     }
-
     .badge-success{
         background:#dcfce7;
         color:#166534;
     }
-
     .badge-warning{
         background:#fef3c7;
         color:#92400e;
     }
-
     @media (max-width:768px){
         .card-header {
             flex-direction:column;
             align-items:flex-start;
         }
-
         .badge {
             width:100%;
             justify-content:center;
         }
-
         .card-title {
             width:100%;
         }
@@ -147,7 +675,6 @@
                 </p>
             </div>
         </div>
-
         {% if upcoming_emi %}
             {% if upcoming_emi.loan.auto_debit %}
                 <span class="badge badge-success">
@@ -227,7 +754,6 @@
         </div>
     {% endif %}
 </div>
-
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-header">
         <div class="card-title">
@@ -283,7 +809,6 @@
         </div>
     {% endif %}
 </div>
-
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
         <div class="card-title">
@@ -331,7 +856,6 @@
         </table>
     </div>
 </div>
-
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
         <div class="card-title">
@@ -344,65 +868,36 @@
         <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Average EMI
-                </div>
-                <div style="font-size:16px;font-weight:600;">
-                    ₹{{ analytics.avg_emi|floatformat:0 }}
-                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Average EMI</div>
+                <div style="font-size:16px;font-weight:600;">₹{{ analytics.avg_emi|floatformat:0 }}</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Highest EMI
-                </div>
-                <div style="font-size:16px;font-weight:600;">
-                    ₹{{ analytics.highest_emi|floatformat:0 }}
-                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Highest EMI</div>
+                <div style="font-size:16px;font-weight:600;">₹{{ analytics.highest_emi|floatformat:0 }}</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Additional Interest Paid
-                </div>
-                <div style="font-size:16px;font-weight:600;color:#dc2626;">
-                    ₹{{ analytics.additional_interest|floatformat:0 }}
-                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Additional Interest Paid</div>
+                <div style="font-size:16px;font-weight:600;color:#dc2626;">₹{{ analytics.additional_interest|floatformat:0 }}</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Late Payments
-                </div>
-                <div style="font-size:16px;font-weight:600;">
-                    {{ analytics.late_payments }}
-                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Late Payments</div>
+                <div style="font-size:16px;font-weight:600;">{{ analytics.late_payments }}</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Auto Debit Success
-                </div>
-                <div style="font-size:16px;font-weight:600;">
-                    {{ analytics.auto_debit_rate }}%
-                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Auto Debit Success</div>
+                <div style="font-size:16px;font-weight:600;">{{ analytics.auto_debit_rate }}%</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Principal Paid
-                </div>
-                <div style="font-size:16px;font-weight:600;">
-                    ₹{{ analytics.principal_paid|floatformat:0 }}
-                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Principal Paid</div>
+                <div style="font-size:16px;font-weight:600;">₹{{ analytics.principal_paid|floatformat:0 }}</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Interest Paid
-                </div>
-                <div style="font-size:16px;font-weight:600;">
-                    ₹{{ analytics.interest_paid|floatformat:0 }}
-                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Interest Paid</div>
+                <div style="font-size:16px;font-weight:600;">₹{{ analytics.interest_paid|floatformat:0 }}</div>
             </div>
         </div>
     </div>
 </div>
-
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-header">
         <div class="card-title">
@@ -441,12 +936,7 @@
         <div class="table-responsive">
             <table class="data-table payment-table" id="paymentTable">
                 <thead>
-                    <tr
-                        data-status="{{ payment.status }}"
-                        data-mode="{{ payment.payment_mode }}"
-                        data-loan="{{ payment.loan.loan_name|lower }}"
-                        data-date="{{ payment.due_date|date:'Y-m-d' }}"
-                    >
+                    <tr>
                         <th>#</th>
                         <th>Loan</th>
                         <th>Due Date</th>
@@ -464,7 +954,7 @@
                 </thead>
                 <tbody>
                     {% for payment in payments %}
-                    <tr data-status="{{ payment.status }}">
+                    <tr data-status="{{ payment.status }}" data-mode="{{ payment.payment_mode }}" data-loan="{{ payment.loan.loan_name|lower }}" data-date="{{ payment.due_date|date:'Y-m-d' }}">
                         <td><strong>#{{ payment.payment_number }}</strong></td>
                         <td>
                             <div class="loan-info">
@@ -542,12 +1032,39 @@
         </div>
     {% endif %}
 </div>
+{% endif %}
 {% endblock %}
 {% block extra_scripts %}
+{% if admin_view %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById("adminPaymentSearch");
+        const statusFilter = document.getElementById("adminStatusFilter");
+        const modeFilter = document.getElementById("adminModeFilter");
+        const rows = document.querySelectorAll("#adminPaymentTable tbody tr[data-status]");
+        function applyFilters() {
+            const search = searchInput.value.toLowerCase().trim();
+            const status = statusFilter.value;
+            const mode = modeFilter.value;
+            rows.forEach(function(row) {
+                const rowSearch = row.dataset.search || "";
+                const rowStatus = row.dataset.status || "";
+                const rowMode = row.dataset.mode || "";
+                const matchesSearch = !search || rowSearch.includes(search);
+                const matchesStatus = status === "all" || rowStatus === status;
+                const matchesMode = mode === "all" || rowMode === mode;
+                row.style.display = matchesSearch && matchesStatus && matchesMode ? "" : "none";
+            });
+        }
+        searchInput.addEventListener("input", applyFilters);
+        statusFilter.addEventListener("change", applyFilters);
+        modeFilter.addEventListener("change", applyFilters);
+    });
+</script>
+{% else %}
 <script>
     const filterButtons = document.querySelectorAll(".filter-btn");
     const rows = document.querySelectorAll("#paymentTable tbody tr");
-
     filterButtons.forEach(btn => {
         btn.addEventListener("click", () => {
             filterButtons.forEach(b => b.classList.remove("active"));
@@ -587,7 +1104,6 @@
             });
         });
     });
-
     document.getElementById("paymentSearch").addEventListener("keyup", function(){
         const value = this.value.toLowerCase();
         rows.forEach(row=>{
@@ -599,4 +1115,5 @@
         });
     });
 </script>
+{% endif %}
 {% endblock %}

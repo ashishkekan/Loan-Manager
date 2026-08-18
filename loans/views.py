@@ -64,6 +64,7 @@ from loans.utils import (
     generate_projected_schedule,
     get_account_statistics,
     get_support_ticket_summary,
+    get_user_loans,
     simulate_extra_emi,
 )
 
@@ -72,13 +73,15 @@ class LoanListView(LoginRequiredMixin, ListView):
     model = Loan
     template_name = "loans/loan_list.html"
     context_object_name = "loans"
+    paginate_by = 12
 
     def get_queryset(self):
-        return (
-            Loan.objects.filter(user=self.request.user)
-            .select_related("user")
-            .order_by("-created_at")
-        )
+        queryset = Loan.objects.select_related("user").order_by("-created_at")
+
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(user=self.request.user)
 
 
 class LoanCreateView(LoginRequiredMixin, CreateView):
@@ -86,9 +89,16 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
     form_class = LoanForm
     template_name = "loans/create_loan.html"
 
-    def form_valid(self, form):
-        form.instance.user = self.request.user
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
+    def form_valid(self, form):
+        if self.request.user.is_staff:
+            form.instance.user = form.cleaned_data["user"]
+        else:
+            form.instance.user = self.request.user
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
@@ -137,8 +147,10 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "loan"
 
     def get_queryset(self):
-        return Loan.objects.filter(user=self.request.user).prefetch_related(
-            "payments", "prepayments", "notes"
+        return get_user_loans(self.request.user).prefetch_related(
+            "payments",
+            "prepayments",
+            "notes",
         )
 
     def get_context_data(self, **kwargs):
@@ -215,15 +227,21 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         original_closure_date = add_periods(
             loan.schedule_start_date, loan.tenure_years * 12, loan.emi_frequency
         )
-        estimated_closure_date = add_periods(
-            next_emi_date, loan.months_remaining - 1, loan.emi_frequency
-        )
-        delta = relativedelta(original_closure_date, estimated_closure_date)
-        years_saved = delta.years
-        remaining_months_saved = delta.months
-        months_saved = years_saved * 12 + remaining_months_saved
-        years_saved = months_saved // 12
-        remaining_months_saved = months_saved % 12
+        if loan.status == "active" and next_emi_date:
+            estimated_closure_date = add_periods(
+                next_emi_date, loan.months_remaining - 1, loan.emi_frequency
+            )
+            delta = relativedelta(original_closure_date, estimated_closure_date)
+            years_saved = delta.years
+            remaining_months_saved = delta.months
+            months_saved = years_saved * 12 + remaining_months_saved
+            years_saved = months_saved // 12
+            remaining_months_saved = months_saved % 12
+        else:
+            estimated_closure_date = None
+            months_saved = 0
+            years_saved = 0
+            remaining_months_saved = 0
         context["total_prepayment_amount"] = total_prepayment_amount
         context["total_paid"] = total_paid
         context["estimated_closure_date"] = estimated_closure_date
@@ -606,15 +624,12 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         context["pending_interest"] = loan.total_pending_accrued_interest
 
         context["recovered_interest"] = loan.total_recovered_accrued_interest
-        summary = AccruedInterestService.calculate_total_debit(loan, next_emi_date)
-
-        context["regular_emi"] = summary["regular_emi"]
-
-        context["additional_interest"] = summary["additional_interest"]
-
-        context["next_emi_total_debit"] = summary["total_debit"]
-
-        context["regular_interest"] = summary["regular_interest"]
+        if loan.status == "active" and next_emi_date:
+            summary = AccruedInterestService.calculate_total_debit(loan, next_emi_date)
+            context["regular_emi"] = summary["regular_emi"]
+            context["additional_interest"] = summary["additional_interest"]
+            context["next_emi_total_debit"] = summary["total_debit"]
+            context["regular_interest"] = summary["regular_interest"]
         affordability = {}
         monthly_income = self.request.GET.get("income")
         monthly_expenses = self.request.GET.get("expenses")
@@ -678,7 +693,12 @@ class LoanDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("loan_list")
 
     def get_queryset(self):
-        return Loan.objects.filter(user=self.request.user)
+        queryset = Loan.objects.all()
+
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(user=self.request.user)
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Loan deleted.")
@@ -686,7 +706,10 @@ class LoanDeleteView(LoginRequiredMixin, DeleteView):
 
 
 def add_note(request, loan_id):
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    if request.user.is_staff:
+        loan = get_object_or_404(Loan, pk=loan_id)
+    else:
+        loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
     if request.method == "POST":
         form = LoanNoteForm(request.POST)
         if form.is_valid():
@@ -698,7 +721,10 @@ def add_note(request, loan_id):
 
 
 def delete_note(request, loan_id, note_id):
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    if request.user.is_staff:
+        loan = get_object_or_404(Loan, pk=loan_id)
+    else:
+        loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
     LoanNote.objects.filter(pk=note_id, loan=loan).delete()
     messages.success(request, "Note removed.")
     return redirect("loan_detail", pk=loan_id)
@@ -758,37 +784,48 @@ def export_loan_csv(request, loan_id):
 
 
 @login_required
-def upload_document(request):
-    if request.method != "POST":
-        return redirect("documents_dashboard")
-    loan_id = request.POST.get("loan")
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    form = LoanDocumentForm(request.POST, request.FILES)
-    if form.is_valid():
-        document = form.save(commit=False)
-        document.loan = loan
-        document.save()
-        messages.success(request, f'"{document.title}" uploaded successfully.')
+def upload_document(request, loan_id):
+    if request.user.is_staff:
+        loan = get_object_or_404(Loan, pk=loan_id)
     else:
-        for field_errors in form.errors.values():
-            for error in field_errors:
-                messages.error(request, error)
-    return redirect("documents_dashboard")
+        loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    if request.method == "POST":
+        form = LoanDocumentForm(request.POST, request.FILES)
+        if form.is_valid():
+            document = form.save(commit=False)
+            document.loan = loan
+            document.save()
+            messages.success(request, f'"{document.title}" uploaded successfully.')
+        else:
+            for field_errors in form.errors.values():
+                for error in field_errors:
+                    messages.error(request, error)
+    return redirect("loan_detail", pk=loan.pk)
 
 
 @login_required
 def delete_document(request, document_id):
-    document = get_object_or_404(LoanDocument, pk=document_id, loan__user=request.user)
+    if request.user.is_staff:
+        document = get_object_or_404(LoanDocument, pk=document_id)
+    else:
+        document = get_object_or_404(
+            LoanDocument, pk=document_id, loan__user=request.user
+        )
     if request.method == "POST":
         title = document.title
+        loan_id = document.loan_id
         document.delete()
         messages.success(request, f'"{title}" deleted successfully.')
-    return redirect("documents_dashboard")
+        return redirect("loan_detail", pk=loan_id)
+    return redirect("loan_detail", pk=document.loan_id)
 
 
 @login_required
 def close_loan(request, pk):
-    loan = get_object_or_404(Loan, pk=pk, user=request.user)
+    if request.user.is_staff:
+        loan = get_object_or_404(Loan, pk=pk)
+    else:
+        loan = get_object_or_404(Loan, pk=pk, user=request.user)
     if request.method == "POST":
         pending_interest = loan.total_pending_accrued_interest
         if pending_interest > 0:
@@ -826,7 +863,12 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "loans/create_loan.html"
 
     def get_queryset(self):
-        return Loan.objects.filter(user=self.request.user)
+        queryset = Loan.objects.all()
+
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(user=self.request.user)
 
     def form_valid(self, form):
         amount = form.cleaned_data["amount"]
@@ -861,11 +903,12 @@ class LoanDisbursementListView(LoginRequiredMixin, ListView):
     context_object_name = "disbursements"
 
     def dispatch(self, request, *args, **kwargs):
-        self.loan = get_object_or_404(
-            Loan,
-            pk=self.kwargs["loan_id"],
-            user=request.user,
-        )
+        if request.user.is_staff:
+            self.loan = get_object_or_404(Loan, pk=self.kwargs["loan_id"])
+        else:
+            self.loan = get_object_or_404(
+                Loan, pk=self.kwargs["loan_id"], user=request.user
+            )
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -895,9 +938,12 @@ class LoanDisbursementDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "disbursement"
 
     def get_queryset(self):
-        return LoanDisbursement.objects.select_related("loan").filter(
-            loan__user=self.request.user
-        )
+        queryset = LoanDisbursement.objects.select_related("loan")
+
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(loan__user=self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -921,11 +967,12 @@ class LoanDisbursementCreateView(LoginRequiredMixin, CreateView):
     template_name = "loans/create_disbursement.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.loan = get_object_or_404(
-            Loan,
-            pk=self.kwargs["loan_id"],
-            user=request.user,
-        )
+        if request.user.is_staff:
+            self.loan = get_object_or_404(Loan, pk=self.kwargs["loan_id"])
+        else:
+            self.loan = get_object_or_404(
+                Loan, pk=self.kwargs["loan_id"], user=request.user
+            )
         return super().dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
@@ -962,7 +1009,12 @@ class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "loans/create_disbursement.html"
 
     def get_queryset(self):
-        return LoanDisbursement.objects.filter(loan__user=self.request.user)
+        queryset = LoanDisbursement.objects.select_related("loan")
+
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(loan__user=self.request.user)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -996,7 +1048,12 @@ class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
     model = LoanDisbursement
 
     def get_queryset(self):
-        return LoanDisbursement.objects.filter(loan__user=self.request.user)
+        queryset = LoanDisbursement.objects.all()
+
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(loan__user=self.request.user)
 
     @transaction.atomic
     def delete(self, request, *args, **kwargs):

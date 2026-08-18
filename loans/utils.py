@@ -595,3 +595,14 @@ def get_account_statistics(user):
         "last_login": user.last_login,
         "account_status": "Active" if user.is_active else "Inactive",
     }
+
+
+def get_user_loans(user):
+    from loans.models import Loan
+
+    queryset = Loan.objects.all()
+
+    if user.is_staff:
+        return queryset
+
+    return queryset.filter(user=user)
