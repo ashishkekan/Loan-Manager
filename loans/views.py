@@ -1163,20 +1163,41 @@ def view_document(request, document_id):
 
 @login_required
 def notifications_dashboard(request):
-    notifications = Notification.objects.filter(user=request.user).select_related(
-        "loan"
-    )
+    is_admin = request.user.is_staff or request.user.is_superuser
+
+    if is_admin:
+        notifications = (
+            Notification.objects.select_related("user", "loan")
+            .all()
+            .order_by("-created_at")
+        )
+        all_notifications = Notification.objects.all()
+    else:
+        notifications = (
+            Notification.objects.filter(user=request.user)
+            .select_related("loan")
+            .order_by("-created_at")
+        )
+        all_notifications = Notification.objects.filter(user=request.user)
 
     search = request.GET.get("search", "").strip()
     notification_type = request.GET.get("type", "").strip()
     status = request.GET.get("status", "").strip()
 
     if search:
-        notifications = notifications.filter(
+        search_filter = (
             Q(title__icontains=search)
             | Q(message__icontains=search)
             | Q(loan__loan_name__icontains=search)
         )
+        if is_admin:
+            search_filter |= (
+                Q(user__username__icontains=search)
+                | Q(user__email__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+            )
+        notifications = notifications.filter(search_filter)
 
     if notification_type:
         notifications = notifications.filter(notification_type=notification_type)
@@ -1186,20 +1207,18 @@ def notifications_dashboard(request):
     elif status == "unread":
         notifications = notifications.filter(is_read=False)
 
-    all_notifications = Notification.objects.filter(user=request.user)
-
     total_notifications = all_notifications.count()
-
     unread_count = all_notifications.filter(is_read=False).count()
-
     payment_alerts = all_notifications.filter(notification_type="payment").count()
-
     loan_updates = all_notifications.filter(notification_type="loan").count()
 
+    if is_admin:
+        notified_users = all_notifications.values("user_id").distinct().count()
+    else:
+        notified_users = 1
+
     paginator = Paginator(notifications, 12)
-
     page_number = request.GET.get("page")
-
     page_obj = paginator.get_page(page_number)
 
     context = {
@@ -1210,18 +1229,16 @@ def notifications_dashboard(request):
         "unread_count": unread_count,
         "payment_alerts": payment_alerts,
         "loan_updates": loan_updates,
+        "notified_users": notified_users,
         "search": search,
         "selected_type": notification_type,
         "selected_status": status,
         "notification_types": Notification.TYPE_CHOICES,
         "has_notifications": total_notifications > 0,
+        "is_admin": is_admin,
     }
 
-    return render(
-        request,
-        "loans/notifications_dashboard.html",
-        context,
-    )
+    return render(request, "loans/notifications_dashboard.html", context)
 
 
 @login_required

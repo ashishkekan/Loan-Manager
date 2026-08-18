@@ -67,7 +67,7 @@
                     <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
                         <i class="fas fa-bell"></i>
                         <span>Notifications</span>
-                        {% if header_notifications %}
+                        {% if header_unread_notifications > 0 %}
                             <span class="notification-badge">{{ header_unread_notifications }}</span>
                         {% endif %}
                     </a>
@@ -101,10 +101,15 @@
                     <i class="fas fa-university"></i>
                     <span>Banks</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
-                    <i class="fas fa-bell"></i>
-                    <span>Notifications</span>
-                </a>
+                <li>
+                    <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
+                        <i class="fas fa-bell"></i>
+                        <span>Notifications</span>
+                        {% if header_unread_notifications > 0 %}
+                            <span class="notification-badge">{{ header_unread_notifications }}</span>
+                        {% endif %}
+                    </a>
+                </li>
                 <a href="{% url 'loan_list' %}" class="nav-item">
                     <i class="fas fa-chart-column"></i>
                     <span>Reports</span>
