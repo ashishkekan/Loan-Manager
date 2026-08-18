@@ -97,7 +97,7 @@
                     <i class="fas fa-money-bill-transfer"></i>
                     <span>Prepayments</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <a href="{% url 'admin_banks' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_banks' %}active{% endif %}">
                     <i class="fas fa-university"></i>
                     <span>Banks</span>
                 </a>

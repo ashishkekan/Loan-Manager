@@ -4,13 +4,13 @@ from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.sessions.models import Session
 from django.core.files.storage import default_storage
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Count, Q, Sum
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -67,6 +67,7 @@ from loans.utils import (
     get_user_loans,
     simulate_extra_emi,
 )
+from payments.models import Payment, Prepayment
 
 
 class LoanListView(LoginRequiredMixin, ListView):
@@ -1770,3 +1771,44 @@ def set_default_bank_account(request, pk):
     bank.save(update_fields=["is_default", "updated_at"])
     messages.success(request, "Default bank account updated.")
     return redirect("settings_dashboard")
+
+
+def staff_required(user):
+    return user.is_authenticated and user.is_staff
+
+
+@login_required
+@user_passes_test(staff_required)
+def admin_banks(request):
+    banks = BankAccount.objects.select_related("user").order_by(
+        "bank_name", "account_holder"
+    )
+
+    total_bank_accounts = banks.count()
+
+    total_banks = BankAccount.objects.values("bank_name").distinct().count()
+
+    total_users_with_bank = BankAccount.objects.values("user_id").distinct().count()
+
+    default_accounts = BankAccount.objects.filter(is_default=True).count()
+
+    bank_summary = (
+        BankAccount.objects.values("bank_name")
+        .annotate(
+            account_count=Count("id", distinct=True),
+            user_count=Count("user_id", distinct=True),
+        )
+        .order_by("bank_name")
+    )
+
+    context = {
+        "page_title": "Banks",
+        "banks": banks,
+        "total_bank_accounts": total_bank_accounts,
+        "total_banks": total_banks,
+        "total_users_with_bank": total_users_with_bank,
+        "default_accounts": default_accounts,
+        "bank_summary": bank_summary,
+    }
+
+    return render(request, "loans/banks.html", context)

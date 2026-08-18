@@ -16,6 +16,7 @@ from loans.views import (
     LoanUpdateView,
     add_bank_account,
     add_note,
+    admin_banks,
     close_loan,
     create_support_ticket,
     delete_bank_account,
@@ -146,4 +147,5 @@ urlpatterns = [
         set_default_bank_account,
         name="set_default_bank_account",
     ),
+    path("banks/", admin_banks, name="admin_banks"),
 ]
