@@ -110,7 +110,7 @@
                         {% endif %}
                     </a>
                 </li>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <a href="{% url 'admin_reports' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_reports' %}active{% endif %}">
                     <i class="fas fa-chart-column"></i>
                     <span>Reports</span>
                 </a>

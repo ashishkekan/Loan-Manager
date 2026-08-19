@@ -2,6 +2,7 @@
 
 from django.urls import path
 
+from loans.report_views import admin_reports, export_admin_report
 from loans.views import (
     LoanCompareView,
     LoanCreateView,
@@ -153,5 +154,11 @@ urlpatterns = [
         "activity-logs/",
         activity_logs_dashboard,
         name="activity_logs_dashboard",
+    ),
+    path("reports/", admin_reports, name="admin_reports"),
+    path(
+        "reports/export/<str:report_type>/<str:format>/",
+        export_admin_report,
+        name="export_admin_report",
     ),
 ]

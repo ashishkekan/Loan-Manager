@@ -1,0 +1,847 @@
+{% extends "app_layout.html" %}
+{% load static %}
+{% load report_filters %}
+
+{% block title %}Reports — NexusLoan{% endblock %}
+
+{% block app_content %}
+<style>
+  /* ── Report-specific styles (minimal, reuses existing variables) ── */
+  .report-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+  }
+  .report-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: rgba(148,163,184,0.08);
+      border: 1px solid rgba(148,163,184,0.12);
+      text-decoration: none;
+      transition: all 0.2s ease;
+  }
+  .report-tab:hover {
+      color: var(--text);
+      border-color: var(--primary);
+  }
+  .report-tab.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+  }
+  .report-filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+  }
+  .report-filters-grid .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .report-filters-grid .form-input {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(148,163,184,0.25);
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--text);
+  }
+  .report-filters-grid .form-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+  }
+  .filter-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 4px;
+  }
+  .report-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+  }
+  .report-section-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+  }
+  .report-section-header p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+  }
+  .report-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+  }
+  .export-dropdown {
+      position: relative;
+      display: inline-block;
+  }
+  .export-dropdown-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      min-width: 130px;
+      background: var(--surface);
+      border: 1px solid rgba(148,163,184,0.2);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      z-index: 100;
+      display: none;
+      overflow: hidden;
+  }
+  .export-dropdown:hover .export-dropdown-menu,
+  .export-dropdown:focus-within .export-dropdown-menu {
+      display: block;
+  }
+  .export-dropdown-menu a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text);
+      text-decoration: none;
+      transition: background 0.15s;
+  }
+  .export-dropdown-menu a:hover {
+      background: rgba(40,167,69,0.08);
+  }
+  .data-table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+  }
+  .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+  }
+  .data-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-muted);
+      border-bottom: 2px solid rgba(148,163,184,0.15);
+      white-space: nowrap;
+  }
+  .data-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(148,163,184,0.08);
+      white-space: nowrap;
+  }
+  .data-table tbody tr:hover {
+      background: rgba(40,167,69,0.03);
+  }
+  .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .report-mini-stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+  }
+  .mini-stat {
+      background: rgba(148,163,184,0.06);
+      border-radius: 8px;
+      padding: 8px 14px;
+  }
+  .mini-stat .ms-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-muted);
+      display: block;
+  }
+  .mini-stat .ms-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+  }
+  .report-pagination {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+  }
+  .report-pagination a,
+  .report-pagination span {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      text-decoration: none;
+      border: 1px solid rgba(148,163,184,0.15);
+  }
+  .report-pagination a:hover {
+      border-color: var(--primary);
+  }
+  .report-pagination .current {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+  }
+  .report-pagination .disabled {
+      opacity: 0.4;
+      pointer-events: none;
+  }
+  .group-by-toggle {
+      display: inline-flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(148,163,184,0.2);
+  }
+  .group-by-toggle a {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--text-muted);
+  }
+  .group-by-toggle a.active {
+      background: var(--primary);
+      color: #fff;
+  }
+  @media (max-width: 768px) {
+      .report-filters-grid {
+          grid-template-columns: 1fr 1fr;
+      }
+      .report-section-header {
+          flex-direction: column;
+          align-items: flex-start;
+      }
+  }
+  @media (max-width: 480px) {
+      .report-filters-grid {
+          grid-template-columns: 1fr;
+      }
+  }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Reports</h1>
+        <p class="page-subtitle">Analyze your loan portfolio, payments and financial performance.</p>
+    </div>
+</div>
+
+<!-- ── KPI Summary Cards ── -->
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-file-invoice-dollar"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Loans</span>
+            <span class="sc-value">{{ kpis.total_loans }}</span>
+            <span class="sc-sub">{{ kpis.active_loans }} active · {{ kpis.closed_loans }} closed</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon accent">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Disbursed</span>
+            <span class="sc-value">{{ kpis.total_disbursed|inr }}</span>
+            <span class="sc-sub">total principal sanctioned</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon warn">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Outstanding</span>
+            <span class="sc-value">{{ kpis.total_outstanding|inr }}</span>
+            <span class="sc-sub">principal remaining</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon danger">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Overdue</span>
+            <span class="sc-value">{{ kpis.total_overdue|inr }}</span>
+            <span class="sc-sub">overdue EMI amount</span>
+        </div>
+    </div>
+</div>
+
+<!-- ── Common Filters ── -->
+<div class="glass-card reveal" style="padding:24px;margin-bottom:24px;">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">
+        <i class="fas fa-filter" style="color:var(--primary);"></i> Filter Reports
+    </h3>
+    <form method="get" action="{% url 'admin_reports' %}">
+        <input type="hidden" name="report" value="{{ active_report }}">
+        {% if active_report == 'performance' %}
+        <input type="hidden" name="group_by" value="{{ filters.group_by }}">
+        {% endif %}
+        <div class="report-filters-grid">
+            <div class="form-group">
+                <label class="form-label">Date From</label>
+                <input type="date" name="from_date" value="{{ filters.from_date }}" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Date To</label>
+                <input type="date" name="to_date" value="{{ filters.to_date }}" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">User</label>
+                <select name="user" class="form-input">
+                    <option value="">All Users</option>
+                    {% for u in users %}
+                    <option value="{{ u.pk }}" {% if filters.user_id == u.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ u.get_full_name|default:u.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Loan Type</label>
+                <select name="loan_type" class="form-input">
+                    <option value="">All Types</option>
+                    {% for value, label in loan_types %}
+                    <option value="{{ value }}" {% if filters.loan_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Loan Status</label>
+                <select name="status" class="form-input">
+                    <option value="">All Statuses</option>
+                    {% for value, label in loan_statuses %}
+                    <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if active_report == 'payment_collection' %}
+            <div class="form-group">
+                <label class="form-label">Payment Status</label>
+                <select name="payment_status" class="form-input">
+                    <option value="">All</option>
+                    {% for value, label in payment_statuses %}
+                    <option value="{{ value }}" {% if filters.payment_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Payment Mode</label>
+                <select name="payment_mode" class="form-input">
+                    <option value="">All Modes</option>
+                    {% for value, label in payment_modes %}
+                    <option value="{{ value }}" {% if filters.payment_mode == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            {% if active_report == 'overdue' %}
+            <div class="form-group">
+                <label class="form-label">Overdue Days</label>
+                <select name="overdue_days" class="form-input">
+                    <option value="">All Overdue</option>
+                    {% for value, label in overdue_buckets %}
+                    <option value="{{ value }}" {% if filters.overdue_bucket == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            {% if active_report == 'performance' and filters.group_by == 'bank' %}
+            <div class="form-group">
+                <label class="form-label">Bank</label>
+                <select name="bank" class="form-input">
+                    <option value="">All Banks</option>
+                    {% for bank in banks %}
+                    <option value="{{ bank }}" {% if filters.bank_name == bank %}selected{% endif %}>{{ bank }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i> Apply Filters
+            </button>
+            <a href="{% url 'admin_reports' %}?report={{ active_report }}" class="btn btn-outline">
+                <i class="fas fa-rotate-left"></i> Reset
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- ── Report Tabs ── -->
+<div class="report-tabs">
+    <a href="?{% preserve_filters request report='loan_portfolio' %}"
+       class="report-tab {% if active_report == 'loan_portfolio' %}active{% endif %}">
+        <i class="fas fa-briefcase"></i> Loan Portfolio
+    </a>
+    <a href="?{% preserve_filters request report='payment_collection' %}"
+       class="report-tab {% if active_report == 'payment_collection' %}active{% endif %}">
+        <i class="fas fa-hand-holding-dollar"></i> Payment & Collection
+    </a>
+    <a href="?{% preserve_filters request report='overdue' %}"
+       class="report-tab {% if active_report == 'overdue' %}active{% endif %}">
+        <i class="fas fa-exclamation-triangle"></i> Overdue / Default
+    </a>
+    <a href="?{% preserve_filters request report='user_summary' %}"
+       class="report-tab {% if active_report == 'user_summary' %}active{% endif %}">
+        <i class="fas fa-users"></i> User Financial Summary
+    </a>
+    <a href="?{% preserve_filters request report='performance' %}"
+       class="report-tab {% if active_report == 'performance' %}active{% endif %}">
+        <i class="fas fa-chart-column"></i> Bank / Loan Type Performance
+    </a>
+</div>
+
+<!-- ── Active Report Content ── -->
+<div class="glass-card reveal" style="padding:24px;">
+
+    {% if active_report == 'loan_portfolio' %}
+    <!-- ═══════════════ Loan Portfolio ═══════════════ -->
+    <div class="report-section-header">
+        <div>
+            <h3><i class="fas fa-briefcase" style="color:var(--primary);"></i> Loan Portfolio</h3>
+            <p>Overall loan portfolio performance</p>
+        </div>
+        <div class="report-actions">
+            <div class="export-dropdown">
+                <button class="btn btn-primary" type="button">
+                    <i class="fas fa-download"></i> Export ▾
+                </button>
+                <div class="export-dropdown-menu">
+                    <a href="{% url 'export_admin_report' 'loan_portfolio' 'excel' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </a>
+                    <a href="{% url 'export_admin_report' 'loan_portfolio' 'csv' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-csv"></i> CSV
+                    </a>
+                    <a href="{% url 'export_admin_report' 'loan_portfolio' 'pdf' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if page_obj.object_list %}
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Loan</th>
+                    <th>User</th>
+                    <th>Type</th>
+                    <th class="num">Principal</th>
+                    <th class="num">EMI</th>
+                    <th class="num">Outstanding</th>
+                    <th>Status</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in page_obj.object_list %}
+                <tr>
+                    <td>{{ loan.loan_name }}</td>
+                    <td>{{ loan.user.get_full_name|default:loan.user.username }}</td>
+                    <td>{{ loan.get_loan_type_display }}</td>
+                    <td class="num">{{ loan.amount|inr }}</td>
+                    <td class="num">{{ loan.emi|inr }}</td>
+                    <td class="num">{{ loan.remaining_balance|inr }}</td>
+                    <td>
+                        <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status }}</span>
+                    </td>
+                    <td>{{ loan.start_date|date:"Y-m-d" }}</td>
+                    <td>{{ loan.computed_end_date|date:"Y-m-d" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "loans/_report_pagination.html" with page_obj=page_obj %}
+    {% else %}
+    <div class="empty-state" style="padding:40px 20px;">
+        <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
+        <h3>No Loan Records Found</h3>
+        <p>No loan records match your current filters.</p>
+        <a href="{% url 'admin_reports' %}?report=loan_portfolio" class="btn btn-outline">Clear Filters</a>
+    </div>
+    {% endif %}
+
+    {% elif active_report == 'payment_collection' %}
+    <!-- ═══════════════ Payment & Collection ═══════════════ -->
+    <div class="report-section-header">
+        <div>
+            <h3><i class="fas fa-hand-holding-dollar" style="color:var(--primary);"></i> Payment & Collection</h3>
+            <p>Payment and collection performance</p>
+        </div>
+        <div class="report-actions">
+            <div class="export-dropdown">
+                <button class="btn btn-primary" type="button">
+                    <i class="fas fa-download"></i> Export ▾
+                </button>
+                <div class="export-dropdown-menu">
+                    <a href="{% url 'export_admin_report' 'payment_collection' 'excel' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </a>
+                    <a href="{% url 'export_admin_report' 'payment_collection' 'csv' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-csv"></i> CSV
+                    </a>
+                    <a href="{% url 'export_admin_report' 'payment_collection' 'pdf' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if report_summary %}
+    <div class="report-mini-stats">
+        <div class="mini-stat">
+            <span class="ms-label">Total Payments</span>
+            <span class="ms-value">{{ report_summary.total_payments }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">Collected</span>
+            <span class="ms-value">{{ report_summary.total_collected|inr }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">Pending</span>
+            <span class="ms-value">{{ report_summary.pending_amount|inr }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">Overdue</span>
+            <span class="ms-value">{{ report_summary.overdue_amount|inr }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">Successful</span>
+            <span class="ms-value">{{ report_summary.successful_payments }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">Upcoming</span>
+            <span class="ms-value">{{ report_summary.upcoming_payments }}</span>
+        </div>
+    </div>
+    {% endif %}
+    {% if page_obj.object_list %}
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Payment Date</th>
+                    <th>User</th>
+                    <th>Loan</th>
+                    <th>EMI No.</th>
+                    <th class="num">Amount</th>
+                    <th>Due Date</th>
+                    <th>Paid Date</th>
+                    <th>Status</th>
+                    <th>Mode</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in page_obj.object_list %}
+                <tr>
+                    <td>{{ p.payment_date|date:"Y-m-d"|default:"—" }}</td>
+                    <td>{{ p.loan.user.get_full_name|default:p.loan.user.username }}</td>
+                    <td>{{ p.loan.loan_name }}</td>
+                    <td>{{ p.payment_number }}</td>
+                    <td class="num">{{ p.total_debit_amount|inr }}</td>
+                    <td>{{ p.due_date|date:"Y-m-d" }}</td>
+                    <td>{{ p.payment_date|date:"Y-m-d"|default:"—" }}</td>
+                    <td>
+                        <span class="loan-status-badge badge-{{ p.status }}">{{ p.get_status_display }}</span>
+                    </td>
+                    <td>{{ p.get_payment_mode_display }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "loans/_report_pagination.html" with page_obj=page_obj %}
+    {% else %}
+    <div class="empty-state" style="padding:40px 20px;">
+        <div class="empty-icon"><i class="fas fa-receipt"></i></div>
+        <h3>No Payment Records Found</h3>
+        <p>No payment records match your current filters.</p>
+        <a href="{% url 'admin_reports' %}?report=payment_collection" class="btn btn-outline">Clear Filters</a>
+    </div>
+    {% endif %}
+
+    {% elif active_report == 'overdue' %}
+    <!-- ═══════════════ Overdue / Default ═══════════════ -->
+    <div class="report-section-header">
+        <div>
+            <h3><i class="fas fa-exclamation-triangle" style="color:var(--danger);"></i> Overdue / Default</h3>
+            <p>Track overdue payments and defaults</p>
+        </div>
+        <div class="report-actions">
+            <div class="export-dropdown">
+                <button class="btn btn-primary" type="button">
+                    <i class="fas fa-download"></i> Export ▾
+                </button>
+                <div class="export-dropdown-menu">
+                    <a href="{% url 'export_admin_report' 'overdue' 'excel' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </a>
+                    <a href="{% url 'export_admin_report' 'overdue' 'csv' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-csv"></i> CSV
+                    </a>
+                    <a href="{% url 'export_admin_report' 'overdue' 'pdf' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if report_summary %}
+    <div class="report-mini-stats">
+        <div class="mini-stat">
+            <span class="ms-label">Overdue Loans</span>
+            <span class="ms-value">{{ report_summary.total_overdue_loans }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">Overdue EMIs</span>
+            <span class="ms-value">{{ report_summary.total_overdue_emis }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">Overdue Amount</span>
+            <span class="ms-value">{{ report_summary.total_overdue_amount|inr }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">1–30 Days</span>
+            <span class="ms-value">{{ report_summary.bucket_1_30 }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">31–60 Days</span>
+            <span class="ms-value">{{ report_summary.bucket_31_60 }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">61–90 Days</span>
+            <span class="ms-value">{{ report_summary.bucket_61_90 }}</span>
+        </div>
+        <div class="mini-stat">
+            <span class="ms-label">90+ Days</span>
+            <span class="ms-value">{{ report_summary.bucket_90_plus }}</span>
+        </div>
+    </div>
+    {% endif %}
+    {% if page_obj.object_list %}
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Loan</th>
+                    <th>EMI No.</th>
+                    <th>Due Date</th>
+                    <th class="num">EMI Amount</th>
+                    <th class="num">Days Overdue</th>
+                    <th class="num">Outstanding</th>
+                    <th>Loan Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in page_obj.object_list %}
+                <tr>
+                    <td>{{ p.loan.user.get_full_name|default:p.loan.user.username }}</td>
+                    <td>{{ p.loan.loan_name }}</td>
+                    <td>{{ p.payment_number }}</td>
+                    <td>{{ p.due_date|date:"Y-m-d" }}</td>
+                    <td class="num">{{ p.total_debit_amount|inr }}</td>
+                    <td class="num">{{ p.computed_days_overdue }}</td>
+                    <td class="num">{{ p.loan.remaining_balance|inr }}</td>
+                    <td>
+                        <span class="loan-status-badge badge-{{ p.loan.status }}">{{ p.loan.status }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "loans/_report_pagination.html" with page_obj=page_obj %}
+    {% else %}
+    <div class="empty-state" style="padding:40px 20px;">
+        <div class="empty-icon"><i class="fas fa-check-circle"></i></div>
+        <h3>No Overdue Records Found</h3>
+        <p>No overdue payments match your current filters, or there are no overdue EMIs.</p>
+        <a href="{% url 'admin_reports' %}?report=overdue" class="btn btn-outline">Clear Filters</a>
+    </div>
+    {% endif %}
+
+    {% elif active_report == 'user_summary' %}
+    <!-- ═══════════════ User Financial Summary ═══════════════ -->
+    <div class="report-section-header">
+        <div>
+            <h3><i class="fas fa-users" style="color:var(--primary);"></i> User Financial Summary</h3>
+            <p>User-wise financial performance</p>
+        </div>
+        <div class="report-actions">
+            <div class="export-dropdown">
+                <button class="btn btn-primary" type="button">
+                    <i class="fas fa-download"></i> Export ▾
+                </button>
+                <div class="export-dropdown-menu">
+                    <a href="{% url 'export_admin_report' 'user_summary' 'excel' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </a>
+                    <a href="{% url 'export_admin_report' 'user_summary' 'csv' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-csv"></i> CSV
+                    </a>
+                    <a href="{% url 'export_admin_report' 'user_summary' 'pdf' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if page_obj.object_list %}
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th class="num">Total Loans</th>
+                    <th class="num">Active</th>
+                    <th class="num">Completed</th>
+                    <th class="num">Borrowed</th>
+                    <th class="num">Repaid</th>
+                    <th class="num">Outstanding</th>
+                    <th class="num">Overdue</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in page_obj.object_list %}
+                <tr>
+                    <td>{{ u.get_full_name|default:u.username }}</td>
+                    <td class="num">{{ u.total_loans|default:0 }}</td>
+                    <td class="num">{{ u.active_loans|default:0 }}</td>
+                    <td class="num">{{ u.completed_loans|default:0 }}</td>
+                    <td class="num">{{ u.total_borrowed|inr }}</td>
+                    <td class="num">{{ u.total_repaid|inr }}</td>
+                    <td class="num">{{ u.outstanding|inr }}</td>
+                    <td class="num">{{ u.overdue_amount|inr }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "loans/_report_pagination.html" with page_obj=page_obj %}
+    {% else %}
+    <div class="empty-state" style="padding:40px 20px;">
+        <div class="empty-icon"><i class="fas fa-user-slash"></i></div>
+        <h3>No User Records Found</h3>
+        <p>No users match your current filters.</p>
+        <a href="{% url 'admin_reports' %}?report=user_summary" class="btn btn-outline">Clear Filters</a>
+    </div>
+    {% endif %}
+
+    {% elif active_report == 'performance' %}
+    <!-- ═══════════════ Bank / Loan Type Performance ═══════════════ -->
+    <div class="report-section-header">
+        <div>
+            <h3><i class="fas fa-chart-column" style="color:var(--primary);"></i> Bank / Loan Type Performance</h3>
+            <p>Compare portfolio performance by {{ group_label|lower }}</p>
+        </div>
+        <div class="report-actions">
+            <div class="group-by-toggle">
+                <a href="?{% preserve_filters request report='performance' group_by='loan_type' %}"
+                   class="{% if filters.group_by == 'loan_type' %}active{% endif %}">Loan Type</a>
+                <a href="?{% preserve_filters request report='performance' group_by='bank' %}"
+                   class="{% if filters.group_by == 'bank' %}active{% endif %}">Bank</a>
+            </div>
+            <div class="export-dropdown">
+                <button class="btn btn-primary" type="button">
+                    <i class="fas fa-download"></i> Export ▾
+                </button>
+                <div class="export-dropdown-menu">
+                    <a href="{% url 'export_admin_report' 'performance' 'excel' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </a>
+                    <a href="{% url 'export_admin_report' 'performance' 'csv' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-csv"></i> CSV
+                    </a>
+                    <a href="{% url 'export_admin_report' 'performance' 'pdf' %}?{% preserve_filters request %}">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if performance_data %}
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>{{ group_label }}</th>
+                    <th class="num">Loans</th>
+                    <th class="num">Disbursed</th>
+                    <th class="num">Repaid</th>
+                    <th class="num">Outstanding</th>
+                    <th class="num">Overdue</th>
+                    <th class="num">Avg Loan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in performance_data %}
+                <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="num">{{ row.total_loans }}</td>
+                    <td class="num">{{ row.total_disbursed|inr }}</td>
+                    <td class="num">{{ row.total_repaid|inr }}</td>
+                    <td class="num">{{ row.outstanding|inr }}</td>
+                    <td class="num">{{ row.overdue|inr }}</td>
+                    <td class="num">{{ row.avg_loan|inr }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:40px 20px;">
+        <div class="empty-icon"><i class="fas fa-chart-line"></i></div>
+        <h3>No Performance Data Found</h3>
+        <p>No loan data match your current filters for this grouping.</p>
+        <a href="{% url 'admin_reports' %}?report=performance" class="btn btn-outline">Clear Filters</a>
+    </div>
+    {% endif %}
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var reveals = document.querySelectorAll(".reveal");
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("revealed");
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15 });
+    reveals.forEach(function (el) { observer.observe(el); });
+});
+</script>
+{% endblock %}
