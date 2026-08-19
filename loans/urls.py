@@ -14,6 +14,7 @@ from loans.views import (
     LoanDisbursementUpdateView,
     LoanListView,
     LoanUpdateView,
+    activity_logs_dashboard,
     add_bank_account,
     add_note,
     admin_banks,
@@ -148,4 +149,9 @@ urlpatterns = [
         name="set_default_bank_account",
     ),
     path("banks/", admin_banks, name="admin_banks"),
+    path(
+        "activity-logs/",
+        activity_logs_dashboard,
+        name="activity_logs_dashboard",
+    ),
 ]

@@ -1,4 +1,5 @@
 import csv
+from datetime import timedelta
 from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
@@ -25,6 +26,7 @@ from django.views.generic import (
     UpdateView,
 )
 
+from dashboard.models import ActivityLog
 from dashboard.utils import add_activity
 from loans.forms import (
     AppearancePreferenceForm,
@@ -1264,11 +1266,9 @@ def mark_notification_read(request, notification_id):
 @login_required
 def mark_all_notifications_read(request):
     if request.method == "POST":
-        Notification.objects.filter(
-            user=request.user,
-            is_read=False,
-        ).update(is_read=True)
-
+        Notification.objects.filter(user=request.user, is_read=False).update(
+            is_read=True
+        )
     return redirect("notifications_dashboard")
 
 
@@ -1829,3 +1829,73 @@ def admin_banks(request):
     }
 
     return render(request, "loans/banks.html", context)
+
+
+@login_required
+def activity_logs_dashboard(request):
+    if not request.user.is_staff:
+        return redirect("dashboard")
+
+    logs = (
+        ActivityLog.objects.filter(user__isnull=False)
+        .select_related("user", "loan")
+        .order_by("-created_at")
+    )
+
+    search = request.GET.get("search", "").strip()
+    action = request.GET.get("action", "").strip()
+    date_range = request.GET.get("date_range", "").strip()
+
+    if search:
+        logs = logs.filter(
+            Q(title__icontains=search)
+            | Q(description__icontains=search)
+            | Q(user__username__icontains=search)
+            | Q(loan__loan_name__icontains=search)
+        )
+
+    if action:
+        logs = logs.filter(action=action)
+
+    today = timezone.localdate()
+
+    if date_range == "today":
+        logs = logs.filter(created_at__date=today)
+    elif date_range == "7_days":
+        logs = logs.filter(created_at__date__gte=today - timedelta(days=6))
+    elif date_range == "30_days":
+        logs = logs.filter(created_at__date__gte=today - timedelta(days=29))
+
+    all_logs = ActivityLog.objects.all()
+
+    total_logs = all_logs.count()
+
+    today_logs = all_logs.filter(created_at__date=today).count()
+
+    emi_paid_count = all_logs.filter(action="emi_paid").count()
+
+    auto_debit_count = all_logs.filter(action="auto_debit").count()
+
+    paginator = Paginator(logs, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_title": "Activity Logs",
+        "logs": page_obj.object_list,
+        "page_obj": page_obj,
+        "total_logs": total_logs,
+        "today_logs": today_logs,
+        "emi_paid_count": emi_paid_count,
+        "auto_debit_count": auto_debit_count,
+        "search": search,
+        "selected_action": action,
+        "selected_date_range": date_range,
+        "action_choices": ActivityLog.ACTIONS,
+    }
+
+    return render(
+        request,
+        "loans/activity_logs_dashboard.html",
+        context,
+    )
