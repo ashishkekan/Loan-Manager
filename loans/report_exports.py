@@ -35,10 +35,6 @@ from loans.reports import (
 )
 from loans.utils import add_periods, get_period_details
 
-# ---------------------------------------------------------------------------
-# Column definitions — shared by all export formats
-# ---------------------------------------------------------------------------
-
 REPORT_META = {
     "loan_portfolio": {
         "title": "Loan Portfolio Report",
@@ -113,11 +109,6 @@ REPORT_META = {
         ],
     },
 }
-
-
-# ---------------------------------------------------------------------------
-# Row generators — yield lists matching headers
-# ---------------------------------------------------------------------------
 
 
 def _iter_loan_portfolio(f):
@@ -213,11 +204,6 @@ ROW_GENERATORS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Excel
-# ---------------------------------------------------------------------------
-
-
 def _export_excel(report_type, f):
     meta = REPORT_META[report_type]
     wb = openpyxl.Workbook()
@@ -279,11 +265,6 @@ def _export_excel(report_type, f):
     return response
 
 
-# ---------------------------------------------------------------------------
-# CSV
-# ---------------------------------------------------------------------------
-
-
 def _export_csv(report_type, f):
     meta = REPORT_META[report_type]
     buffer = StringIO()
@@ -304,11 +285,6 @@ def _export_csv(report_type, f):
     )
     response.write(buffer.getvalue())
     return response
-
-
-# ---------------------------------------------------------------------------
-# PDF
-# ---------------------------------------------------------------------------
 
 
 def _export_pdf(report_type, f):
@@ -376,11 +352,6 @@ def _export_pdf(report_type, f):
     elements.append(table)
     doc.build(elements)
     return response
-
-
-# ---------------------------------------------------------------------------
-# Public dispatch
-# ---------------------------------------------------------------------------
 
 
 def export_report(report_type, fmt, f):

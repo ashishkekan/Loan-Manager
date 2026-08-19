@@ -114,11 +114,11 @@
                     <i class="fas fa-chart-column"></i>
                     <span>Reports</span>
                 </a>
-                <a href="{% url 'activity_logs_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
+                <a href="{% url 'activity_logs_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'activity_logs_dashboard' %}active{% endif %}">
                     <i class="fas fa-clock-rotate-left"></i>
                     <span>Activity Logs</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <a href="{% url 'settings_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'settings_dashboard' %}active{% endif %}">
                     <i class="fas fa-gear"></i>
                     <span>Settings</span>
                 </a>
