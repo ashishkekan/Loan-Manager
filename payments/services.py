@@ -15,10 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from loans.services import AccruedInterestService
-from loans.utils import (
-    add_periods,
-    get_period_details,
-)
+from loans.utils import add_periods, create_notification, get_period_details
 from payments.models import Payment
 
 
@@ -68,6 +65,13 @@ def process_emi_payment(
                 "status",
                 "closed_date",
             ]
+        )
+        create_notification(
+            user=loan.user,
+            title="Loan Fully Repaid",
+            message=f"{loan.loan_name} has been fully repaid and is now closed.",
+            notification_type="loan",
+            loan=loan,
         )
         return None
 
@@ -171,5 +175,12 @@ def process_emi_payment(
         )
 
     loan.save(update_fields=update_fields)
+    create_notification(
+        user=loan.user,
+        title="Loan Fully Repaid",
+        message=f"{loan.loan_name} has been fully repaid and is now closed.",
+        notification_type="loan",
+        loan=loan,
+    )
 
     return payment

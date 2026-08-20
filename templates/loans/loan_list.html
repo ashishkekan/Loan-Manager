@@ -20,6 +20,12 @@
                 <span class="loan-type"><i class="fas fa-file-invoice-dollar"></i></span>
             </div>
             <h3 class="loan-card-title">{{ loan.loan_name }}</h3>
+            {% if request.user.is_staff %}
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
+                    <i class="fas fa-user"></i>
+                    {{ loan.user.get_full_name|default:loan.user.username }}
+                </div>
+            {% endif %}
             <div class="loan-card-amount">₹{{ loan.amount|floatformat:0 }}</div>
             <div class="loan-card-meta">
                 <div>
@@ -47,6 +53,9 @@
         </a>
         {% endfor %}
     </div>
+    {% if is_paginated %}
+        {% include "includes/pagination.html" %}
+    {% endif %}
 {% else %}
     <div class="empty-state">
         <div class="empty-icon"><i class="fas fa-file-circle-plus"></i></div>
@@ -56,8 +65,5 @@
             <i class="fas fa-plus"></i> Add First Loan
         </a>
     </div>
-{% if is_paginated %}
-    {% include "includes/pagination.html" %}
-{% endif %}
 {% endif %}
 {% endblock %}

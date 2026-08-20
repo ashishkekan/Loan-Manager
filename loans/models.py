@@ -1,5 +1,6 @@
 """Loan model — core entity with health scoring, types, and notes."""
 
+import os
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
@@ -360,23 +361,77 @@ class LoanNote(models.Model):
 
 
 class LoanDocument(models.Model):
-    """Uploaded documents for a loan (Agreement, ID proof, etc.)."""
+    """Uploaded documents for a loan."""
 
     DOC_TYPES = [
         ("agreement", "Loan Agreement"),
+        ("sanction_letter", "Sanction Letter"),
+        ("insurance", "Insurance"),
+        ("property_papers", "Property Papers"),
         ("id_proof", "ID Proof"),
         ("income_proof", "Income Proof"),
-        ("property_papers", "Property Papers"),
         ("other", "Other"),
+    ]
+    VERIFICATION_STATUS = [
+        ("pending", "Pending"),
+        ("verified", "Verified"),
+        ("rejected", "Rejected"),
     ]
     loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name="documents")
     title = models.CharField(max_length=200)
-    doc_type = models.CharField(max_length=20, choices=DOC_TYPES, default="other")
+    doc_type = models.CharField(max_length=30, choices=DOC_TYPES, default="other")
     file = models.FileField(upload_to="loan_documents/%Y/%m/")
+    file_size = models.PositiveIntegerField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    verification_status = models.CharField(
+        max_length=20, choices=VERIFICATION_STATUS, default="pending"
+    )
+    notes = models.TextField(blank=True)
+
+    @property
+    def file_extension(self):
+        return os.path.splitext(self.file.name)[1].replace(".", "").upper()
+
+    @property
+    def icon(self):
+        icons = {
+            "PDF": "fa-file-pdf",
+            "DOC": "fa-file-word",
+            "DOCX": "fa-file-word",
+            "JPG": "fa-file-image",
+            "JPEG": "fa-file-image",
+            "PNG": "fa-file-image",
+        }
+        return icons.get(self.file_extension, "fa-file")
+
+    @property
+    def icon_class(self):
+        extension = self.file_extension.lower()
+        if extension == "pdf":
+            return "document-icon-pdf"
+        if extension in ["doc", "docx"]:
+            return "document-icon-word"
+        if extension in ["jpg", "jpeg", "png"]:
+            return "document-icon-image"
+        return "document-icon-other"
+
+    @property
+    def formatted_size(self):
+        if not self.file_size:
+            return "Unknown"
+        if self.file_size < 1024:
+            return f"{self.file_size} B"
+        if self.file_size < 1024 * 1024:
+            return f"{self.file_size / 1024:.1f} KB"
+        return f"{self.file_size / (1024 * 1024):.1f} MB"
+
+    def save(self, *args, **kwargs):
+        if self.file:
+            self.file_size = self.file.size
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.title} ({self.loan.loan_name})"
+        return f"{self.title} — {self.loan.loan_name}"
 
 
 class Investment(models.Model):
@@ -555,3 +610,281 @@ class LoanAccruedInterest(models.Model):
     @property
     def is_recovered(self):
         return self.status == "recovered"
+
+
+class Notification(models.Model):
+    TYPE_CHOICES = [
+        ("loan", "Loan"),
+        ("payment", "Payment"),
+        ("document", "Document"),
+        ("reminder", "Reminder"),
+        ("system", "System"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    loan = models.ForeignKey(
+        "loans.Loan",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default="system",
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_read"]),
+            models.Index(fields=["user", "notification_type"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.user}"
+
+
+class SupportTicket(models.Model):
+    CATEGORY_CHOICES = [
+        ("loan", "Loan Issue"),
+        ("payment", "Payment Issue"),
+        ("document", "Document Issue"),
+        ("account", "Account Issue"),
+        ("technical", "Technical Issue"),
+        ("other", "Other"),
+    ]
+    STATUS_CHOICES = [
+        ("open", "Open"),
+        ("in_progress", "In Progress"),
+        ("resolved", "Resolved"),
+        ("closed", "Closed"),
+    ]
+    PRIORITY_CHOICES = [
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
+        ("urgent", "Urgent"),
+    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="support_tickets",
+    )
+    loan = models.ForeignKey(
+        "Loan",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="support_tickets",
+    )
+    ticket_number = models.CharField(max_length=30, unique=True, editable=False)
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    attachment = models.FileField(
+        upload_to="support_tickets/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default="medium",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    last_response_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["ticket_number"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.ticket_number:
+            super().save(*args, **kwargs)
+            self.ticket_number = f"TKT-{self.pk:04d}"
+            super().save(update_fields=["ticket_number"])
+            return
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"#{self.ticket_number} - {self.subject}"
+
+
+class SupportMessage(models.Model):
+    ticket = models.ForeignKey(
+        SupportTicket,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="support_messages",
+    )
+    message = models.TextField()
+    attachment = models.FileField(
+        upload_to="support_messages/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    is_staff_reply = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.ticket.ticket_number} - {self.user}"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="loan_profile",
+    )
+    phone = models.CharField(max_length=20, blank=True)
+    photo = models.ImageField(upload_to="profile_photos/", blank=True, null=True)
+    dob = models.DateField(blank=True, null=True)
+    address = models.TextField(blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    pincode = models.CharField(max_length=10, blank=True)
+    occupation = models.CharField(max_length=150, blank=True)
+    annual_income = models.DecimalField(
+        max_digits=15, decimal_places=2, blank=True, null=True
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+
+
+class NotificationPreference(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_preferences",
+    )
+    email_emi = models.BooleanField(default=True)
+    email_payment = models.BooleanField(default=True)
+    email_updates = models.BooleanField(default=True)
+    email_promotional = models.BooleanField(default=False)
+    inapp_emi = models.BooleanField(default=True)
+    inapp_support = models.BooleanField(default=True)
+    inapp_documents = models.BooleanField(default=True)
+    inapp_loan_updates = models.BooleanField(default=True)
+    sms_emi = models.BooleanField(default=True)
+    sms_otp = models.BooleanField(default=True)
+    sms_payment = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Notification Preferences"
+
+
+class AppearancePreference(models.Model):
+    THEME_CHOICES = [
+        ("light", "Light"),
+        ("dark", "Dark"),
+        ("system", "System"),
+    ]
+    LANGUAGE_CHOICES = [
+        ("en", "English"),
+        ("hi", "Hindi"),
+    ]
+    DATE_FORMAT_CHOICES = [
+        ("DD MMM YYYY", "07 Aug 2026"),
+        ("DD/MM/YYYY", "07/08/2026"),
+        ("MM/DD/YYYY", "08/07/2026"),
+    ]
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="appearance_preferences",
+    )
+    theme = models.CharField(max_length=20, choices=THEME_CHOICES, default="system")
+    language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")
+    currency = models.CharField(max_length=10, default="INR")
+    date_format = models.CharField(
+        max_length=30,
+        choices=DATE_FORMAT_CHOICES,
+        default="DD MMM YYYY",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Appearance Preferences"
+
+
+class PrivacySetting(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="privacy_settings",
+    )
+    hide_balance = models.BooleanField(default=False)
+    hide_loan_amount = models.BooleanField(default=False)
+    hide_emi_values = models.BooleanField(default=False)
+    analytics = models.BooleanField(default=True)
+    marketing = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Privacy Settings"
+
+
+class SecuritySetting(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="security_settings",
+    )
+    two_factor = models.BooleanField(default=False)
+    last_password_change = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Security Settings"
+
+
+class BankAccount(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bank_accounts",
+    )
+    bank_name = models.CharField(max_length=150)
+    account_holder = models.CharField(max_length=150)
+    account_number = models.CharField(max_length=50)
+    ifsc = models.CharField(max_length=20)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def masked_account_number(self):
+        if len(self.account_number) <= 4:
+            return self.account_number
+        return f"•••• {self.account_number[-4:]}"
+
+    def __str__(self):
+        return f"{self.bank_name} - {self.masked_account_number}"

@@ -1,0 +1,1013 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+{% block title %}Prepayments — NexusLoan{% endblock %}
+{% block app_content %}
+{% if admin_view %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}">Dashboard</a>
+            <i class="fas fa-chevron-right"></i>
+            <span>Prepayments</span>
+        </div>
+        <h1 class="page-title">Prepayment Management</h1>
+        <p class="page-subtitle">
+            Monitor customer prepayments, interest savings, tenure reductions and foreclosures.
+        </p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'payment_dashboard' %}" class="btn btn-outline">
+            <i class="fas fa-credit-card"></i>
+            Payments
+        </a>
+        <a href="{% url 'admin_users' %}" class="btn btn-primary">
+            <i class="fas fa-users"></i>
+            Users
+        </a>
+    </div>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-money-bill-transfer"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Prepaid</span>
+            <span class="sc-value">
+                ₹{{ admin_total_prepaid_amount|floatformat:0 }}
+            </span>
+            <span class="sc-sub">
+                {{ admin_prepayment_count }} successful transactions
+            </span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-piggy-bank"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Interest Saved</span>
+            <span class="sc-value">
+                ₹{{ admin_total_interest_saved|floatformat:0 }}
+            </span>
+            <span class="sc-sub">
+                Estimated customer savings
+            </span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-calendar-minus"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Tenure Reduced</span>
+            <span class="sc-value">
+                {{ admin_total_tenure_reduced }}
+            </span>
+            <span class="sc-sub">
+                Months saved across loans
+            </span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-building-columns"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Loans Benefited</span>
+            <span class="sc-value">
+                {{ admin_loans_benefited }}
+            </span>
+            <span class="sc-sub">
+                Loans with successful prepayments
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-calendar-day"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Today's Prepayment</span>
+            <span class="sc-value">
+                ₹{{ admin_today_prepaid_amount|floatformat:0 }}
+            </span>
+            <span class="sc-sub">
+                Successful prepayments today
+            </span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-calendar-days"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">This Month</span>
+            <span class="sc-value">
+                ₹{{ admin_month_prepaid_amount|floatformat:0 }}
+            </span>
+            <span class="sc-sub">
+                Current month collection
+            </span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Pending</span>
+            <span class="sc-value">
+                {{ admin_pending_count }}
+            </span>
+            <span class="sc-sub">
+                ₹{{ admin_pending_amount|floatformat:0 }} pending
+            </span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-house-circle-xmark"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Foreclosures</span>
+            <span class="sc-value">
+                {{ admin_foreclosure_count }}
+            </span>
+            <span class="sc-sub">
+                ₹{{ admin_foreclosure_amount|floatformat:0 }} processed
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div class="card-header">
+        <div class="card-title">
+            <div class="sc-icon">
+                <i class="fas fa-chart-column"></i>
+            </div>
+            <div>
+                <h3>Loan Wise Prepayment Impact</h3>
+                <p>
+                    Prepayment activity and savings across all customer loans.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% if loan_prepayment_summary %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Loan</th>
+                        <th>Bank</th>
+                        <th>Prepaid</th>
+                        <th>Interest Saved</th>
+                        <th>Tenure Reduced</th>
+                        <th>Transactions</th>
+                        <th>Last Prepayment</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in loan_prepayment_summary %}
+                    <tr>
+                        <td>
+                            <div class="loan-info">
+                                <strong>
+                                    {{ item.user.get_full_name|default:item.user.username }}
+                                </strong>
+                                <small>
+                                    {{ item.user.email }}
+                                </small>
+                            </div>
+                        </td>
+                        <td>
+                            <strong>{{ item.loan.loan_name }}</strong>
+                        </td>
+                        <td>
+                            {{ item.loan.bank_name|default:"—" }}
+                        </td>
+                        <td>
+                            <strong>
+                                ₹{{ item.total_prepaid_amount|floatformat:0 }}
+                            </strong>
+                        </td>
+                        <td>
+                            <span class="text-success">
+                                ₹{{ item.total_interest_saved|floatformat:0 }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="text-primary">
+                                {{ item.months_reduced }} months
+                            </span>
+                        </td>
+                        <td>
+                            {{ item.prepayment_count }}
+                        </td>
+                        <td>
+                            {% if item.last_prepayment_date %}
+                                {{ item.last_prepayment_date|date:"d M Y" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'loan_detail' item.loan.pk %}" class="icon-btn" title="Loan Details">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-money-bill-transfer"></i>
+            </div>
+            <h3>No Prepayments</h3>
+            <p>
+                No successful prepayments have been recorded yet.
+            </p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div class="card-header">
+        <div class="card-title">
+            <div class="sc-icon">
+                <i class="fas fa-clock-rotate-left"></i>
+            </div>
+            <div>
+                <h3>Prepayment History</h3>
+                <p>
+                    Complete prepayment activity across all customers.
+                </p>
+            </div>
+        </div>
+        <div class="section-actions">
+            <a href="{% url 'export_prepayment_pdf' %}" class="btn btn-primary">
+                <i class="fas fa-file-pdf"></i>
+                Export PDF
+            </a>
+            <a href="{% url 'export_prepayment_excel' %}" class="btn btn-success">
+                <i class="fas fa-file-excel"></i>
+                Export Excel
+            </a>
+        </div>
+    </div>
+    {% if prepayments %}
+        <div class="payment-filter-bar">
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">
+                    All
+                </button>
+                <button class="filter-btn" data-filter="prepayment">
+                    Prepayment
+                </button>
+                <button class="filter-btn" data-filter="foreclosure">
+                    Foreclosure
+                </button>
+                <button class="filter-btn" data-filter="manual">
+                    Manual
+                </button>
+                <button class="filter-btn" data-filter="auto_debit">
+                    Auto Debit
+                </button>
+            </div>
+            <div class="filter-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="adminPrepaymentSearch" placeholder="Search user or loan...">
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table payment-table" id="adminPrepaymentTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>User</th>
+                        <th>Loan</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Type</th>
+                        <th>Mode</th>
+                        <th>Interest Saved</th>
+                        <th>Months Reduced</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prepayment in prepayments %}
+                    <tr
+                        data-type="{{ prepayment.payment_type }}"
+                        data-mode="{{ prepayment.payment_mode }}"
+                        data-search="{{ prepayment.loan.loan_name|lower }} {{ prepayment.loan.user.username|lower }} {{ prepayment.loan.user.email|lower }}"
+                    >
+                        <td>
+                            <strong>#{{ forloop.counter }}</strong>
+                        </td>
+                        <td>
+                            <div class="loan-info">
+                                <strong>
+                                    {{ prepayment.loan.user.get_full_name|default:prepayment.loan.user.username }}
+                                </strong>
+                                <small>
+                                    {{ prepayment.loan.user.email }}
+                                </small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="loan-info">
+                                <strong>
+                                    {{ prepayment.loan.loan_name }}
+                                </strong>
+                                <small>
+                                    {{ prepayment.loan.bank_name|default:"—" }}
+                                </small>
+                            </div>
+                        </td>
+                        <td>
+                            {{ prepayment.prepayment_date|date:"d M Y" }}
+                        </td>
+                        <td>
+                            <strong>
+                                ₹{{ prepayment.amount|floatformat:0 }}
+                            </strong>
+                        </td>
+                        <td>
+                            {% if prepayment.payment_type == "prepayment" %}
+                                <span class="badge badge-success">
+                                    <i class="fas fa-money-bill-transfer"></i>
+                                    Prepayment
+                                </span>
+                            {% elif prepayment.payment_type == "foreclosure" %}
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-house-circle-xmark"></i>
+                                    Foreclosure
+                                </span>
+                            {% else %}
+                                <span class="badge badge-secondary">
+                                    {{ prepayment.get_payment_type_display }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.payment_mode == "manual" %}
+                                <span class="badge badge-light">
+                                    <i class="fas fa-hand-pointer"></i>
+                                    Manual
+                                </span>
+                            {% elif prepayment.payment_mode == "auto_debit" %}
+                                <span class="badge badge-info">
+                                    <i class="fas fa-repeat"></i>
+                                    Auto Debit
+                                </span>
+                            {% else %}
+                                <span class="badge badge-secondary">
+                                    {{ prepayment.get_payment_mode_display }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.interest_saved > 0 %}
+                                <span class="text-success">
+                                    ₹{{ prepayment.interest_saved|floatformat:0 }}
+                                </span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.months_reduced > 0 %}
+                                <span class="text-primary">
+                                    {{ prepayment.months_reduced }} months
+                                </span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.status == "paid" %}
+                                <span class="status-badge status-paid">
+                                    <i class="fas fa-circle-check"></i>
+                                    Paid
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-pending">
+                                    <i class="fas fa-clock"></i>
+                                    Pending
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{% url 'loan_detail' prepayment.loan.pk %}" class="icon-btn" title="Loan Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-money-bill-transfer"></i>
+            </div>
+            <h3>No Prepayments Yet</h3>
+            <p>No customer prepayment activity is available.</p>
+        </div>
+    {% endif %}
+</div>
+{% else %}
+<style>
+    .section-actions{
+            display:flex;
+            align-items:center;
+            justify-content:flex-end;
+            gap:12px;
+            margin-left:auto;
+        }
+
+        @media(max-width:768px){
+            .section-actions{
+                width:100%;
+                justify-content:flex-start;
+                flex-wrap:wrap;
+            }
+        }
+</style>
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}">Dashboard</a>
+            <i class="fas fa-chevron-right"></i>
+            <span>Prepayments</span>
+        </div>
+        <h1 class="page-title">Prepayments</h1>
+        <p class="page-subtitle">
+            Track your extra loan payments, interest savings and tenure reduction.
+        </p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'loan_list' %}" class="btn btn-outline">
+            <i class="fas fa-wallet"></i>
+            My Loans
+        </a>
+        <a href="{% url 'payment_dashboard' %}" class="btn btn-primary">
+            <i class="fas fa-credit-card"></i>
+            Payments
+        </a>
+    </div>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-money-bill-transfer"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Prepaid Amount</span>
+            <span class="sc-value">
+                ₹{{ total_prepaid_amount|floatformat:0 }}
+            </span>
+            <span class="sc-sub">
+                Total extra principal paid
+            </span>
+        </div>
+    </div>
+
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-piggy-bank"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Interest Saved</span>
+            <span class="sc-value">
+                ₹{{ total_interest_saved|floatformat:0 }}
+            </span>
+            <span class="sc-sub">
+                Estimated future interest saved
+            </span>
+        </div>
+    </div>
+
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-building-columns"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Loans Benefited</span>
+            <span class="sc-value">
+                {{ loans_benefited }}
+            </span>
+            <span class="sc-sub">
+                Loan{{ loans_benefited|pluralize }} with prepayments
+            </span>
+        </div>
+    </div>
+
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-calendar-minus"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Tenure Reduced</span>
+            <span class="sc-value">
+                {{ total_tenure_reduced }}
+            </span>
+            <span class="sc-sub">
+                Month{{ total_tenure_reduced|pluralize }} saved
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <h3 style="margin-bottom: 16px;"><i class="fas fa-chart-column" style="color: var(--primary);"></i> Loan Wise Prepayment Impact
+    <p class="sc-sub" style="margin-bottom:20px;">
+        See how your prepayments have affected each loan.
+    </p>
+    {% if loan_prepayment_summary %}
+        {% for item in loan_prepayment_summary %}
+            <div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #e5e7eb;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+                    <div>
+                        <h3 style="margin:0;">
+                            {{ item.loan.loan_name }}
+                        </h3>
+                        {% if item.loan.bank_name %}
+                            <small style="color:#64748b;">
+                                {{ item.loan.bank_name }}
+                            </small>
+                        {% endif %}
+                    </div>
+                    <a href="{% url 'loan_detail' item.loan.pk %}" class="btn btn-outline btn-sm">
+                        View Details
+                    </a>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+                    <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                        <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                            Total Prepaid
+                        </div>
+                        <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                            ₹{{ item.total_prepaid_amount|floatformat:0 }}
+                        </div>
+                        <span class="sc-sub">
+                            Additional principal payment
+                        </span>
+                    </div>
+                    <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                        <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                            Interest Saved
+                        </div>
+                        <div style="font-size:22px;font-weight:700;color:#16a34a;">
+                            ₹{{ item.total_interest_saved|floatformat:0 }}
+                        </div>
+                        <span class="sc-sub">
+                            Estimated future savings
+                        </span>
+                    </div>
+                    <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                        <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                            Tenure Reduced
+                        </div>
+                        <div style="font-size:22px;font-weight:700;color:#d97706;">
+                            {{ item.months_reduced }}
+                        </div>
+                        <span class="sc-sub">
+                            Months saved
+                        </span>
+                    </div>
+                    <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                        <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                            Prepayments
+                        </div>
+                        <div style="font-size:22px;font-weight:700;color:#dc2626;">
+                            {{ item.prepayment_count }}
+                        </div>
+                        <span class="sc-sub">
+                            Total transactions
+                        </span>
+                    </div>
+                </div>
+                <div style="margin-top:18px;padding:14px 18px;border:1px dashed #e5e7eb;border-radius:12px;display:flex;justify-content:space-between;">
+                    <span style="font-size:13px;color:#64748b;">
+                        Last Prepayment
+                    </span>
+                    <strong>
+                        {% if item.last_prepayment_date %}
+                            {{ item.last_prepayment_date|date:"d M Y" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </strong>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-card">
+            <div class="empty-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h4>No Loan Impact Yet</h4>
+            <p>
+                Once you make a prepayment, the savings and tenure reduction for each loan will appear here.
+            </p>
+        </div>
+    {% endif %}
+</div>
+
+{% if total_prepaid_amount %}
+    <div class="summary-grid">
+        <div class="summary-card glass-card">
+            <div class="sc-icon">
+                <i class="fas fa-piggy-bank"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Principal Prepaid</span>
+                <span class="sc-value">₹{{ total_prepaid_amount|floatformat:0 }}</span>
+                <span class="sc-sub">Extra amount paid towards loan principal</span>
+            </div>
+        </div>
+        <div class="summary-card glass-card">
+            <div class="sc-icon">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Interest Saved</span>
+                <span class="sc-value text-success">₹{{ total_interest_saved|floatformat:0 }}</span>
+                <span class="sc-sub">Estimated future interest avoided</span>
+            </div>
+        </div>
+        <div class="summary-card glass-card">
+            <div class="sc-icon">
+                <i class="fas fa-calendar-minus"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Tenure Reduced</span>
+                <span class="sc-value">{{ total_tenure_reduced }}</span>
+                <span class="sc-sub">Months saved from loan tenure</span>
+            </div>
+        </div>
+        <div class="summary-card glass-card">
+            <div class="sc-icon">
+                <i class="fas fa-hand-holding-dollar"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Loans Benefited</span>
+                <span class="sc-value">{{ loans_benefited }}</span>
+                <span class="sc-sub">Loans impacted by prepayment</span>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-header">
+        <div class="card-title">
+            <div class="sc-icon">
+                <i class="fas fa-clock-rotate-left"></i>
+            </div>
+            <div>
+                <h3>Prepayment History</h3>
+                <p>Complete history of your additional loan payments.</p>
+            </div>
+        </div>
+        <div class="section-actions">
+            <a href="{% url 'payment_dashboard' %}" class="btn btn-outline">
+                <i class="fas fa-credit-card"></i>
+                Payment History
+            </a>
+            <a href="{% url 'export_prepayment_pdf' %}" class="btn btn-primary">
+                <i class="fas fa-file-pdf"></i>
+                Export PDF
+            </a>
+            <a href="{% url 'export_prepayment_excel' %}" class="btn btn-success">
+                <i class="fas fa-file-excel"></i>
+                Export Excel
+            </a>
+        </div>
+    </div>
+    {% if prepayments.object_list %}
+        <div class="payment-filter-bar">
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">
+                    All
+                </button>
+                <button class="filter-btn" data-filter="prepayment">
+                    Prepayment
+                </button>
+                <button class="filter-btn" data-filter="foreclosure">
+                    Foreclosure
+                </button>
+                <button class="filter-btn" data-filter="manual">
+                    Manual
+                </button>
+                <button class="filter-btn" data-filter="auto_debit">
+                    Auto Debit
+                </button>
+            </div>
+            <div class="filter-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="prepaymentSearch" placeholder="Search Loan...">
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table payment-table" id="prepaymentTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Loan</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Payment Type</th>
+                        <th>Payment Mode</th>
+                        <th>Interest Saved</th>
+                        <th>Months Reduced</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prepayment in prepayments %}
+                    <tr
+                        data-type="{{ prepayment.payment_type }}"
+                        data-mode="{{ prepayment.payment_mode }}"
+                        data-loan="{{ prepayment.loan.loan_name|lower }}"
+                    >
+                        <td>
+                            <strong>#{{ forloop.counter }}</strong>
+                        </td>
+                        <td>
+                            <div class="loan-info">
+                                <strong>{{ prepayment.loan.loan_name }}</strong>
+                                {% if prepayment.loan.bank_name %}
+                                <small>{{ prepayment.loan.bank_name }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{{ prepayment.prepayment_date|date:"d M Y" }}</td>
+                        <td>
+                            <strong>
+                                ₹{{ prepayment.amount|floatformat:0 }}
+                            </strong>
+                        </td>
+                        <td>
+                            {% if prepayment.payment_type == "prepayment" %}
+                                <span class="badge badge-success">
+                                    <i class="fas fa-money-bill-transfer"></i>
+                                    Prepayment
+                                </span>
+                            {% elif prepayment.payment_type == "foreclosure" %}
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-house-circle-xmark"></i>
+                                    Foreclosure
+                                </span>
+                            {% else %}
+                                <span class="badge badge-secondary">
+                                    {{ prepayment.get_payment_type_display }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.payment_mode == "manual" %}
+                                <span class="badge badge-light">
+                                    <i class="fas fa-hand-pointer"></i>
+                                    Manual
+                                </span>
+                            {% elif prepayment.payment_mode == "auto_debit" %}
+                                <span class="badge badge-info">
+                                    <i class="fas fa-repeat"></i>
+                                    Auto Debit
+                                </span>
+                            {% else %}
+                                <span class="badge badge-secondary">
+                                    {{ prepayment.get_payment_mode_display }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.interest_saved > 0 %}
+                                <span class="text-success">
+                                    ₹{{ prepayment.interest_saved|floatformat:0 }}
+                                </span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.months_reduced > 0 %}
+                                <span class="text-primary">
+                                    {{ prepayment.months_reduced }} months
+                                </span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prepayment.status == "paid" %}
+                                <span class="status-badge status-paid">
+                                    <i class="fas fa-circle-check"></i>
+                                    Paid
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-pending">
+                                    <i class="fas fa-clock"></i>
+                                    Pending
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{% url 'loan_detail' prepayment.loan.pk %}" class="icon-btn" title="Loan Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if prepayments.has_other_pages %}
+                <div class="pagination-wrapper">
+                    {% include "includes/pagination.html" with page_obj=prepayments %}
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-money-bill-transfer"></i>
+            </div>
+            <h3>No Prepayments Yet</h3>
+            <p>
+                You haven't made any additional payments towards
+                your loans yet. Make a prepayment to reduce your
+                outstanding principal, save interest and potentially
+                shorten your loan tenure.
+            </p>
+            <a href="{% url 'loan_list' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                Add Prepayment
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<div class="download-card">
+    <div>
+        <h4>
+            Want to reduce your loan faster?
+        </h4>
+        <small>
+            Make an additional payment towards your loan
+            principal and reduce future interest.
+        </small>
+    </div>
+    <a href="{% url 'loan_list' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i>
+        Add Prepayment
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_scripts %}
+{% if admin_view %}
+<script>document.addEventListener("DOMContentLoaded", function () {
+    const table = document.getElementById("adminPrepaymentTable");
+    if (!table) {
+        return;
+    }
+    const filterButtons = document.querySelectorAll(
+        "#adminPrepaymentTable ~ * .filter-btn"
+    );
+    const rows = table.querySelectorAll("tbody tr");
+    const searchInput = document.getElementById(
+        "adminPrepaymentSearch"
+    );
+    const adminButtons = document.querySelectorAll(
+        ".glass-card .filter-btn"
+    );
+    let activeFilter = "all";
+    let searchValue = "";
+    function applyAdminFilters() {
+        rows.forEach(row => {
+            const type = row.dataset.type || "";
+            const mode = row.dataset.mode || "";
+            const search = row.dataset.search || "";
+            let matchesFilter = true;
+            if (activeFilter === "prepayment") {
+                matchesFilter = type === "prepayment";
+            } else if (activeFilter === "foreclosure") {
+                matchesFilter = type === "foreclosure";
+            } else if (activeFilter === "manual") {
+                matchesFilter = mode === "manual";
+            } else if (activeFilter === "auto_debit") {
+                matchesFilter = mode === "auto_debit";
+            }
+            const matchesSearch = !searchValue || search.includes(searchValue);
+            row.style.display = matchesFilter && matchesSearch ? "" : "none";
+        });
+    }
+    adminButtons.forEach(button => {
+        if (!button.closest("#adminPrepaymentTable")) {
+            button.addEventListener("click", function () {
+                const container = this.closest(".glass-card");
+                if (!container || !container.querySelector("#adminPrepaymentTable")) {
+                    return;
+                }
+                adminButtons.forEach(btn => {
+                    btn.classList.remove("active");
+                });
+                this.classList.add("active");
+                activeFilter = this.dataset.filter || "all";
+                applyAdminFilters();
+            });
+        }
+    });
+    if (searchInput) {
+        searchInput.addEventListener("input", function () {
+            searchValue = this.value.trim().toLowerCase();
+            applyAdminFilters();
+        });
+    }
+});</script>
+{% else %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const filterButtons = document.querySelectorAll(".filter-btn");
+        const rows = document.querySelectorAll("#prepaymentTable tbody tr");
+        const searchInput = document.getElementById("prepaymentSearch");
+        let activeFilter = "all";
+        let searchValue = "";
+
+        function applyFilters() {
+            rows.forEach(row => {
+                const type = row.dataset.type || "";
+                const mode = row.dataset.mode || "";
+                const loan = row.dataset.loan || "";
+                let matchesFilter = true;
+                let matchesSearch = true;
+                switch (activeFilter) {
+                    case "prepayment":
+                        matchesFilter = type === "prepayment";
+                        break;
+                    case "foreclosure":
+                        matchesFilter = type === "foreclosure";
+                        break;
+                    case "manual":
+                        matchesFilter = mode === "manual";
+                        break;
+                    case "auto_debit":
+                        matchesFilter = mode === "auto_debit";
+                        break;
+                    case "all":
+                    default:
+                        matchesFilter = true;
+                        break;
+                }
+
+                if (searchValue) {
+                    matchesSearch = loan.includes(searchValue);
+                }
+
+                row.style.display = matchesFilter && matchesSearch ? "" : "none";
+            });
+        }
+
+        filterButtons.forEach(button => {
+            button.addEventListener("click", function () {
+                filterButtons.forEach(btn => {
+                    btn.classList.remove("active");
+                });
+                this.classList.add("active");
+                activeFilter = this.dataset.filter || "all";
+                applyFilters();
+            });
+        });
+
+        if (searchInput) {
+            searchInput.addEventListener("input", function () {
+                searchValue = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}
