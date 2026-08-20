@@ -30,6 +30,7 @@ class LoanForm(forms.ModelForm):
     class Meta:
         model = Loan
         fields = [
+            "user",
             "loan_name",
             "loan_type",
             "amount",
@@ -40,11 +41,24 @@ class LoanForm(forms.ModelForm):
             "emi_frequency",
             "auto_debit",
         ]
+
         widgets = {
-            "loan_name": forms.TextInput(
-                attrs={"class": "form-input", "placeholder": "e.g. SBI Home Loan"}
+            "user": forms.Select(
+                attrs={
+                    "class": "form-input",
+                }
             ),
-            "loan_type": forms.Select(attrs={"class": "form-input"}),
+            "loan_name": forms.TextInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "e.g. SBI Home Loan",
+                }
+            ),
+            "loan_type": forms.Select(
+                attrs={
+                    "class": "form-input",
+                }
+            ),
             "amount": forms.NumberInput(
                 attrs={
                     "class": "form-input",
@@ -71,7 +85,10 @@ class LoanForm(forms.ModelForm):
                 }
             ),
             "start_date": forms.DateInput(
-                attrs={"class": "form-input", "type": "date"}
+                attrs={
+                    "class": "form-input",
+                    "type": "date",
+                }
             ),
             "first_emi_date": forms.DateInput(
                 attrs={
@@ -91,23 +108,31 @@ class LoanForm(forms.ModelForm):
             ),
         }
         labels = {
+            "user": "Loan Owner",
             "start_date": "Loan Creation Date",
             "first_emi_date": "First EMI Date",
             "emi_frequency": "EMI Frequency",
             "auto_debit": "Auto Debit EMI",
         }
         help_texts = {
+            "user": "Select the user who owns this loan.",
             "start_date": "Date on which loan was created.",
             "first_emi_date": "EMI schedule will start from this date.",
             "auto_debit": "EMI will be automatically marked paid on every due date.",
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["auto_debit"].initial = True
         self.fields["emi_frequency"].initial = "monthly"
         if not self.instance.pk:
             self.fields["first_emi_date"].required = True
+        if "user" in self.fields:
+            if user and not user.is_staff:
+                self.fields.pop("user")
+            else:
+                self.fields["user"].required = True
 
     def clean(self):
         cleaned_data = super().clean()
@@ -123,7 +148,7 @@ class LoanForm(forms.ModelForm):
 
     def clean_amount(self):
         amount = self.cleaned_data.get("amount")
-        if amount and amount <= 0:
+        if amount is not None and amount <= 0:
             raise forms.ValidationError("Loan amount must be greater than zero.")
         return amount
 
@@ -135,7 +160,7 @@ class LoanForm(forms.ModelForm):
 
     def clean_tenure_years(self):
         tenure = self.cleaned_data.get("tenure_years")
-        if tenure and tenure < 1:
+        if tenure is not None and tenure < 1:
             raise forms.ValidationError("Tenure must be at least 1 year.")
         return tenure
 

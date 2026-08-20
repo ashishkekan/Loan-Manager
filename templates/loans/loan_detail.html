@@ -15,6 +15,12 @@
                 <i class="fas {{ loan.type_icon }}"></i>
             </div>
             <h1 class="page-title">{{ loan.loan_name }}</h1>
+            {% if request.user.is_staff %}
+                <span style="font-size:13px; color:var(--text-secondary); margin-left:8px;">
+                    <i class="fas fa-user"></i>
+                    {{ loan.user.get_full_name|default:loan.user.username }}
+                </span>
+            {% endif %}
             <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status }}</span>
             <div class="health-badge badge-{{ health_score|health_color }}" style="font-size:11px;padding:3px 10px;">{{ health_label.0 }} ({{ health_score }})</div>
         </div>
@@ -222,7 +228,7 @@
                     Pending Accrued Interest
                 </div>
                 <div style="font-size:16px;font-weight:600;">
-                    ₹{{ pending_accrued_interest|floatformat:0|default:"0" }}
+                    ₹{{ pending_interest|floatformat:0|default:"0" }}
                 </div>
             </div>
         </div>

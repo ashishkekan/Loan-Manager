@@ -2,6 +2,7 @@
 
 from django.urls import path
 
+from loans.report_views import admin_reports, export_admin_report
 from loans.views import (
     LoanCompareView,
     LoanCreateView,
@@ -14,8 +15,10 @@ from loans.views import (
     LoanDisbursementUpdateView,
     LoanListView,
     LoanUpdateView,
+    activity_logs_dashboard,
     add_bank_account,
     add_note,
+    admin_banks,
     close_loan,
     create_support_ticket,
     delete_bank_account,
@@ -24,6 +27,7 @@ from loans.views import (
     documents_dashboard,
     download_document,
     export_loan_csv,
+    logout_all_devices,
     mark_all_notifications_read,
     mark_notification_read,
     notifications_dashboard,
@@ -36,6 +40,7 @@ from loans.views import (
     update_password,
     update_privacy_settings,
     update_profile,
+    update_settings_theme,
     upload_document,
     view_document,
 )
@@ -117,13 +122,34 @@ urlpatterns = [
         support_ticket_detail,
         name="support_ticket_detail",
     ),
+    # ── Settings URLs (Self & Admin managing others) ──────────────
     path("settings/", settings_dashboard, name="settings_dashboard"),
+    path(
+        "settings/user/<int:user_id>/",
+        settings_dashboard,
+        name="settings_dashboard_user",
+    ),
     path("settings/profile/update/", update_profile, name="update_profile"),
+    path(
+        "settings/user/<int:user_id>/profile/update/",
+        update_profile,
+        name="update_profile_user",
+    ),
     path("settings/password/update/", update_password, name="update_password"),
+    path(
+        "settings/user/<int:user_id>/password/update/",
+        update_password,
+        name="update_password_user",
+    ),
     path(
         "settings/notifications/update/",
         update_notification_preferences,
         name="update_notification_preferences",
+    ),
+    path(
+        "settings/user/<int:user_id>/notifications/update/",
+        update_notification_preferences,
+        name="update_notification_preferences_user",
     ),
     path(
         "settings/appearance/update/",
@@ -131,19 +157,70 @@ urlpatterns = [
         name="update_appearance_preferences",
     ),
     path(
+        "settings/user/<int:user_id>/appearance/update/",
+        update_appearance_preferences,
+        name="update_appearance_preferences_user",
+    ),
+    path(
         "settings/privacy/update/",
         update_privacy_settings,
         name="update_privacy_settings",
     ),
+    path(
+        "settings/user/<int:user_id>/privacy/update/",
+        update_privacy_settings,
+        name="update_privacy_settings_user",
+    ),
+    path("settings/theme/update/", update_settings_theme, name="update_settings_theme"),
+    path(
+        "settings/user/<int:user_id>/theme/update/",
+        update_settings_theme,
+        name="update_settings_theme_user",
+    ),
+    path("settings/logout-all-devices/", logout_all_devices, name="logout_all_devices"),
+    path(
+        "settings/user/<int:user_id>/logout-all-devices/",
+        logout_all_devices,
+        name="logout_all_devices_user",
+    ),
     path("settings/banks/add/", add_bank_account, name="add_bank_account"),
+    path(
+        "settings/user/<int:user_id>/banks/add/",
+        add_bank_account,
+        name="add_bank_account_user",
+    ),
     path(
         "settings/banks/<int:pk>/delete/",
         delete_bank_account,
         name="delete_bank_account",
     ),
     path(
+        "settings/user/<int:user_id>/banks/<int:pk>/delete/",
+        delete_bank_account,
+        name="delete_bank_account_user",
+    ),
+    path(
         "settings/banks/<int:pk>/default/",
         set_default_bank_account,
         name="set_default_bank_account",
+    ),
+    path(
+        "settings/user/<int:user_id>/banks/<int:pk>/default/",
+        set_default_bank_account,
+        name="set_default_bank_account_user",
+    ),
+    # ────────────────────────────────────────────────────────────────
+    path("settings/banks/", admin_banks, name="admin_banks"),
+    path("banks/", admin_banks, name="admin_banks"),
+    path(
+        "activity-logs/",
+        activity_logs_dashboard,
+        name="activity_logs_dashboard",
+    ),
+    path("reports/", admin_reports, name="admin_reports"),
+    path(
+        "reports/export/<str:report_type>/<str:format>/",
+        export_admin_report,
+        name="export_admin_report",
     ),
 ]
