@@ -2,6 +2,25 @@
 {% load static %}
 {% block title %}{{ page_title|default:"Dashboard" }} — NexusLoan{% endblock %}
 {% block content %}
+<style>
+    .notification-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 6px;
+        margin-left: 8px;
+        background: #dc3545;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1;
+        border-radius: 50px;
+        box-shadow: 0 2px 5px rgba(220, 53, 69, 0.35);
+        vertical-align: middle;
+    }
+</style>
 <div class="app-layout">
     <header class="mobile-header">
         <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
@@ -32,32 +51,37 @@
                     <i class="fas fa-wallet"></i>
                     <span>My Loans</span>
                 </a>
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <a href="{% url 'payment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'payment_dashboard' %}active{% endif %}">
                     <i class="fas fa-credit-card"></i>
                     <span>Payments</span>
                 </a>
-                <a href="{% url 'dashboard' %}" class="nav-item">
-                    <i class="fas fa-money-bill-wave"></i>
+                <a href="{% url 'prepayment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'prepayment_dashboard' %}active{% endif %}">
+                    <i class="fas fa-money-bill-transfer"></i>
                     <span>Prepayments</span>
                 </a>
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <a href="{% url 'documents_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'documents_dashboard' %}active{% endif %}">
                     <i class="fas fa-folder-open"></i>
                     <span>Documents</span>
                 </a>
-                <a href="{% url 'dashboard' %}" class="nav-item">
-                    <i class="fas fa-bell"></i>
-                    <span>Notifications</span>
-                </a>
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <li>
+                    <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
+                        <i class="fas fa-bell"></i>
+                        <span>Notifications</span>
+                        {% if header_unread_notifications > 0 %}
+                            <span class="notification-badge">{{ header_unread_notifications }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <a href="{% url 'support_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'support_dashboard' %}active{% endif %}">
                     <i class="fas fa-headset"></i>
                     <span>Support</span>
                 </a>
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <a href="{% url 'settings_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'settings_dashboard' %}active{% endif %}">
                     <i class="fas fa-gear"></i>
                     <span>Settings</span>
                 </a>
             {% else %}
-                <a href="{% url 'dashboard' %}" class="nav-item">
+                <a href="{% url 'admin_users' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_users' %}active{% endif %}">
                     <i class="fas fa-users"></i>
                     <span>Users</span>
                 </a>
@@ -65,31 +89,36 @@
                     <i class="fas fa-wallet"></i>
                     <span>Loans</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <a href="{% url 'payment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'payment_dashboard' %}active{% endif %}">
                     <i class="fas fa-credit-card"></i>
                     <span>Payments</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
-                    <i class="fas fa-money-bill-wave"></i>
+                <a href="{% url 'prepayment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'prepayment_dashboard' %}active{% endif %}">
+                    <i class="fas fa-money-bill-transfer"></i>
                     <span>Prepayments</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <a href="{% url 'admin_banks' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_banks' %}active{% endif %}">
                     <i class="fas fa-university"></i>
                     <span>Banks</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
-                    <i class="fas fa-bell"></i>
-                    <span>Notifications</span>
-                </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <li>
+                    <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
+                        <i class="fas fa-bell"></i>
+                        <span>Notifications</span>
+                        {% if header_unread_notifications > 0 %}
+                            <span class="notification-badge">{{ header_unread_notifications }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <a href="{% url 'admin_reports' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_reports' %}active{% endif %}">
                     <i class="fas fa-chart-column"></i>
                     <span>Reports</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <a href="{% url 'activity_logs_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'activity_logs_dashboard' %}active{% endif %}">
                     <i class="fas fa-clock-rotate-left"></i>
                     <span>Activity Logs</span>
                 </a>
-                <a href="{% url 'loan_list' %}" class="nav-item">
+                <a href="{% url 'settings_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'settings_dashboard' %}active{% endif %}">
                     <i class="fas fa-gear"></i>
                     <span>Settings</span>
                 </a>
@@ -126,7 +155,7 @@
             </div>
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
                 <i class="fas fa-moon" id="themeIcon"></i>
-                <span id="themeLabel">Dark Mode</span>
+                <span id="themeLabel" style="font-size: 10px;">Dark Mode</span>
             </button>
             <a href="{% url 'logout' %}" class="nav-item nav-logout">
                 <i class="fas fa-sign-out-alt"></i>

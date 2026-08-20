@@ -15,6 +15,12 @@
                 <i class="fas {{ loan.type_icon }}"></i>
             </div>
             <h1 class="page-title">{{ loan.loan_name }}</h1>
+            {% if request.user.is_staff %}
+                <span style="font-size:13px; color:var(--text-secondary); margin-left:8px;">
+                    <i class="fas fa-user"></i>
+                    {{ loan.user.get_full_name|default:loan.user.username }}
+                </span>
+            {% endif %}
             <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status }}</span>
             <div class="health-badge badge-{{ health_score|health_color }}" style="font-size:11px;padding:3px 10px;">{{ health_label.0 }} ({{ health_score }})</div>
         </div>
@@ -50,7 +56,7 @@
         {% if loan.status == 'active' %}
             <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline; margin-top: 5px;" onsubmit="return confirm('Delete this loan and all its payment history?')">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan">
+                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan" style="color: red;">
                     <i class="fas fa-trash"></i>
                 </button>
             </form>
@@ -119,14 +125,14 @@
             {% if next_emi_date %}<span class="sc-sub">Next: {{ next_emi_date|date:"M d" }}</span>{% endif %}
             {% if loan.auto_debit %}
                 <div style="margin-top:8px;">
-                    <span class="badge badge-success">
-                        <i class="fas fa-repeat"></i>Auto Debit
+                    <span class="sc-sub">
+                        <i class="fas fa-repeat"></i> Auto Debit
                     </span>
                 </div>
             {% else %}
                 <div style="margin-top:8px;">
-                    <span class="badge badge-warning">
-                       <i class="fas fa-hand-pointer"></i>Manual EMI
+                    <span class="sc-sub">
+                       <i class="fas fa-hand-pointer"></i> Manual EMI
                     </span>
                 </div>
             {% endif %}
@@ -191,12 +197,133 @@
     </div>
 </div>
 
-<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div style="display: flex; gap: 660px;">
+            <h3>Loan Disbursement Summary</h3>
+            <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i>Add
+            </a>
+        </div>
+        <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Total Sanction
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ loan.amount|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Remaining Sanction
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ remaining_sanction_amount|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Pending Accrued Interest
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ pending_interest|floatformat:0|default:"0" }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div style="display: flex; gap: 720px;">
+            <h3>Recent Disbursements</h3>
+            <a href="{% url 'loan_disbursement_list' loan.id %}" class="btn btn-primary btn-sm" style="margin-bottom: 15px;">
+                View All
+            </a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Purpose</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in disbursements|slice:":5" %}
+                    <tr>
+                        <td>{{ item.disbursement_number }}</td>
+                        <td>{{ item.disbursement_date }}</td>
+                        <td>{{ item.get_purpose_display }}</td>
+                        <td>₹{{ item.amount }}</td>
+                        <td>{{ item.get_status_display }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            No disbursement added.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div style="display:flex;gap:12px;">
+            <h3>Pending Additional Interest</h3>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Disbursement</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Days</th>
+                    <th>Interest</th>
+                    <th>EMI Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in pending_accrued_interest %}
+                    <tr>
+                        <td>
+                            #{{ item.disbursement.disbursement_number }}
+                        </td>
+                        <td>{{ item.from_date }}</td>
+                        <td>{{ item.to_date }}</td>
+                        <td>{{ item.days }}</td>
+                        <td>
+                            ₹{{ item.interest_amount }}
+                        </td>
+                        <td>
+                            {{ item.emi_date }}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            No pending accrued interest.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
     <h3 style="margin-bottom:20px;">
         Loan Information
     </h3>
-
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
@@ -254,15 +381,17 @@
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                 Last Payment
             </div>
-           {% if last_payment %}
-                {% if last_payment_type == "payment" %}
-                    Last EMI: ₹{{ last_payment.amount }} on {{ last_payment.payment_date }}
+            <div style="font-size:15px;font-weight:600;">
+                {% if last_payment %}
+                    {% if last_payment_type == "payment" %}
+                        Last EMI: ₹{{ last_payment.amount }} on {{ last_payment.payment_date }}
+                    {% else %}
+                        Last Prepayment: ₹{{ last_payment.amount }} on {{ last_payment.prepayment_date }}
+                    {% endif %}
                 {% else %}
-                    Last Prepayment: ₹{{ last_payment.amount }} on {{ last_payment.prepayment_date }}
+                    <strong>0</strong>
                 {% endif %}
-            {% else %}
-                <strong>0</strong>
-            {% endif %}
+            </div>
         </div>
         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
@@ -368,20 +497,20 @@
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;">
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-bolt"></i>Make Prepayment
+                        <i class="fas fa-bolt"></i> Make Prepayment
                     </button>
                     {% if loan.auto_debit %}
                         <span class="badge badge-success">
-                            <i class="fas fa-repeat"></i>Auto Debit Active
+                            <i class="fas fa-repeat"></i> Auto Debit Active
                         </span>
                     {% else %}
                         <span class="badge badge-warning">
-                            <i class="fas fa-hand-pointer"></i>Manual EMI
+                            <i class="fas fa-hand-pointer"></i> Manual EMI
                         </span>
                     {% endif %}
                 </div>
             </div>
-            <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block;">
+            <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block; margin-bottom: 10px;">
                 Max: ₹{{ loan.remaining_balance|floatformat:0 }}
             </span>
         </form>
@@ -490,7 +619,7 @@
             <form method="get" class="mt-4">
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
                     <div>
-                        <label class="form-label">Monthly Income</label>
+                        <label style="font-size:15px;font-weight:600;">Monthly Income</label>
                         <input
                             type="number"
                             name="income"
@@ -501,7 +630,7 @@
                         >
                     </div>
                     <div>
-                        <label class="form-label">Monthly Expenses</label>
+                        <label style="font-size:15px;font-weight:600;">Monthly Expenses</label>
                         <input
                             type="number"
                             name="expenses"
@@ -562,7 +691,7 @@
 {% endif %}
 <div class="glass-card" style="padding:24px;margin-bottom:24px;">
     <h3 style="margin-bottom:20px;">
-        <i class="fas fa-calendar-check" style="color:var(--primary);"></i>Estimated Loan Closure
+        <i class="fas fa-calendar-check" style="color:var(--primary);"></i> Estimated Loan Closure
     </h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
         <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
@@ -844,7 +973,9 @@
                 <form method="post" action="{% url 'delete_note' loan.pk note.pk %}" style="display:inline;"
                       onsubmit="return confirm('Delete note?')">
                     {% csrf_token %}
-                    <button type="submit" class="note-delete"><i class="fas fa-trash-alt"></i></button>
+                    <button type="submit" class="btn btn-danger-ghost" title="Delete Note" style="color: red;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </form>
             </div>
         </div>
@@ -944,13 +1075,8 @@
 </div>
 <div class="glass-card timeline-card">
     <div class="timeline-header">
-        <div>
-            <h3>
-                <i class="fas fa-route"></i>
-                Prepayment Timeline
-            </h3>
-            <small>Track every extra payment you've made</small>
-        </div>
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-route" style="color: var(--primary);"></i> Prepayment Timeline</h3>
+        <small>Track every extra payment you've made</small>
         <span class="timeline-count">
             {{ prepayment_timeline|length }} Events
         </span>
@@ -1033,10 +1159,7 @@
 {% endif %}
 <div class="glass-card tips-card">
     <div class="tips-header">
-        <h3>
-            <i class="fas fa-lightbulb"></i>
-            Financial Tips
-        </h3>
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-lightbulb" style="color: var(--primary);"></i> Financial Tips
         <span class="tips-count">
             {{ financial_tips|length }} Tips
         </span>
@@ -1061,10 +1184,7 @@
 </div>
 <div class="glass-card badges-card">
     <div class="badges-header">
-        <h3>
-            <i class="fas fa-award"></i>
-            Achievement Badges
-        </h3>
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-award" style="color: var(--primary);"></i> Achievement Badges
         <span class="badge-count">
             {{ achievement_badges|length }} Unlocked
         </span>

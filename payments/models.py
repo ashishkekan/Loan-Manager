@@ -1,5 +1,7 @@
 """Payment and Prepayment models — track EMI payments and extra payments."""
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
@@ -52,11 +54,34 @@ class Payment(models.Model):
     payment_type = models.CharField(
         max_length=20, choices=PAYMENT_TYPE_CHOICES, default="emi"
     )
+    additional_interest = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Additional accrued interest recovered with this EMI.",
+    )
+    regular_emi_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    total_debit_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["payment_number"]
         unique_together = ["loan", "payment_number"]
+        indexes = [
+            models.Index(fields=["loan"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["payment_date"]),
+            models.Index(fields=["loan", "status"]),
+            models.Index(fields=["loan", "payment_number"]),
+        ]
 
     def __str__(self):
         return f"EMI #{self.payment_number} — {self.loan.loan_name}"

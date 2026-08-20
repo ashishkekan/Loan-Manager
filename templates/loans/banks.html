@@ -1,0 +1,451 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+{% block title %}Banks — NexusLoan{% endblock %}
+{% block app_content %}
+<style>
+    .banks-page {
+        padding: 28px;
+    }
+    .banks-page .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 28px;
+    }
+    .banks-page .page-header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .banks-page .page-header p {
+        margin: 7px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+    }
+    .banks-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 28px;
+    }
+    .banks-summary-card {
+        background: var(--card-bg, #ffffff);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 14px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .banks-summary-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(59, 130, 246, 0.10);
+        color: #3b82f6;
+        font-size: 19px;
+        flex-shrink: 0;
+    }
+    .banks-summary-content {
+        min-width: 0;
+    }
+    .banks-summary-label {
+        display: block;
+        color: var(--text-secondary);
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+    .banks-summary-value {
+        display: block;
+        color: var(--text-primary);
+        font-size: 22px;
+        font-weight: 700;
+    }
+    .banks-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+        gap: 22px;
+    }
+    .banks-card {
+        background: var(--card-bg, #ffffff);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    .banks-card-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+    }
+    .banks-card-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 650;
+        color: var(--text-primary);
+    }
+    .banks-card-subtitle {
+        margin: 4px 0 0;
+        color: var(--text-secondary);
+        font-size: 12px;
+    }
+    .banks-search-box {
+        position: relative;
+        width: 250px;
+    }
+    .banks-search-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 13px;
+    }
+    .banks-search-box input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 12px 10px 34px;
+        border: 1px solid var(--border-color, #d1d5db);
+        border-radius: 9px;
+        background: var(--input-bg, #ffffff);
+        color: var(--text-primary);
+        outline: none;
+        font-size: 13px;
+    }
+    .banks-table-wrapper {
+        overflow-x: auto;
+    }
+    .banks-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .banks-table th {
+        padding: 13px 18px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: var(--text-secondary);
+        background: rgba(100, 116, 139, 0.04);
+        white-space: nowrap;
+    }
+    .banks-table td {
+        padding: 16px 18px;
+        border-top: 1px solid var(--border-color, #e5e7eb);
+        color: var(--text-primary);
+        font-size: 13px;
+        vertical-align: middle;
+    }
+    .banks-bank-info {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+    }
+    .banks-bank-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(16, 185, 129, 0.10);
+        color: #10b981;
+        flex-shrink: 0;
+    }
+    .banks-bank-name {
+        font-weight: 650;
+    }
+    .banks-bank-holder {
+        margin-top: 3px;
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+    .banks-account-number {
+        font-family: monospace;
+        letter-spacing: .04em;
+    }
+    .banks-ifsc {
+        font-family: monospace;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .banks-user-name {
+        font-weight: 600;
+    }
+    .banks-user-email {
+        display: block;
+        margin-top: 3px;
+        color: var(--text-secondary);
+        font-size: 11px;
+    }
+    .banks-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 650;
+    }
+    .banks-badge-default {
+        background: rgba(16, 185, 129, 0.10);
+        color: #059669;
+    }
+    .banks-badge-secondary {
+        background: rgba(100, 116, 139, 0.10);
+        color: #64748b;
+    }
+    .banks-summary-list {
+        padding: 5px 0;
+    }
+    .banks-summary-row {
+        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+    }
+    .banks-summary-row:last-child {
+        border-bottom: 0;
+    }
+    .banks-summary-bank-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .banks-summary-bank-meta {
+        margin-top: 3px;
+        color: var(--text-secondary);
+        font-size: 11px;
+    }
+    .banks-summary-count {
+        min-width: 30px;
+        height: 30px;
+        padding: 0 8px;
+        border-radius: 8px;
+        background: rgba(59, 130, 246, 0.10);
+        color: #3b82f6;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: 700;
+        font-size: 12px;
+    }
+    .banks-empty-state {
+        padding: 55px 20px;
+        text-align: center;
+        color: var(--text-secondary);
+    }
+    .banks-empty-state i {
+        font-size: 35px;
+        margin-bottom: 12px;
+        opacity: .45;
+    }
+    .banks-empty-state h3 {
+        margin: 0 0 6px;
+        color: var(--text-primary);
+        font-size: 16px;
+    }
+    .banks-empty-state p {
+        margin: 0;
+        font-size: 13px;
+    }
+    @media (max-width: 1100px) {
+        .banks-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .banks-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 700px) {
+        .banks-page {
+            padding: 18px;
+        }
+        .banks-page .page-header {
+            flex-direction: column;
+        }
+        .banks-summary-grid {
+            grid-template-columns: 1fr;
+        }
+        .banks-card-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .banks-search-box {
+            width: 100%;
+        }
+    }
+</style>
+<div class="banks-page">
+    <div class="page-header">
+        <div>
+            <h1>Banks</h1>
+            <p>Manage and monitor bank accounts linked with NexusLoan users.</p>
+        </div>
+    </div>
+    <div class="banks-summary-grid">
+        <div class="banks-summary-card">
+            <div class="banks-summary-icon">
+                <i class="fas fa-building-columns"></i>
+            </div>
+            <div class="banks-summary-content">
+                <span class="banks-summary-label">Total Banks</span>
+                <span class="banks-summary-value">{{ total_banks }}</span>
+            </div>
+        </div>
+        <div class="banks-summary-card">
+            <div class="banks-summary-icon">
+                <i class="fas fa-credit-card"></i>
+            </div>
+            <div class="banks-summary-content">
+                <span class="banks-summary-label">Bank Accounts</span>
+                <span class="banks-summary-value">{{ total_bank_accounts }}</span>
+            </div>
+        </div>
+        <div class="banks-summary-card">
+            <div class="banks-summary-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="banks-summary-content">
+                <span class="banks-summary-label">Users with Banks</span>
+                <span class="banks-summary-value">{{ total_users_with_bank }}</span>
+            </div>
+        </div>
+        <div class="banks-summary-card">
+            <div class="banks-summary-icon">
+                <i class="fas fa-star"></i>
+            </div>
+            <div class="banks-summary-content">
+                <span class="banks-summary-label">Default Accounts</span>
+                <span class="banks-summary-value">{{ default_accounts }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="banks-layout">
+        <div class="banks-card">
+            <div class="banks-card-header">
+                <div>
+                    <h2 class="banks-card-title">Bank Accounts</h2>
+                    <p class="banks-card-subtitle">All bank accounts linked to users</p>
+                </div>
+                <div class="banks-search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="bankSearch" placeholder="Search bank, user, IFSC...">
+                </div>
+            </div>
+            {% if banks %}
+            <div class="banks-table-wrapper">
+                <table class="banks-table" id="banksTable">
+                    <thead>
+                        <tr>
+                            <th>Bank</th>
+                            <th>User</th>
+                            <th>Account Number</th>
+                            <th>IFSC</th>
+                            <th>Status</th>
+                            <th>Added</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bank in banks %}
+                        <tr class="bank-row">
+                            <td>
+                                <div class="banks-bank-info">
+                                    <div class="banks-bank-icon">
+                                        <i class="fas fa-building-columns"></i>
+                                    </div>
+                                    <div>
+                                        <div class="banks-bank-name">{{ bank.bank_name }}</div>
+                                        <div class="banks-bank-holder">{{ bank.account_holder }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="banks-user-name">{{ bank.user.get_full_name|default:bank.user.username }}</span>
+                                {% if bank.user.email %}
+                                <span class="banks-user-email">{{ bank.user.email }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="banks-account-number">{{ bank.masked_account_number }}</span>
+                            </td>
+                            <td>
+                                <span class="banks-ifsc">{{ bank.ifsc|upper }}</span>
+                            </td>
+                            <td>
+                                {% if bank.is_default %}
+                                <span class="banks-badge banks-badge-default">
+                                    <i class="fas fa-check"></i>&nbsp; Default
+                                </span>
+                                {% else %}
+                                <span class="banks-badge banks-badge-secondary">Secondary</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ bank.created_at|date:"d M Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="banks-empty-state">
+                <i class="fas fa-building-columns"></i>
+                <h3>No Bank Accounts</h3>
+                <p>No users have added a bank account yet.</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="banks-card">
+            <div class="banks-card-header">
+                <div>
+                    <h2 class="banks-card-title">Bank Summary</h2>
+                    <p class="banks-card-subtitle">Accounts grouped by bank</p>
+                </div>
+            </div>
+            {% if bank_summary %}
+            <div class="banks-summary-list">
+                {% for bank in bank_summary %}
+                <div class="banks-summary-row">
+                    <div>
+                        <div class="banks-summary-bank-name">{{ bank.bank_name }}</div>
+                        <div class="banks-summary-bank-meta">{{ bank.user_count }} user{{ bank.user_count|pluralize }}</div>
+                    </div>
+                    <span class="banks-summary-count">{{ bank.account_count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="banks-empty-state">
+                <i class="fas fa-chart-column"></i>
+                <h3>No Data</h3>
+                <p>No bank information available.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById("bankSearch");
+        if (!searchInput) {
+            return;
+        }
+        searchInput.addEventListener("input", function() {
+            const searchValue = this.value.toLowerCase().trim();
+            const rows = document.querySelectorAll(".bank-row");
+            rows.forEach(function(row) {
+                const rowText = row.textContent.toLowerCase();
+                row.style.display = rowText.includes(searchValue) ? "" : "none";
+            });
+        });
+    });
+</script>
+{% endblock %}
