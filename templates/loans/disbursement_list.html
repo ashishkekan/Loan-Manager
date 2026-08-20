@@ -2,12 +2,12 @@
 {% block app_content %}
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
-        <div style="display:flex;gap:12px;">
+        <div style="display: flex; gap: 770px; margin-bottom: 10px;">
             <h3>Loan Disbursements</h3>
+            <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add
+            </a>
         </div>
-        <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Add
-        </a>
     </div>
     <div class="table-responsive">
         <table class="data-table">

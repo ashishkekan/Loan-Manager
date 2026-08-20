@@ -15,6 +15,12 @@
                 <i class="fas {{ loan.type_icon }}"></i>
             </div>
             <h1 class="page-title">{{ loan.loan_name }}</h1>
+            {% if request.user.is_staff %}
+                <span style="font-size:13px; color:var(--text-secondary); margin-left:8px;">
+                    <i class="fas fa-user"></i>
+                    {{ loan.user.get_full_name|default:loan.user.username }}
+                </span>
+            {% endif %}
             <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status }}</span>
             <div class="health-badge badge-{{ health_score|health_color }}" style="font-size:11px;padding:3px 10px;">{{ health_label.0 }} ({{ health_score }})</div>
         </div>
@@ -119,13 +125,13 @@
             {% if next_emi_date %}<span class="sc-sub">Next: {{ next_emi_date|date:"M d" }}</span>{% endif %}
             {% if loan.auto_debit %}
                 <div style="margin-top:8px;">
-                    <span class="badge badge-success">
+                    <span class="sc-sub">
                         <i class="fas fa-repeat"></i> Auto Debit
                     </span>
                 </div>
             {% else %}
                 <div style="margin-top:8px;">
-                    <span class="badge badge-warning">
+                    <span class="sc-sub">
                        <i class="fas fa-hand-pointer"></i> Manual EMI
                     </span>
                 </div>
@@ -193,7 +199,7 @@
 
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
-        <div style="display: flex; gap: 12px;">
+        <div style="display: flex; gap: 660px;">
             <h3>Loan Disbursement Summary</h3>
             <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus"></i>Add
@@ -222,7 +228,7 @@
                     Pending Accrued Interest
                 </div>
                 <div style="font-size:16px;font-weight:600;">
-                    ₹{{ pending_accrued_interest|floatformat:0|default:"0" }}
+                    ₹{{ pending_interest|floatformat:0|default:"0" }}
                 </div>
             </div>
         </div>
@@ -231,7 +237,7 @@
 
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
-        <div style="display: flex; gap: 12px;">
+        <div style="display: flex; gap: 720px;">
             <h3>Recent Disbursements</h3>
             <a href="{% url 'loan_disbursement_list' loan.id %}" class="btn btn-primary btn-sm" style="margin-bottom: 15px;">
                 View All
@@ -685,7 +691,7 @@
 {% endif %}
 <div class="glass-card" style="padding:24px;margin-bottom:24px;">
     <h3 style="margin-bottom:20px;">
-        <i class="fas fa-calendar-check" style="color:var(--primary);"></i>Estimated Loan Closure
+        <i class="fas fa-calendar-check" style="color:var(--primary);"></i> Estimated Loan Closure
     </h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
         <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
@@ -1069,12 +1075,8 @@
 </div>
 <div class="glass-card timeline-card">
     <div class="timeline-header">
-        <div>
-            <h3>
-                <i class="fas fa-route"></i> Prepayment Timeline
-            </h3>
-            <small>Track every extra payment you've made</small>
-        </div>
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-route" style="color: var(--primary);"></i> Prepayment Timeline</h3>
+        <small>Track every extra payment you've made</small>
         <span class="timeline-count">
             {{ prepayment_timeline|length }} Events
         </span>
@@ -1157,9 +1159,7 @@
 {% endif %}
 <div class="glass-card tips-card">
     <div class="tips-header">
-        <h3>
-            <i class="fas fa-lightbulb"></i> Financial Tips
-        </h3>
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-lightbulb" style="color: var(--primary);"></i> Financial Tips
         <span class="tips-count">
             {{ financial_tips|length }} Tips
         </span>
@@ -1184,9 +1184,7 @@
 </div>
 <div class="glass-card badges-card">
     <div class="badges-header">
-        <h3>
-            <i class="fas fa-award"></i> Achievement Badges
-        </h3>
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-award" style="color: var(--primary);"></i> Achievement Badges
         <span class="badge-count">
             {{ achievement_badges|length }} Unlocked
         </span>

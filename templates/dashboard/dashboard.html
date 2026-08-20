@@ -2,150 +2,133 @@
 {% load static %}
 {% block title %}Dashboard{% endblock %}
 {% block app_content %}
-
-<div class="page-header">
-    <div>
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">
-            Welcome back, {{ request.user.first_name|default:request.user.username }} — here's your loan overview
-        </p>
-    </div>
-    <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" style="width: 40px; height: 40px;">
-        <i class="fas fa-plus"></i>
-    </a>
-</div>
-
-<div class="summary-grid">
-    <div class="summary-card glass-card">
-        <div class="sc-icon">
-            <i class="fas fa-file-invoice-dollar"></i>
-        </div>
-        <div class="sc-info">
-            <span class="sc-label">Total Loans</span>
-            <span class="sc-value" data-count="{{ total_loans }}">{{ total_loans }}</span>
-            <span class="sc-sub">{{ active_loans }} active · {{ closed_loans }} closed</span>
+{% if request.user.is_staff %}
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Admin Dashboard</h1>
+            <p class="page-subtitle">System-wide loan, payment and user overview</p>
         </div>
     </div>
-
-    <div class="summary-card glass-card">
-        <div class="sc-icon accent">
-            <i class="fas fa-wallet"></i>
+    <div class="summary-grid">
+        <div class="summary-card glass-card">
+            <div class="sc-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Total Users</span>
+                <span class="sc-value" data-count="{{ admin_total_users }}">{{ admin_total_users }}</span>
+                <span class="sc-sub">{{ admin_active_users }} active users</span>
+            </div>
         </div>
-        <div class="sc-info">
-            <span class="sc-label">Outstanding Balance</span>
-            <span class="sc-value" data-count="{{ total_remaining }}">₹{{ total_remaining|floatformat:0 }}</span>
-            <span class="sc-sub">of ₹{{ total_amount|floatformat:0 }} total</span>
+        <div class="summary-card glass-card">
+            <div class="sc-icon accent">
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Total Loans</span>
+                <span class="sc-value" data-count="{{ admin_total_loans }}">{{ admin_total_loans }}</span>
+                <span class="sc-sub">{{ admin_active_loans }} active · {{ admin_closed_loans }} closed</span>
+            </div>
         </div>
-    </div>
-
-    <div class="summary-card glass-card">
-        <div class="sc-icon warn">
-            <i class="fas fa-credit-card"></i>
+        <div class="summary-card glass-card">
+            <div class="sc-icon warn">
+                <i class="fas fa-indian-rupee-sign"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Total Loan Amount</span>
+                <span class="sc-value">₹{{ admin_total_amount|floatformat:0 }}</span>
+                <span class="sc-sub">total principal</span>
+            </div>
         </div>
-        <div class="sc-info">
-            <span class="sc-label">Monthly EMI</span>
-            <span class="sc-value" data-count="{{ monthly_emi }}">₹{{ monthly_emi|floatformat:0 }}</span>
-            <span class="sc-sub">across {{ active_loans }} loan{{ active_loans|pluralize }}</span>
-        </div>
-    </div>
-
-    <div class="summary-card glass-card">
-        <div class="sc-icon danger">
-            <i class="fas fa-percent"></i>
-        </div>
-        <div class="sc-info">
-            <span class="sc-label">Interest Paid So Far</span>
-            <span class="sc-value" data-count="{{ total_interest_paid }}">₹{{ total_interest_paid|floatformat:0 }}</span>
-            <span class="sc-sub">total interest burden</span>
-        </div>
-    </div>
-</div>
-
-{% if total_prepaid > 0 %}
-    <div class="savings-banner glass-card reveal">
-        <div class="savings-icon">
-            <i class="fas fa-piggy-bank"></i>
-        </div>
-        <div class="savings-info">
-            <h3>You're Saving Through Prepayments!</h3>
-            <div class="savings-stats">
-                <div>
-                    <span class="ss-value">₹{{ total_prepaid|floatformat:0 }}</span>
-                    <span class="ss-label">Total Prepaid</span>
-                </div>
-                <div>
-                    <span class="ss-value" style="color: var(--primary);">₹{{ total_interest_saved|floatformat:0 }}</span>
-                    <span class="ss-label">Interest Saved</span>
-                </div>
-                <div>
-                    <span class="ss-value" style="color: var(--accent);">{{ total_months_saved }} months</span>
-                    <span class="ss-label">Tenure Reduced</span>
-                </div>
+        <div class="summary-card glass-card">
+            <div class="sc-icon danger">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Outstanding</span>
+                <span class="sc-value">₹{{ admin_outstanding|floatformat:0 }}</span>
+                <span class="sc-sub">principal remaining</span>
             </div>
         </div>
     </div>
-{% endif %}
-
-{% if balance_chart_json %}
+    <div class="summary-grid">
+        <div class="summary-card glass-card">
+            <div class="sc-icon">
+                <i class="fas fa-money-check-dollar"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Total Collected</span>
+                <span class="sc-value">₹{{ admin_total_collected|floatformat:0 }}</span>
+                <span class="sc-sub">{{ admin_total_payments }} paid payments</span>
+            </div>
+        </div>
+        <div class="summary-card glass-card">
+            <div class="sc-icon accent">
+                <i class="fas fa-percent"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Interest Collected</span>
+                <span class="sc-value">₹{{ admin_interest_collected|floatformat:0 }}</span>
+                <span class="sc-sub">from paid EMIs</span>
+            </div>
+        </div>
+        <div class="summary-card glass-card">
+            <div class="sc-icon warn">
+                <i class="fas fa-money-bill-transfer"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Prepayments</span>
+                <span class="sc-value">₹{{ admin_total_prepayments|floatformat:0 }}</span>
+                <span class="sc-sub">₹{{ admin_interest_saved|floatformat:0 }} interest saved</span>
+            </div>
+        </div>
+        <div class="summary-card glass-card">
+            <div class="sc-icon danger">
+                <i class="fas fa-rotate"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Auto Debit</span>
+                <span class="sc-value">{{ admin_auto_debit_loans }}</span>
+                <span class="sc-sub">{{ admin_manual_loans }} manual loans</span>
+            </div>
+        </div>
+    </div>
     <div class="charts-grid">
         <div class="glass-card chart-card reveal">
             <div class="chart-header">
                 <div>
-                    <h3>Balance Over Time</h3>
-                    <span class="chart-subtitle">{{ balance_chart_json.loan_name }} — projected</span>
-                </div>
-                <div class="chart-legend-mini">
-                    <span class="clm-dot" style="background: var(--primary);"></span>
-                    Remaining Balance
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="dashBalanceChart"></canvas>
-            </div>
-        </div>
-
-        <div class="glass-card chart-card reveal">
-            <div class="chart-header">
-                <div>
-                    <h3>Principal vs Interest</h3>
-                    <span class="chart-subtitle">Total repayment breakdown</span>
+                    <h3>Loan Status</h3>
+                    <span class="chart-subtitle">Active vs closed loans</span>
                 </div>
             </div>
             <div class="chart-container chart-container-pie">
-                <canvas id="dashPieChart"></canvas>
-                {% if pie_chart_json.principal > 0 or pie_chart_json.interest > 0 %}
-                <div class="pie-center-stat">
-                    <span class="pcs-label">Total Paid</span>
-                    <span class="pcs-value">₹{{ total_paid|floatformat:0 }}</span>
+                <canvas id="adminLoanStatusChart"></canvas>
+            </div>
+        </div>
+        <div class="glass-card chart-card reveal">
+            <div class="chart-header">
+                <div>
+                    <h3>Collection Breakdown</h3>
+                    <span class="chart-subtitle">Principal vs interest collected</span>
                 </div>
-                {% endif %}
+            </div>
+            <div class="chart-container chart-container-pie">
+                <canvas id="adminCollectionChart"></canvas>
             </div>
         </div>
     </div>
-{% else %}
-    <div class="glass-card empty-chart-placeholder reveal">
-        <i class="fas fa-chart-line"></i>
-        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 4px; color: var(--text);">
-            No Charts Yet
-        </h3>
-        <p>Add an active loan to see balance projections and interest analytics here.</p>
-        <a href="{% url 'create_loan' %}" class="btn btn-primary" style="margin-top: 20px;">
-            <i class="fas fa-plus"></i> Add Your First Loan
-        </a>
-    </div>
-{% endif %}
-
-{% if loans %}
-    <div class="glass-card reveal" style="padding: 24px; margin-top: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="font-size: 16px; font-weight: 700;">{% if not request.user.is_staff %}Your Loans{% else %}Loans{% endif %}</h3>
+    <div class="glass-card reveal" style="padding:24px;margin-top:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="font-size:16px;font-weight:700;">
+                <i class="fas fa-file-invoice-dollar" style="color:var(--primary);"></i>
+                Recent Loans
+            </h3>
             <a href="{% url 'loan_list' %}" class="link-accent">
                 View All <i class="fas fa-arrow-right"></i>
             </a>
         </div>
-
         <div class="loans-mini-list">
-            {% for loan in loans %}
+            {% for loan in admin_recent_loans %}
             <a href="{% url 'loan_detail' loan.pk %}" class="loans-mini-item">
                 <div class="lmi-left">
                     <div class="lmi-icon {% if loan.status == 'active' %}active{% else %}closed{% endif %}">
@@ -154,21 +137,17 @@
                     <div>
                         <div class="lmi-name">{{ loan.loan_name }}</div>
                         <div class="lmi-meta">
-                            ₹{{ loan.amount|floatformat:0 }}
+                            {{ loan.user.get_full_name|default:loan.user.username }}
+                            · ₹{{ loan.amount|floatformat:0 }}
                             · {{ loan.interest_rate }}%
-                            · {{ loan.tenure_years }}y
                             · {{ loan.get_emi_frequency_display }}
-
-                            <span class="loan-status-badge badge-{{ loan.status }}"
-                                style="margin-left:8px;font-size:10px;padding:2px 8px;">
+                            <span class="loan-status-badge badge-{{ loan.status }}" style="margin-left:8px;font-size:10px;padding:2px 8px;">
                                 {{ loan.status }}
                             </span>
-
                             {% if loan.auto_debit %}
-                                <span class="loan-status-badge badge-active"
-                                    style="margin-left:6px;font-size:10px;padding:2px 8px;">
-                                    Auto Debit
-                                </span>
+                            <span class="loan-status-badge badge-active" style="margin-left:6px;font-size:10px;padding:2px 8px;">
+                                Auto Debit
+                            </span>
                             {% endif %}
                         </div>
                     </div>
@@ -176,177 +155,497 @@
                 <div class="lmi-right">
                     <div class="lmi-balance">₹{{ loan.remaining_balance|floatformat:0 }}</div>
                     <div class="lmi-progress-bar">
-                        <div class="lmi-progress-fill" style="width: {{ loan.progress_percent }}%"></div>
+                        <div class="lmi-progress-fill" style="width:{{ loan.progress_percent }}%"></div>
                     </div>
                     <div class="lmi-percent">{{ loan.progress_percent }}%</div>
                 </div>
             </a>
-            {% endfor %}
-        </div>
-    </div>
-{% endif %}
-
-<div class="dashboard-bottom-grid">
-    <div class="glass-card reveal" style="padding: 24px;">
-        <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 20px;">
-            <i class="fas fa-bolt" style="color: var(--accent);"></i> Quick Stats
-        </h3>
-        <div class="quick-stats-list">
-            <div class="qs-item">
-                <div class="qs-left">
-                    <div class="qs-icon" style="background: rgba(40,167,69,0.1); color: var(--primary);">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div>
-                        <div class="qs-label">Total EMIs Paid</div>
-                        <div class="qs-value">{{ total_payments }} payments</div>
-                    </div>
-                </div>
-            </div>
-            <div class="qs-item">
-                <div class="qs-left">
-                    <div class="qs-icon" style="background: rgba(245,158,11,0.1); color: var(--accent);">
-                        <i class="fas fa-calendar-alt"></i>
-                    </div>
-                    <div>
-                        <div class="qs-label">Total Payable (Projected)</div>
-                        <div class="qs-value">₹{{ total_payable|floatformat:0 }}</div>
-                    </div>
-                </div>
-            </div>
-            <div class="qs-item">
-                <div class="qs-left">
-                    <div class="qs-icon" style="background: rgba(239,68,68,0.1); color: var(--danger);">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div>
-                        <div class="qs-label">Projected Interest</div>
-                        <div class="qs-value">
-                            ₹{{ projected_interest|floatformat:0 }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="qs-item">
-                <div class="qs-left">
-                    <div class="qs-icon" style="background: rgba(59,130,246,0.1); color: var(--info);">
-                        <i class="fas fa-chart-bar"></i>
-                    </div>
-                    <div>
-                        <div class="qs-label">Avg. Interest Rate</div>
-                        <div class="qs-value">{{ avg_interest_rate|floatformat:2 }}%</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="glass-card reveal" style="padding: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="font-size: 16px; font-weight: 700;">
-                <i class="fas fa-history" style="color: var(--primary);"></i> Recent Payments
-            </h3>
-        </div>
-
-        {% if recent_payments %}
-        <div class="recent-payments-list">
-            {% for payment in recent_payments %}
-            <div class="rp-item">
-                <div class="rp-left">
-                    <div class="rp-icon">
-                        <i class="fas fa-arrow-up"></i>
-                    </div>
-                    <div>
-                        <div class="rp-name">{{ payment.loan.loan_name }}</div>
-                        <div class="rp-meta">
-                            {{ payment.get_payment_type_display }}#{{ payment.payment_number }}
-                        </div>
-                    </div>
-                </div>
-                <div class="rp-right">
-                    <div class="rp-amount">-₹{{ payment.amount|floatformat:0 }}</div>
-                    <div class="rp-breakdown">
-                        P: ₹{{ payment.principal_component|floatformat:0 }} · I: ₹{{ payment.interest_component|floatformat:0 }}
-                    </div>
-                </div>
+            {% empty %}
+            <div class="empty-activity">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <p>No loans created yet.</p>
             </div>
             {% endfor %}
         </div>
-        {% else %}
-        <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
-            <i class="fas fa-receipt" style="font-size: 32px; opacity: 0.3; margin-bottom: 12px; display: block;"></i>
-            <p style="font-size: 14px;">No payments recorded yet. Pay your first EMI to see it here.</p>
-        </div>
-        {% endif %}
     </div>
-    <div class="glass-card reveal activity-card">
-        <div class="card-header">
-            <h3><i class="fas fa-bolt"></i> Activity Feed</h3>
-        </div>
-        {% if activities %}
-            <div class="activity-list" style="margin-top: 12px;">
-                {% for item in activities %}
-                <div class="activity-item">
-                    <div class="activity-icon
-                        {% if item.action == 'loan_created' %}
-                            success
-                        {% elif item.action == 'emi_paid' %}
-                            primary
-                        {% elif item.action == 'loan_closed' %}
-                            warning
-                        {% elif item.action == 'prepayment' %}
-                            info
-                        {% else %}
-                            secondary
-                        {% endif %}
-                    ">
-                        {% if item.action == "loan_created" %}
-                            <i class="fas fa-plus"></i>
-                        {% elif item.action == "emi_paid" %}
-                            <i class="fas fa-check"></i>
-                        {% elif item.action == "loan_closed" %}
-                            <i class="fas fa-flag-checkered"></i>
-                        {% elif item.action == "prepayment" %}
-                            <i class="fas fa-piggy-bank"></i>
-                        {% else %}
-                            <i class="fas fa-circle"></i>
-                        {% endif %}
+    <div class="dashboard-bottom-grid">
+        <div class="glass-card reveal" style="padding:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="font-size:16px;font-weight:700;">
+                    <i class="fas fa-history" style="color:var(--primary);"></i>
+                    Recent Payments
+                </h3>
+            </div>
+            {% if admin_recent_payments %}
+            <div class="recent-payments-list">
+                {% for payment in admin_recent_payments %}
+                <div class="rp-item">
+                    <div class="rp-left">
+                        <div class="rp-icon">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                        <div>
+                            <div class="rp-name">{{ payment.loan.user.get_full_name|default:payment.loan.user.username }}</div>
+                            <div class="rp-meta">
+                                {{ payment.loan.loan_name }} · {{ payment.get_payment_type_display }} #{{ payment.payment_number }}
+                            </div>
+                        </div>
                     </div>
-                    <div class="activity-content">
-                        <div class="activity-title">
-                            {{ item.title }}
-                        </div>
-                        <div class="activity-desc">
-                            {{ item.description }}
-                        </div>
-                        <div class="activity-time">
-                            {{ item.created_at|timesince }} ago
+                    <div class="rp-right">
+                        <div class="rp-amount">₹{{ payment.amount|floatformat:0 }}</div>
+                        <div class="rp-breakdown">
+                            P: ₹{{ payment.principal_component|floatformat:0 }} · I: ₹{{ payment.interest_component|floatformat:0 }}
                         </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-        {% else %}
+            {% else %}
+            <div class="empty-activity">
+                <i class="fas fa-receipt"></i>
+                <p>No payments recorded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="glass-card reveal activity-card">
+            <div class="card-header">
+                <h3><i class="fas fa-bolt"></i> System Activity</h3>
+            </div>
+            {% if activities %}
+            <div class="activity-list" style="margin-top:12px;">
+                {% for item in activities %}
+                <div class="activity-item">
+                    <div class="activity-icon {% if item.action == 'loan_created' %}success{% elif item.action == 'emi_paid' %}primary{% elif item.action == 'loan_closed' %}warning{% elif item.action == 'prepayment' %}info{% else %}secondary{% endif %}">
+                        {% if item.action == "loan_created" %}
+                        <i class="fas fa-plus"></i>
+                        {% elif item.action == "emi_paid" %}
+                        <i class="fas fa-check"></i>
+                        {% elif item.action == "loan_closed" %}
+                        <i class="fas fa-flag-checkered"></i>
+                        {% elif item.action == "prepayment" %}
+                        <i class="fas fa-piggy-bank"></i>
+                        {% else %}
+                        <i class="fas fa-circle"></i>
+                        {% endif %}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">{{ item.title }}</div>
+                        <div class="activity-desc">{{ item.description }}</div>
+                        <div class="activity-time">{{ item.created_at|timesince }} ago</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
             <div class="empty-activity">
                 <i class="fas fa-stream"></i>
                 <p>No activity yet.</p>
             </div>
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
-</div>
-
-{% if not loans %}
-    <div class="empty-state reveal" style="margin-top: 40px;">
-        <div class="empty-icon"><i class="fas fa-home"></i></div>
-        <h3>Your Dashboard Awaits</h3>
-        <p>You haven't added any loans yet. Add your first loan and watch your dashboard come alive with analytics, charts, and repayment tracking.</p>
-        <a href="{% url 'create_loan' %}" class="btn btn-primary btn-lg">
-            <i class="fas fa-plus"></i> Add Your First Loan
+{% else %}
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-subtitle">
+                Welcome back, {{ request.user.first_name|default:request.user.username }} — here's your loan overview
+            </p>
+        </div>
+        <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" style="width: 40px; height: 40px;">
+            <i class="fas fa-plus"></i>
         </a>
     </div>
+
+    <div class="summary-grid">
+        <div class="summary-card glass-card">
+            <div class="sc-icon">
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Total Loans</span>
+                <span class="sc-value" data-count="{{ total_loans }}">{{ total_loans }}</span>
+                <span class="sc-sub">{{ active_loans }} active · {{ closed_loans }} closed</span>
+            </div>
+        </div>
+
+        <div class="summary-card glass-card">
+            <div class="sc-icon accent">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Outstanding Balance</span>
+                <span class="sc-value" data-count="{{ total_remaining }}">₹{{ total_remaining|floatformat:0 }}</span>
+                <span class="sc-sub">of ₹{{ total_amount|floatformat:0 }} total</span>
+            </div>
+        </div>
+
+        <div class="summary-card glass-card">
+            <div class="sc-icon warn">
+                <i class="fas fa-credit-card"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Monthly EMI</span>
+                <span class="sc-value" data-count="{{ monthly_emi }}">₹{{ monthly_emi|floatformat:0 }}</span>
+                <span class="sc-sub">across {{ active_loans }} loan{{ active_loans|pluralize }}</span>
+            </div>
+        </div>
+
+        <div class="summary-card glass-card">
+            <div class="sc-icon danger">
+                <i class="fas fa-percent"></i>
+            </div>
+            <div class="sc-info">
+                <span class="sc-label">Interest Paid So Far</span>
+                <span class="sc-value" data-count="{{ total_interest_paid }}">₹{{ total_interest_paid|floatformat:0 }}</span>
+                <span class="sc-sub">total interest burden</span>
+            </div>
+        </div>
+    </div>
+
+    {% if total_prepaid > 0 %}
+        <div class="savings-banner glass-card reveal">
+            <div class="savings-icon">
+                <i class="fas fa-piggy-bank"></i>
+            </div>
+            <div class="savings-info">
+                <h3>You're Saving Through Prepayments!</h3>
+                <div class="savings-stats">
+                    <div>
+                        <span class="ss-value">₹{{ total_prepaid|floatformat:0 }}</span>
+                        <span class="ss-label">Total Prepaid</span>
+                    </div>
+                    <div>
+                        <span class="ss-value" style="color: var(--primary);">₹{{ total_interest_saved|floatformat:0 }}</span>
+                        <span class="ss-label">Interest Saved</span>
+                    </div>
+                    <div>
+                        <span class="ss-value" style="color: var(--accent);">{{ total_months_saved }} months</span>
+                        <span class="ss-label">Tenure Reduced</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if balance_chart_json %}
+        <div class="charts-grid">
+            <div class="glass-card chart-card reveal">
+                <div class="chart-header">
+                    <div>
+                        <h3>Balance Over Time</h3>
+                        <span class="chart-subtitle">{{ balance_chart_json.loan_name }} — projected</span>
+                    </div>
+                    <div class="chart-legend-mini">
+                        <span class="clm-dot" style="background: var(--primary);"></span>
+                        Remaining Balance
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="dashBalanceChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card chart-card reveal">
+                <div class="chart-header">
+                    <div>
+                        <h3>Principal vs Interest</h3>
+                        <span class="chart-subtitle">Total repayment breakdown</span>
+                    </div>
+                </div>
+                <div class="chart-container chart-container-pie">
+                    <canvas id="dashPieChart"></canvas>
+                    {% if pie_chart_json.principal > 0 or pie_chart_json.interest > 0 %}
+                    <div class="pie-center-stat">
+                        <span class="pcs-label">Total Paid</span>
+                        <span class="pcs-value">₹{{ total_paid|floatformat:0 }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="glass-card empty-chart-placeholder reveal">
+            <i class="fas fa-chart-line"></i>
+            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 4px; color: var(--text);">
+                No Charts Yet
+            </h3>
+            <p>Add an active loan to see balance projections and interest analytics here.</p>
+            <a href="{% url 'create_loan' %}" class="btn btn-primary" style="margin-top: 20px;">
+                <i class="fas fa-plus"></i> Add Your First Loan
+            </a>
+        </div>
+    {% endif %}
+
+    {% if loans %}
+        <div class="glass-card reveal" style="padding: 24px; margin-top: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="font-size: 16px; font-weight: 700;">{% if not request.user.is_staff %}Your Loans{% else %}Loans{% endif %}</h3>
+                <a href="{% url 'loan_list' %}" class="link-accent">
+                    View All <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="loans-mini-list">
+                {% for loan in loans %}
+                <a href="{% url 'loan_detail' loan.pk %}" class="loans-mini-item">
+                    <div class="lmi-left">
+                        <div class="lmi-icon {% if loan.status == 'active' %}active{% else %}closed{% endif %}">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div>
+                            <div class="lmi-name">{{ loan.loan_name }}</div>
+                            <div class="lmi-meta">
+                                ₹{{ loan.amount|floatformat:0 }}
+                                · {{ loan.interest_rate }}%
+                                · {{ loan.tenure_years }}y
+                                · {{ loan.get_emi_frequency_display }}
+
+                                <span class="loan-status-badge badge-{{ loan.status }}"
+                                    style="margin-left:8px;font-size:10px;padding:2px 8px;">
+                                    {{ loan.status }}
+                                </span>
+
+                                {% if loan.auto_debit %}
+                                    <span class="loan-status-badge badge-active"
+                                        style="margin-left:6px;font-size:10px;padding:2px 8px;">
+                                        Auto Debit
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="lmi-right">
+                        <div class="lmi-balance">₹{{ loan.remaining_balance|floatformat:0 }}</div>
+                        <div class="lmi-progress-bar">
+                            <div class="lmi-progress-fill" style="width: {{ loan.progress_percent }}%"></div>
+                        </div>
+                        <div class="lmi-percent">{{ loan.progress_percent }}%</div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="dashboard-bottom-grid">
+        <div class="glass-card reveal" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 20px;">
+                <i class="fas fa-bolt" style="color: var(--accent);"></i> Quick Stats
+            </h3>
+            <div class="quick-stats-list">
+                <div class="qs-item">
+                    <div class="qs-left">
+                        <div class="qs-icon" style="background: rgba(40,167,69,0.1); color: var(--primary);">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div>
+                            <div class="qs-label">Total EMIs Paid</div>
+                            <div class="qs-value">{{ total_payments }} payments</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="qs-item">
+                    <div class="qs-left">
+                        <div class="qs-icon" style="background: rgba(245,158,11,0.1); color: var(--accent);">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div>
+                            <div class="qs-label">Total Payable (Projected)</div>
+                            <div class="qs-value">₹{{ total_payable|floatformat:0 }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="qs-item">
+                    <div class="qs-left">
+                        <div class="qs-icon" style="background: rgba(239,68,68,0.1); color: var(--danger);">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div>
+                            <div class="qs-label">Projected Interest</div>
+                            <div class="qs-value">
+                                ₹{{ projected_interest|floatformat:0 }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="qs-item">
+                    <div class="qs-left">
+                        <div class="qs-icon" style="background: rgba(59,130,246,0.1); color: var(--info);">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div>
+                            <div class="qs-label">Avg. Interest Rate</div>
+                            <div class="qs-value">{{ avg_interest_rate|floatformat:2 }}%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card reveal" style="padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="font-size: 16px; font-weight: 700;">
+                    <i class="fas fa-history" style="color: var(--primary);"></i> Recent Payments
+                </h3>
+            </div>
+
+            {% if recent_payments %}
+            <div class="recent-payments-list">
+                {% for payment in recent_payments %}
+                <div class="rp-item">
+                    <div class="rp-left">
+                        <div class="rp-icon">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                        <div>
+                            <div class="rp-name">{{ payment.loan.loan_name }}</div>
+                            <div class="rp-meta">
+                                {{ payment.get_payment_type_display }}#{{ payment.payment_number }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rp-right">
+                        <div class="rp-amount">-₹{{ payment.amount|floatformat:0 }}</div>
+                        <div class="rp-breakdown">
+                            P: ₹{{ payment.principal_component|floatformat:0 }} · I: ₹{{ payment.interest_component|floatformat:0 }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                <i class="fas fa-receipt" style="font-size: 32px; opacity: 0.3; margin-bottom: 12px; display: block;"></i>
+                <p style="font-size: 14px;">No payments recorded yet. Pay your first EMI to see it here.</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="glass-card reveal activity-card">
+            <div class="card-header">
+                <h3><i class="fas fa-bolt"></i> Activity Feed</h3>
+            </div>
+            {% if activities %}
+                <div class="activity-list" style="margin-top: 12px;">
+                    {% for item in activities %}
+                    <div class="activity-item">
+                        <div class="activity-icon
+                            {% if item.action == 'loan_created' %}
+                                success
+                            {% elif item.action == 'emi_paid' %}
+                                primary
+                            {% elif item.action == 'loan_closed' %}
+                                warning
+                            {% elif item.action == 'prepayment' %}
+                                info
+                            {% else %}
+                                secondary
+                            {% endif %}
+                        ">
+                            {% if item.action == "loan_created" %}
+                                <i class="fas fa-plus"></i>
+                            {% elif item.action == "emi_paid" %}
+                                <i class="fas fa-check"></i>
+                            {% elif item.action == "loan_closed" %}
+                                <i class="fas fa-flag-checkered"></i>
+                            {% elif item.action == "prepayment" %}
+                                <i class="fas fa-piggy-bank"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">
+                                {{ item.title }}
+                            </div>
+                            <div class="activity-desc">
+                                {{ item.description }}
+                            </div>
+                            <div class="activity-time">
+                                {{ item.created_at|timesince }} ago
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-activity">
+                    <i class="fas fa-stream"></i>
+                    <p>No activity yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not loans %}
+        <div class="empty-state reveal" style="margin-top: 40px;">
+            <div class="empty-icon"><i class="fas fa-home"></i></div>
+            <h3>Your Dashboard Awaits</h3>
+            <p>You haven't added any loans yet. Add your first loan and watch your dashboard come alive with analytics, charts, and repayment tracking.</p>
+            <a href="{% url 'create_loan' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus"></i> Add Your First Loan
+            </a>
+        </div>
+    {% endif %}
 {% endif %}
 {% endblock %}
 {% block extra_scripts %}
+{% if request.user.is_staff %}
+<script>
+(function() {
+    const data = {{ admin_loan_status_chart|safe }};
+    const canvas = document.getElementById("adminLoanStatusChart");
+    if (!canvas || !data) return;
+    new Chart(canvas.getContext("2d"), {
+        type: "doughnut",
+        data: {
+            labels: data.labels,
+            datasets: [{
+                data: data.values,
+                backgroundColor: ["#28a745", "#94a3b8"],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "68%",
+            plugins: {
+                legend: {
+                    position: "bottom"
+                }
+            }
+        }
+    });
+})();
+(function() {
+    const data = {{ admin_collection_chart|safe }};
+    const canvas = document.getElementById("adminCollectionChart");
+    if (!canvas || !data) return;
+    new Chart(canvas.getContext("2d"), {
+        type: "doughnut",
+        data: {
+            labels: data.labels,
+            datasets: [{
+                data: data.values,
+                backgroundColor: ["#28a745", "#f59e0b"],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "68%",
+            plugins: {
+                legend: {
+                    position: "bottom"
+                }
+            }
+        }
+    });
+})();
+</script>
+{% else %}
 <script>
     (function() {
         const data = {{ balance_chart_json|safe }};
@@ -570,6 +869,7 @@
         }, 400);
     });
 </script>
+{% endif %}
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const reveals = document.querySelectorAll(".reveal");

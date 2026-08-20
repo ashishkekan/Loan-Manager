@@ -1,0 +1,425 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Users — NexusLoan{% endblock %}
+{% block content %}
+<div class="app-layout">
+    <header class="mobile-header">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+            <i class="fas fa-bars"></i>
+        </button>
+        <span class="mobile-logo">NexusLoan</span>
+        <button class="theme-toggle-mobile" id="themeToggleMobile" aria-label="Toggle theme">
+            <i class="fas fa-moon"></i>
+        </button>
+    </header>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <div class="logo-icon">
+                    <i class="fas fa-landmark"></i>
+                </div>
+                <span class="logo-text">NexusLoan</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'dashboard' %}" class="nav-item">
+                <i class="fas fa-chart-pie"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="{% url 'admin_users' %}" class="nav-item active">
+                <i class="fas fa-users"></i>
+                <span>Users</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-wallet"></i>
+                <span>Loans</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-credit-card"></i>
+                <span>Payments</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-money-bill-wave"></i>
+                <span>Prepayments</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-university"></i>
+                <span>Banks</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-bell"></i>
+                <span>Notifications</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-chart-column"></i>
+                <span>Reports</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-clock-rotate-left"></i>
+                <span>Activity Logs</span>
+            </a>
+            <a href="{% url 'loan_list' %}" class="nav-item">
+                <i class="fas fa-gear"></i>
+                <span>Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">{{ request.user.first_name.0|default:request.user.username.0|upper }}</div>
+                <div class="user-details">
+                    <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                    <span class="user-role">
+                        {% if request.user.profile %}
+                            {{ request.user.profile.get_role_display }}
+                        {% else %}
+                            Admin
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeLabel" style="font-size:10px;">Dark Mode</span>
+            </button>
+            <a href="{% url 'logout' %}" class="nav-item nav-logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Users</h1>
+                <p class="page-subtitle">Manage and monitor registered users</p>
+            </div>
+        </div>
+        <div class="summary-grid">
+            <div class="summary-card glass-card">
+                <div class="sc-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="sc-info">
+                    <span class="sc-label">Total Users</span>
+                    <span class="sc-value">{{ total_users }}</span>
+                    <span class="sc-sub">Registered users</span>
+                </div>
+            </div>
+            <div class="summary-card glass-card">
+                <div class="sc-icon accent">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="sc-info">
+                    <span class="sc-label">Active Users</span>
+                    <span class="sc-value">{{ active_users }}</span>
+                    <span class="sc-sub">Currently active</span>
+                </div>
+            </div>
+            <div class="summary-card glass-card">
+                <div class="sc-icon warn">
+                    <i class="fas fa-user-slash"></i>
+                </div>
+                <div class="sc-info">
+                    <span class="sc-label">Inactive Users</span>
+                    <span class="sc-value">{{ inactive_users }}</span>
+                    <span class="sc-sub">Account disabled</span>
+                </div>
+            </div>
+        </div>
+        <div class="glass-card" style="padding:20px;margin-bottom:24px;">
+            <form method="get" class="users-filter-form">
+                <div class="users-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search name, username, email or phone...">
+                </div>
+                <select name="role" class="users-filter-select">
+                    <option value="">All Roles</option>
+                    <option value="guest" {% if role_filter == "guest" %}selected{% endif %}>Guest</option>
+                    <option value="borrower" {% if role_filter == "borrower" %}selected{% endif %}>Borrower</option>
+                    <option value="lender" {% if role_filter == "lender" %}selected{% endif %}>Lender</option>
+                </select>
+                <select name="status" class="users-filter-select">
+                    <option value="">All Status</option>
+                    <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                </select>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter"></i>
+                    Filter
+                </button>
+                {% if search_query or role_filter or status_filter %}
+                <a href="{% url 'admin_users' %}" class="btn btn-secondary">
+                    <i class="fas fa-xmark"></i>
+                    Clear
+                </a>
+                {% endif %}
+            </form>
+        </div>
+        <div class="glass-card" style="padding:24px;">
+            <div class="card-header" style="margin-bottom:20px;">
+                <div>
+                    <h3>
+                        <i class="fas fa-users"></i>
+                        Users List
+                    </h3>
+                    <span class="chart-subtitle">All registered customer accounts</span>
+                </div>
+                <span class="table-count">{{ page_obj.paginator.count }} users</span>
+            </div>
+            <div class="users-table-wrapper">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Role</th>
+                            <th>Total Loans</th>
+                            <th>Total Loan Amount</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <div class="user-table-cell">
+                                    <div class="user-table-avatar">
+                                        {{ user.first_name.0|default:user.username.0|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="user-table-name">
+                                            {{ user.get_full_name|default:user.username }}
+                                        </div>
+                                        <div class="user-table-username">
+                                            @{{ user.username }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {{ user.email|default:"—" }}
+                            </td>
+                            <td>
+                                {{ user.profile.phone|default:"—" }}
+                            </td>
+                            <td>
+                                <span class="role-badge role-{{ user.profile.role }}">
+                                    {{ user.profile.get_role_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ user.total_loans }}</strong>
+                            </td>
+                            <td>
+                                <strong>₹{{ user.total_loan_amount|floatformat:2 }}</strong>
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                <span class="status-badge active">
+                                    <i class="fas fa-circle"></i>
+                                    Active
+                                </span>
+                                {% else %}
+                                <span class="status-badge inactive">
+                                    <i class="fas fa-circle"></i>
+                                    Inactive
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ user.date_joined|date:"d M Y" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-activity" style="padding:50px 20px;">
+                                    <i class="fas fa-users-slash"></i>
+                                    <p>No users found.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if is_paginated %}
+            <div class="users-pagination">
+                <span>
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+                <div>
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="pagination-btn">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="pagination-btn">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+<style>
+.users-filter-form {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.users-search {
+    position: relative;
+    flex: 1;
+}
+.users-search i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+}
+.users-search input {
+    width: 100%;
+    padding: 12px 16px 12px 42px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+}
+.users-filter-select {
+    min-width: 140px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+}
+.users-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.users-table th {
+    text-align: left;
+    padding: 13px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    white-space: nowrap;
+}
+.users-table td {
+    padding: 15px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    white-space: nowrap;
+}
+.users-table tbody tr:hover {
+    background: var(--surface-hover);
+}
+.user-table-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 190px;
+}
+.user-table-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.user-table-name {
+    font-weight: 700;
+}
+.user-table-username {
+    color: var(--text-muted);
+    font-size: 10px;
+    margin-top: 2px;
+}
+.role-badge,
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 9px;
+    font-weight: 700;
+}
+.role-badge {
+    background: rgba(99,102,241,.12);
+    color: var(--accent);
+}
+.status-badge.active {
+    background: rgba(40,167,69,.12);
+    color: #28a745;
+}
+.status-badge.inactive {
+    background: rgba(220,53,69,.12);
+    color: #dc3545;
+}
+.status-badge i {
+    font-size: 5px;
+}
+.table-count {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.users-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 20px;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    text-decoration: none;
+    margin-left: 5px;
+}
+.pagination-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+@media (max-width: 768px) {
+    .users-filter-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .users-filter-select {
+        width: 100%;
+    }
+    .users-filter-form .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}

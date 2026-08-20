@@ -8,6 +8,8 @@ from loans.models import (
     LoanDisbursement,
     LoanDocument,
     LoanNote,
+    SupportMessage,
+    SupportTicket,
 )
 
 
@@ -150,3 +152,47 @@ class LoanAccruedInterestAdmin(admin.ModelAdmin):
     ordering = ("-emi_date",)
     date_hierarchy = "emi_date"
     list_select_related = ("loan", "disbursement")
+
+
+@admin.register(SupportTicket)
+class SupportTicketAdmin(admin.ModelAdmin):
+    list_display = [
+        "ticket_number",
+        "user",
+        "category",
+        "subject",
+        "status",
+        "priority",
+        "created_at",
+    ]
+    list_filter = [
+        "status",
+        "category",
+        "priority",
+    ]
+    search_fields = [
+        "ticket_number",
+        "subject",
+        "message",
+        "user__username",
+    ]
+    readonly_fields = [
+        "ticket_number",
+        "created_at",
+        "updated_at",
+    ]
+
+
+@admin.register(SupportMessage)
+class SupportMessageAdmin(admin.ModelAdmin):
+    list_display = [
+        "ticket",
+        "user",
+        "is_staff_reply",
+        "created_at",
+    ]
+    list_filter = ["is_staff_reply"]
+    search_fields = [
+        "ticket__ticket_number",
+        "message",
+    ]
