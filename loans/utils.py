@@ -606,3 +606,44 @@ def get_user_loans(user):
         return queryset
 
     return queryset.filter(user=user)
+
+
+def get_admin_statistics():
+    from django.contrib.auth.models import User
+    from django.db.models import Sum
+
+    from loans.models import Loan
+    from payments.models import Payment
+
+    users = User.objects.all()
+    loans = Loan.objects.all()
+    payments = Payment.objects.filter(status="paid")
+
+    total_users = users.count()
+    active_users = users.filter(is_active=True).count()
+    inactive_users = users.filter(is_active=False).count()
+
+    total_loans = loans.count()
+    active_loans = loans.filter(status="active").count()
+    closed_loans = loans.filter(status="closed").count()
+
+    total_payments = payments.count()
+    total_payment_amount = payments.aggregate(total=Sum("amount"))["total"] or Decimal(
+        "0.00"
+    )
+
+    total_interest_collected = payments.aggregate(total=Sum("interest_component"))[
+        "total"
+    ] or Decimal("0.00")
+
+    return {
+        "admin_total_users": total_users,
+        "admin_active_users": active_users,
+        "admin_inactive_users": inactive_users,
+        "admin_total_loans": total_loans,
+        "admin_active_loans": active_loans,
+        "admin_closed_loans": closed_loans,
+        "admin_total_payments": total_payments,
+        "admin_total_payment_amount": total_payment_amount,
+        "admin_total_interest_collected": total_interest_collected,
+    }
