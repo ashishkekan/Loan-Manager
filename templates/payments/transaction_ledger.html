@@ -1,0 +1,65 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+{% block title %}Transaction Ledger — {{ loan.loan_name }}{% endblock %}
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'loan_list' %}">My Loans</a>
+            <i class="fas fa-chevron-right"></i>
+            <a href="{% url 'loan_detail' loan.pk %}">{{ loan.loan_name }}</a>
+            <i class="fas fa-chevron-right"></i>
+            <span>Ledger</span>
+        </div>
+        <h1 class="page-title">Transaction Ledger</h1>
+        <p class="page-subtitle">Complete money in/out history for {{ loan.loan_name }}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'export_excel' loan.pk %}" class="btn btn-primary">
+            <i class="fas fa-file-excel"></i> Excel
+        </a>
+        <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline">
+            <i class="fas fa-arrow-left"></i> Back to Loan
+        </a>
+    </div>
+</div>
+<div class="glass-card" style="padding: 24px;">
+    {% if transactions %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Details</th>
+                        <th style="text-align: right;">Amount (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transactions %}
+                    <tr>
+                        <td>{{ t.date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if t.type == 'emi' %}
+                            <span class="status-badge status-paid"><i class="fas fa-credit-card"></i> EMI</span>
+                            {% else %}
+                            <span class="status-badge" style="background: rgba(245,158,11,0.1); color: var(--accent);">
+                                <i class="fas fa-bolt"></i> Prepayment
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="color: var(--text-secondary);">{{ t.detail }}</td>
+                        <td style="text-align: right; font-weight: 700; color: var(--text);">₹{{ t.amount|floatformat:0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state" style="padding: 40px;">
+            <i class="fas fa-receipt" style="font-size: 32px; opacity: 0.3; margin-bottom: 12px; display: block;"></i>
+            <p style="color: var(--text-muted);">No transactions recorded yet.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

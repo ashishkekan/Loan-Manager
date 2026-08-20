@@ -20,13 +20,14 @@
         <button class="btn btn-ghost" onclick="window.print()">
             <i class="fas fa-print"></i> Print Schedule
         </button>
+        <a href="{% url 'export_excel' loan.pk %}" class="btn btn-primary">
+            <i class="fas fa-file-excel"></i> Download Excel
+        </a>
         <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline">
             <i class="fas fa-arrow-left"></i> Back to Loan
         </a>
     </div>
 </div>
-
-<!-- Filter -->
 <div class="glass-card" style="padding: 16px 24px; margin-bottom: 24px;">
     <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
         <label style="font-weight: 500; font-size: 14px;">Filter:</label>
@@ -38,8 +39,6 @@
         </span>
     </div>
 </div>
-
-<!-- Schedule Table -->
 <div class="glass-card" style="padding: 0; overflow: hidden;">
     <div class="table-responsive">
         <table class="data-table schedule-table" id="scheduleTable">
@@ -47,7 +46,9 @@
                 <tr>
                     <th>Month</th>
                     <th>Due Date</th>
-                    <th>EMI</th>
+                    <th>Regular EMI</th>
+                    <th>Additional Interest</th>
+                    <th>Total Debit</th>
                     <th>Principal</th>
                     <th>Interest</th>
                     <th>Balance</th>
@@ -56,54 +57,59 @@
             </thead>
             <tbody>
                 {% for row in schedule %}
-                <tr class="row-{{ row.status }}" data-status="{{ row.status }}">
-                    <td><strong>{{ row.month }}</strong></td>
-                    <td>{{ row.due_date|date:"M d, Y" }}</td>
-                    <td>₹{{ row.emi|floatformat:0 }}</td>
-                    <td>₹{{ row.principal|floatformat:0 }}</td>
-                    <td>₹{{ row.interest|floatformat:0 }}</td>
-                    <td>₹{{ row.balance|floatformat:0 }}</td>
-                    <td>
-                        {% if row.status == 'paid' %}
-                        <span class="status-badge status-paid">
-                            <i class="fas fa-check"></i> Paid
-                            {% if row.payment_date %}({{ row.payment_date|date:"M d" }}){% endif %}
-                        </span>
-                        {% else %}
-                        <span class="status-badge status-projected">Projected</span>
-                        {% endif %}
-                    </td>
-                </tr>
+                    <tr class="row-{{ row.status }}" data-status="{{ row.status }}">
+                        <td>{{ row.period }}</td>
+                        <td>{{ row.due_date|date:"M d, Y" }}</td>
+                        <td>₹{{ row.regular_emi|floatformat:0 }}</td>
+                        <td>₹{{ row.additional_interest|floatformat:0 }}</td>
+                        <td>₹{{ row.total_debit|floatformat:0 }}</td>
+                        <td>₹{{ row.principal|floatformat:0 }}</td>
+                        <td>₹{{ row.interest|floatformat:0 }}</td>
+                        <td>₹{{ row.balance|floatformat:0 }}</td>
+                        <td>
+                            {% if row.status == 'paid' %}
+                                <span class="status-badge status-paid">
+                                    <i class="fas fa-check"></i> Paid
+                                    {% if row.payment_date %}({{ row.payment_date|date:"M d" }}){% endif %}
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-projected">Projected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+{% if page_obj.has_other_pages %}
+    <div style="margin-top: 24px;">
+        {% include "includes/pagination.html" %}
+    </div>
+{% endif %}
 {% endblock %}
-
 {% block extra_scripts %}
 <script>
-// Filter logic for amortization schedule
-document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
 
-        const filter = this.dataset.filter;
-        const rows = document.querySelectorAll('#scheduleTable tbody tr');
-        let count = 0;
+            const filter = this.dataset.filter;
+            const rows = document.querySelectorAll('#scheduleTable tbody tr');
+            let count = 0;
 
-        rows.forEach(row => {
-            if (filter === 'all' || row.dataset.status === filter) {
-                row.style.display = '';
-                count++;
-            } else {
-                row.style.display = 'none';
-            }
+            rows.forEach(row => {
+                if (filter === 'all' || row.dataset.status === filter) {
+                    row.style.display = '';
+                    count++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            document.getElementById('rowCount').textContent = count;
         });
-
-        document.getElementById('rowCount').textContent = count;
     });
-});
 </script>
 {% endblock %}

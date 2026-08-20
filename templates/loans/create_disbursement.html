@@ -1,0 +1,36 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+{% block title %}Create Disbursement{% endblock %}
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Create Disbursement</h1>
+        <p class="page-subtitle">Record amount released against this loan</p>
+    </div>
+</div>
+<div class="form-card glass-card">
+    <form method="post" class="loan-form" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="form-group {% if field.errors %}has-error{% endif %}">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    {% for error in field.errors %}
+                        <span class="form-error">{{ error }}</span>
+                    {% endfor %}
+                {% endif %}
+                {% if field.help_text %}
+                    <span class="form-help">{{ field.help_text }}</span>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-ghost">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-money-bill-transfer"></i> Save
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

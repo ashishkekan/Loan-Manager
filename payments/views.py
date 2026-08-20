@@ -1,85 +1,74 @@
-"""
-Views for recording EMI payments and prepayments.
-These are POST-only actions that redirect back to the loan detail page.
-"""
-
 import math
+from datetime import date
 from decimal import Decimal
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import TemplateView
+
+import openpyxl
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.db.models import Avg, Count, Max, Q, Sum
+from django.http import FileResponse, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.generic import TemplateView
+from openpyxl.styles import Alignment, Font, PatternFill
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
+from dashboard.utils import add_activity
 from loans.models import Loan
-from loans.utils import add_months, calculate_remaining_months
-from .models import Payment, Prepayment
-from .forms import PrepaymentForm
+from loans.utils import (
+    add_months,
+    add_periods,
+    calculate_remaining_periods,
+    create_notification,
+    generate_full_schedule,
+    get_period_details,
+    get_schedule_summary,
+)
+from payments.forms import PrepaymentForm
+from payments.models import Payment, Prepayment
+from payments.services import process_emi_payment
 
 
+@login_required
 def pay_emi(request, loan_id):
-    """
-    Process a single EMI payment for the given loan.
-    Calculates interest/principal split and updates the loan balance.
-    """
     loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-
-    if loan.status == 'closed':
-        messages.warning(request, 'This loan is already closed.')
-        return redirect('loan_detail', pk=loan_id)
-
-    if loan.remaining_balance <= Decimal('0.01'):
-        loan.status = 'closed'
-        loan.save()
-        messages.info(request, 'Loan balance is zero. Loan marked as closed.')
-        return redirect('loan_detail', pk=loan_id)
-
-    # Monthly interest rate
-    R = Decimal(str(loan.interest_rate)) / Decimal('12') / Decimal('100')
-    interest = loan.remaining_balance * R
-    principal = Decimal(str(loan.emi)) - interest
-
-    # Handle last payment (principal can't exceed balance)
-    if principal >= loan.remaining_balance:
-        principal = loan.remaining_balance
-        actual_emi = principal + interest
+    payment = process_emi_payment(loan, payment_mode="manual", payment_type="emi")
+    if payment is None:
+        if loan.status == "closed":
+            messages.warning(request, "Loan is already closed.")
+        else:
+            messages.warning(request, "Payment could not be processed.")
     else:
-        actual_emi = loan.emi
-
-    new_balance = loan.remaining_balance - principal
-    if new_balance < 0:
-        new_balance = Decimal('0.00')
-
-    # Determine payment number and due date
-    payment_number = loan.payments.filter(status='paid').count() + 1
-    due_date = add_months(loan.start_date, payment_number - 1)
-
-    # Create payment record
-    Payment.objects.create(
-        loan=loan,
-        payment_number=payment_number,
-        amount=actual_emi.quantize(Decimal('0.01')),
-        principal_component=principal.quantize(Decimal('0.01')),
-        interest_component=interest.quantize(Decimal('0.01')),
-        balance_after=new_balance.quantize(Decimal('0.01')),
-        due_date=due_date,
-        payment_date=timezone.now().date(),
-        status='paid'
-    )
-
-    # Update loan
-    loan.remaining_balance = new_balance.quantize(Decimal('0.01'))
-    loan.total_interest_paid += interest.quantize(Decimal('0.01'))
-
-    if loan.remaining_balance <= Decimal('0.01'):
-        loan.status = 'closed'
-        loan.remaining_balance = Decimal('0.00')
-        messages.success(request, f'EMI #{payment_number} paid. Loan fully repaid!')
-    else:
-        messages.success(request, f'EMI #{payment_number} of ₹{actual_emi:,.2f} paid successfully.')
-
-    loan.save()
-    return redirect('loan_detail', pk=loan_id)
+        add_activity(
+            loan.user,
+            "emi_paid",
+            f"EMI #{payment.payment_number} Paid",
+            loan,
+            f"₹{payment.amount:,.0f}",
+        )
+        create_notification(
+            user=loan.user,
+            title="EMI Payment Successful",
+            message=f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} has been paid successfully.",
+            notification_type="payment",
+            loan=loan,
+        )
+        messages.success(
+            request,
+            f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} paid successfully.",
+        )
+    return redirect("loan_detail", pk=loan.id)
 
 
 def make_prepayment(request, loan_id):
@@ -89,69 +78,1078 @@ def make_prepayment(request, loan_id):
     """
     loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
 
-    if loan.status == 'closed':
-        messages.warning(request, 'Cannot make prepayment on a closed loan.')
-        return redirect('loan_detail', pk=loan_id)
+    if loan.status == "closed":
+        messages.warning(request, "Cannot make prepayment on a closed loan.")
+        return redirect("loan_detail", pk=loan_id)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = PrepaymentForm(request.POST, loan=loan)
         if form.is_valid():
-            amount = form.cleaned_data['amount']
-            prepayment_date = form.cleaned_data['prepayment_date']
+            amount = form.cleaned_data["amount"]
+            prepayment_date = form.cleaned_data["prepayment_date"]
 
             old_balance = loan.remaining_balance
             new_balance = old_balance - amount
-
+            frequency = getattr(loan, "emi_frequency", "monthly")
             # Calculate months reduced
-            old_months = calculate_remaining_months(old_balance, loan.interest_rate, loan.emi)
-            new_months = calculate_remaining_months(
-                max(new_balance, Decimal('0.01')), loan.interest_rate, loan.emi
+            old_periods = calculate_remaining_periods(
+                old_balance, loan.interest_rate, loan.emi, frequency
             )
-            months_reduced = max(0, old_months - new_months)
-
+            new_periods = calculate_remaining_periods(
+                max(new_balance, Decimal("0.01")),
+                loan.interest_rate,
+                loan.emi,
+                frequency,
+            )
+            periods_reduced = max(0, old_periods - new_periods)
             # Estimate interest saved (average monthly interest × months saved)
-            R = Decimal(str(loan.interest_rate)) / Decimal('12') / Decimal('100')
-            avg_monthly_interest = (old_balance + new_balance) / 2 * R
-            interest_saved = avg_monthly_interest * months_reduced
+            _, periods_per_year = get_period_details(frequency)
+            R = (
+                Decimal(str(loan.interest_rate))
+                / Decimal(str(periods_per_year))
+                / Decimal("100")
+            )
+            avg_period_interest = (old_balance + new_balance) / 2 * R
+            months_per_period, _ = get_period_details(frequency)
 
-            Prepayment.objects.create(
+            months_reduced = periods_reduced * months_per_period
+            interest_saved = avg_period_interest * months_reduced
+            prepayment = Prepayment.objects.create(
                 loan=loan,
                 amount=amount,
                 prepayment_date=prepayment_date,
                 months_reduced=months_reduced,
-                interest_saved=interest_saved.quantize(Decimal('0.01'))
+                interest_saved=interest_saved.quantize(Decimal("0.01")),
+                payment_mode="manual",
+                payment_type="prepayment",
+                status="paid",
+            )
+            create_notification(
+                user=loan.user,
+                title="Prepayment Successful",
+                message=(
+                    f"₹{amount:,.2f} prepayment was made towards {loan.loan_name}. "
+                    f"Approximately {months_reduced} months of tenure reduced "
+                    f"and ₹{interest_saved:,.2f} interest saved."
+                ),
+                notification_type="payment",
+                loan=loan,
             )
 
             # Update loan balance
-            loan.remaining_balance = max(new_balance, Decimal('0.00'))
-            if loan.remaining_balance <= Decimal('0.01'):
-                loan.status = 'closed'
-                loan.remaining_balance = Decimal('0.00')
-                messages.success(request, f'Prepayment of ₹{amount:,.2f} applied. Loan fully repaid!')
+            loan.remaining_balance = max(new_balance, Decimal("0.00"))
+            loan.save(update_fields=["remaining_balance", "status"])
+            if (
+                loan.remaining_balance == Decimal("0.00")
+                and not loan.has_pending_accrued_interest
+            ):
+                loan.status = "closed"
+                loan.remaining_balance = Decimal("0.00")
+                messages.success(
+                    request, f"Prepayment of ₹{amount:,.2f} applied. Loan fully repaid!"
+                )
             else:
                 messages.success(
                     request,
-                    f'Prepayment of ₹{amount:,.2f} applied. '
-                    f'~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.'
+                    f"Prepayment of ₹{amount:,.2f} applied. "
+                    f"~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.",
                 )
             loan.save()
 
-    return redirect('loan_detail', pk=loan_id)
+            add_activity(
+                loan.user,
+                "prepayment",
+                "Prepayment Done",
+                loan,
+                f"₹{prepayment.amount:,.0f} prepaid.",
+            )
+            create_notification(
+                user=loan.user,
+                title="Loan Fully Repaid",
+                message=f"{loan.loan_name} has been fully repaid and is now closed.",
+                notification_type="loan",
+                loan=loan,
+            )
+        else:
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
+    return redirect("loan_detail", pk=loan_id)
 
 
 class EMIScheduleView(LoginRequiredMixin, TemplateView):
     """Display the full amortization schedule for a loan."""
-    template_name = 'payments/emi_schedule.html'
+
+    template_name = "payments/emi_schedule.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        loan_id = kwargs.get('loan_id')
+        loan_id = kwargs.get("loan_id")
         loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
 
-        from loans.utils import generate_full_schedule
         schedule = generate_full_schedule(loan)
 
-        context['loan'] = loan
-        context['schedule'] = schedule
-        context['total_schedule_items'] = len(schedule)
+        # Add Pagination manually for tables
+
+        paginator = Paginator(schedule, 20)  # 20 rows per page
+        page_number = self.request.GET.get("page", 1)
+        page_obj = paginator.get_page(page_number)
+
+        context["loan"] = loan
+        context["schedule"] = page_obj.object_list
+        context["page_obj"] = page_obj
+        context["total_schedule_items"] = paginator.count
         return context
+
+
+@login_required
+def export_schedule_excel(request, loan_id):
+    """Export beautifully formatted amortization schedule to Excel."""
+    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    schedule = generate_full_schedule(loan)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Amortization Schedule"
+
+    # Title Row
+    ws.merge_cells("A1:G1")
+    ws["A1"] = f"Loan Schedule - {loan.loan_name}"
+    ws["A1"].font = Font(bold=True, size=14, color="28A745")
+    ws["A1"].alignment = Alignment(horizontal="center")
+
+    # Meta Info
+    ws.append([])
+    ws.append(["Loan Amount:", float(loan.amount)])
+    ws.append(["Interest Rate:", f"{loan.interest_rate}%"])
+    ws.append(["Tenure:", f"{loan.tenure_years} Years"])
+    frequency_label = loan.get_emi_frequency_display()
+    ws.append([f"{frequency_label} EMI:", float(loan.emi)])
+    ws.append([])
+
+    # Headers
+    headers = [
+        "Period",
+        "Due Date",
+        "EMI (₹)",
+        "Principal (₹)",
+        "Interest (₹)",
+        "Balance (₹)",
+        "Status",
+    ]
+    ws.append(headers)
+
+    # Style Headers (Green Background)
+    for cell in ws[6]:
+        cell.font = Font(bold=True, color="FFFFFF", size=11)
+        cell.fill = PatternFill(
+            start_color="28A745", end_color="28A745", fill_type="solid"
+        )
+        cell.alignment = Alignment(horizontal="center")
+
+    # Data Rows
+    for row in schedule:
+        ws.append(
+            [
+                row["period"],
+                row["due_date"].strftime("%Y-%m-%d"),
+                float(row["regular_emi"]),
+                float(row["principal"]),
+                float(row["interest"]),
+                float(row["balance"]),
+                row["status"].title(),
+            ]
+        )
+
+    # Column Widths
+    ws.column_dimensions["A"].width = 10
+    ws.column_dimensions["B"].width = 15
+    for col in ["C", "D", "E", "F"]:
+        ws.column_dimensions[col].width = 20
+    ws.column_dimensions["G"].width = 12
+
+    # Response
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    safe_name = loan.loan_name.replace(" ", "_")
+    response["Content-Disposition"] = (
+        f'attachment; filename="{safe_name}_Schedule.xlsx"'
+    )
+    wb.save(response)
+    return response
+
+
+class TransactionLedgerView(LoginRequiredMixin, TemplateView):
+    """Combined view of all EMIs and Prepayments sorted by date."""
+
+    template_name = "payments/transaction_ledger.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        loan_id = kwargs.get("loan_id")
+        loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
+
+        transactions = []
+
+        # Add EMIs
+        for p in loan.payments.filter(status="paid").order_by("-payment_date"):
+            transactions.append(
+                {
+                    "date": p.payment_date,
+                    "amount": p.amount,
+                    "type": p.payment_type,
+                    "detail": f"EMI #{p.payment_number}",
+                }
+            )
+
+        # Add Prepayments
+        for p in loan.prepayments.all().order_by("-prepayment_date"):
+            transactions.append(
+                {
+                    "date": p.prepayment_date,
+                    "amount": p.amount,
+                    "type": p.payment_type,
+                    "detail": "Prepayment",
+                }
+            )
+
+        # Sort combined list by date descending
+        transactions.sort(key=lambda x: x["date"], reverse=True)
+
+        context["loan"] = loan
+        context["transactions"] = transactions
+        return context
+
+
+@login_required
+def payment_dashboard(request):
+    today = date.today()
+    if request.user.is_staff:
+        payments = Payment.objects.select_related("loan", "loan__user").order_by(
+            "-due_date", "-payment_number"
+        )
+        paid_payments = payments.filter(status="paid")
+        pending_payments = payments.filter(status="pending")
+        overdue_payments = payments.filter(status="overdue")
+        total_paid = paid_payments.aggregate(total=Sum("total_debit_amount"))[
+            "total"
+        ] or Decimal("0.00")
+        pending_amount = pending_payments.aggregate(total=Sum("total_debit_amount"))[
+            "total"
+        ] or Decimal("0.00")
+        overdue_amount = overdue_payments.aggregate(total=Sum("total_debit_amount"))[
+            "total"
+        ] or Decimal("0.00")
+        today_collection = paid_payments.filter(payment_date=today).aggregate(
+            total=Sum("total_debit_amount")
+        )["total"] or Decimal("0.00")
+        month_start = today.replace(day=1)
+        month_collection = paid_payments.filter(
+            payment_date__gte=month_start, payment_date__lte=today
+        ).aggregate(total=Sum("total_debit_amount"))["total"] or Decimal("0.00")
+        year_start = today.replace(month=1, day=1)
+        year_collection = paid_payments.filter(
+            payment_date__gte=year_start, payment_date__lte=today
+        ).aggregate(total=Sum("total_debit_amount"))["total"] or Decimal("0.00")
+        principal_collected = paid_payments.aggregate(total=Sum("principal_component"))[
+            "total"
+        ] or Decimal("0.00")
+        interest_collected = paid_payments.aggregate(total=Sum("interest_component"))[
+            "total"
+        ] or Decimal("0.00")
+        late_interest_collected = paid_payments.aggregate(
+            total=Sum("additional_interest")
+        )["total"] or Decimal("0.00")
+        auto_debit_payments = payments.filter(payment_mode="auto_debit")
+        auto_debit_total = auto_debit_payments.count()
+        auto_debit_success = auto_debit_payments.filter(status="paid").count()
+        auto_debit_rate = (
+            round(auto_debit_success * 100 / auto_debit_total, 1)
+            if auto_debit_total
+            else 0
+        )
+        mode_stats = payments.values("payment_mode").annotate(
+            count=Count("id"), amount=Sum("total_debit_amount")
+        )
+        total_count = sum(m["count"] for m in mode_stats) or 1
+        mode_labels = {
+            "auto_debit": "Auto Debit",
+            "manual": "Manual",
+            "upi": "UPI",
+            "net_banking": "Net Banking",
+        }
+        payment_modes = [
+            {
+                "label": mode_labels.get(m["payment_mode"], m["payment_mode"]),
+                "count": m["count"],
+                "amount": m["amount"] or Decimal("0.00"),
+                "percentage": round(m["count"] * 100 / total_count, 1),
+            }
+            for m in mode_stats
+        ]
+        overdue_rows = [
+            {"payment": p, "days_late": (today - p.due_date).days}
+            for p in overdue_payments.order_by("due_date")[:20]
+        ]
+        high_risk_users = (
+            overdue_payments.values(
+                "loan__user__first_name",
+                "loan__user__last_name",
+                "loan__user__username",
+            )
+            .annotate(
+                total_overdue=Count("id"), overdue_amount=Sum("total_debit_amount")
+            )
+            .order_by("-overdue_amount")[:10]
+        )
+        loan_stats = payments.values(
+            "loan__loan_name", "loan__user__username"
+        ).annotate(
+            total=Count("id"),
+            paid=Count("id", filter=Q(status="paid")),
+            pending=Count("id", filter=Q(status="pending")),
+            overdue=Count("id", filter=Q(status="overdue")),
+            collected=Sum("total_debit_amount", filter=Q(status="paid")),
+            outstanding=Sum(
+                "total_debit_amount", filter=Q(status__in=["pending", "overdue"])
+            ),
+        )[
+            :50
+        ]
+        context = {
+            "page_title": "Payments",
+            "admin_view": True,
+            "payments": payments[:20],
+            "total_paid": total_paid,
+            "paid_count": paid_payments.count(),
+            "paid_emis": paid_payments.count(),
+            "pending_count": pending_payments.count(),
+            "pending_emis": pending_payments.count(),
+            "overdue_count": overdue_payments.count(),
+            "overdue_emis": overdue_payments.count(),
+            "pending_amount": pending_amount,
+            "overdue_amount": overdue_amount,
+            "today_collection": today_collection,
+            "month_collection": month_collection,
+            "year_collection": year_collection,
+            "today": today,
+            "principal_collected": principal_collected,
+            "interest_collected": interest_collected,
+            "late_interest_collected": late_interest_collected,
+            "auto_debit_total": auto_debit_total,
+            "auto_debit_success": auto_debit_success,
+            "auto_debit_rate": auto_debit_rate,
+            "payment_modes": payment_modes,
+            "overdue_rows": overdue_rows,
+            "high_risk_users": high_risk_users,
+            "auto_debit_list": auto_debit_payments.order_by("due_date")[:10],
+            "upcoming_payments": pending_payments.filter(due_date__gte=today).order_by(
+                "due_date"
+            )[:10],
+            "loan_stats": loan_stats,
+        }
+        return render(request, "payments/payment_dashboard.html", context)
+    else:
+        loans = (
+            Loan.objects.filter(user=request.user)
+            .prefetch_related("payments", "prepayments")
+            .order_by("loan_name")
+        )
+        payment_queryset = (
+            Payment.objects.filter(loan__user=request.user)
+            .select_related("loan")
+            .order_by("-due_date", "-payment_number")
+        )
+        paginator = Paginator(payment_queryset, 15)
+        payments = paginator.get_page(request.GET.get("page"))
+        summary = {
+            "total_paid": Decimal("0.00"),
+            "total_paid_count": 0,
+            "pending_count": 0,
+            "overdue_count": 0,
+        }
+        pending_amount = Decimal("0.00")
+        overdue_amount = Decimal("0.00")
+        analytics = {
+            "avg_emi": Decimal("0.00"),
+            "highest_emi": Decimal("0.00"),
+            "additional_interest": Decimal("0.00"),
+            "principal_paid": Decimal("0.00"),
+            "interest_paid": Decimal("0.00"),
+            "late_payments": 0,
+            "auto_debit_rate": 0,
+        }
+        loan_payment_summary = []
+        upcoming_emi = None
+        overdue_emi = None
+        emi_values = []
+        auto_total = 0
+        auto_success = 0
+        auto_debit_enabled = False
+        next_auto_debit = None
+        for loan in loans:
+            schedule = generate_full_schedule(loan)
+            stats = get_schedule_summary(loan)
+            summary["total_paid"] += stats["paid_amount"]
+            summary["total_paid_count"] += stats["paid"]
+            summary["pending_count"] += stats["pending"]
+            summary["overdue_count"] += stats["overdue"]
+            pending_amount += stats["pending_amount"]
+            overdue_amount += stats["overdue_amount"]
+            analytics["principal_paid"] += stats["principal_paid"]
+            analytics["interest_paid"] += stats["interest_paid"]
+            analytics["additional_interest"] += stats["additional_interest"]
+            paid = 0
+            pending = 0
+            overdue = 0
+            loan_paid_amount = Decimal("0.00")
+            for row in schedule:
+                emi_values.append(row["regular_emi"])
+                if row["payment_mode"] == "auto_debit":
+                    auto_total += 1
+                    if row["status"] == "paid":
+                        auto_success += 1
+                if row["status"] == "paid":
+                    paid += 1
+                    loan_paid_amount += row["total_debit"]
+                elif row["status"] == "pending":
+                    pending += 1
+                    if (
+                        upcoming_emi is None
+                        or row["due_date"] < upcoming_emi["due_date"]
+                    ):
+                        upcoming_emi = row.copy()
+                        upcoming_emi["loan"] = loan
+                elif row["status"] == "overdue":
+                    overdue += 1
+                    analytics["late_payments"] += 1
+                    if overdue_emi is None or row["due_date"] < overdue_emi["due_date"]:
+                        overdue_emi = row.copy()
+                        overdue_emi["loan"] = loan
+            if loan.auto_debit:
+                auto_debit_enabled = True
+                for row in schedule:
+                    if (
+                        row["status"] == "pending"
+                        and row["payment_mode"] == "auto_debit"
+                    ):
+                        if next_auto_debit is None or row["due_date"] < next_auto_debit:
+                            next_auto_debit = row["due_date"]
+                        break
+            loan_payment_summary.append(
+                {
+                    "loan": loan,
+                    "paid_count": paid,
+                    "pending_count": pending,
+                    "overdue_count": overdue,
+                    "total_paid": loan_paid_amount,
+                }
+            )
+        if emi_values:
+            analytics["avg_emi"] = (
+                sum(emi_values) / Decimal(len(emi_values))
+            ).quantize(Decimal("0.01"))
+            analytics["highest_emi"] = max(emi_values)
+        if auto_total:
+            analytics["auto_debit_rate"] = round(auto_success * 100 / auto_total, 1)
+        if overdue_emi:
+            overdue_days = (today - overdue_emi["due_date"]).days
+            late_interest = overdue_emi["additional_interest"]
+            total_payable = overdue_emi["total_debit"]
+        else:
+            overdue_days = 0
+            late_interest = Decimal("0.00")
+            total_payable = Decimal("0.00")
+        auto_debit_count = loans.filter(auto_debit=True, status="active").count()
+        recent_payments = payment_queryset.filter(status="paid")[:5]
+        context = {
+            "page_title": "Payments",
+            "loans": loans,
+            "payments": payments,
+            "total_paid": summary["total_paid"],
+            "paid_emis": summary["total_paid_count"],
+            "pending_emis": summary["pending_count"],
+            "overdue_emis": summary["overdue_count"],
+            "summary": summary,
+            "pending_amount": pending_amount,
+            "overdue_amount": overdue_amount,
+            "upcoming_emi": upcoming_emi,
+            "overdue_emi": overdue_emi,
+            "overdue_days": overdue_days,
+            "late_interest": late_interest,
+            "total_payable": total_payable,
+            "recent_payments": recent_payments,
+            "loan_payment_summary": loan_payment_summary,
+            "analytics": analytics,
+            "auto_debit_count": auto_debit_count,
+            "auto_debit_enabled": auto_debit_enabled,
+            "next_auto_debit": next_auto_debit,
+            "stats": {
+                "paid": summary["total_paid_count"],
+                "pending": summary["pending_count"],
+                "overdue": summary["overdue_count"],
+            },
+        }
+        return render(request, "payments/payment_dashboard.html", context)
+
+
+@login_required
+def export_payment_excel(request):
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Payments"
+    headers = [
+        "Payment No",
+        "Loan",
+        "Due Date",
+        "Payment Date",
+        "Status",
+        "Payment Mode",
+        "Regular EMI",
+        "Additional Interest",
+        "Total Debit",
+        "Principal",
+        "Interest",
+        "Balance After",
+    ]
+    for col, header in enumerate(headers, start=1):
+        sheet.cell(row=1, column=col).value = header
+    payments = (
+        Payment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("payment_number")
+    )
+    row = 2
+    for payment in payments:
+        sheet.cell(row=row, column=1).value = payment.payment_number
+        sheet.cell(row=row, column=2).value = payment.loan.loan_name
+        sheet.cell(row=row, column=3).value = (
+            payment.due_date.strftime("%d-%m-%Y") if payment.due_date else ""
+        )
+        sheet.cell(row=row, column=4).value = (
+            payment.payment_date.strftime("%d-%m-%Y") if payment.payment_date else ""
+        )
+        sheet.cell(row=row, column=5).value = payment.get_status_display()
+        sheet.cell(row=row, column=6).value = payment.get_payment_mode_display()
+        sheet.cell(row=row, column=7).value = float(payment.regular_emi_amount)
+        sheet.cell(row=row, column=8).value = float(payment.additional_interest)
+        sheet.cell(row=row, column=9).value = float(payment.total_debit_amount)
+        sheet.cell(row=row, column=10).value = float(payment.principal_component)
+        sheet.cell(row=row, column=11).value = float(payment.interest_component)
+        sheet.cell(row=row, column=12).value = float(payment.balance_after)
+        row += 1
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="payment_history.xlsx"'
+    workbook.save(response)
+    return response
+
+
+@login_required
+def download_statement(request):
+    payments = (
+        Payment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("due_date")
+    )
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="Payment_Statement.pdf"'
+
+    doc = SimpleDocTemplate(response)
+    styles = getSampleStyleSheet()
+
+    elements = []
+    elements.append(Paragraph("<b>NexusLoan Payment Statement</b>", styles["Title"]))
+    elements.append(
+        Paragraph(
+            f"Customer : {request.user.get_full_name() or request.user.username}",
+            styles["Normal"],
+        )
+    )
+
+    elements.append(Spacer(1, 0.30 * inch))
+    data = [
+        [
+            "Loan",
+            "EMI",
+            "Due Date",
+            "Payment Date",
+            "Status",
+            "Amount",
+        ]
+    ]
+    total = 0
+    for payment in payments:
+        total += payment.total_debit_amount
+        data.append(
+            [
+                payment.loan.loan_name,
+                payment.payment_number,
+                payment.due_date.strftime("%d-%m-%Y"),
+                (
+                    payment.payment_date.strftime("%d-%m-%Y")
+                    if payment.payment_date
+                    else "-"
+                ),
+                payment.get_status_display(),
+                f"₹ {payment.total_debit_amount}",
+            ]
+        )
+    data.append(
+        [
+            "",
+            "",
+            "",
+            "",
+            "Total",
+            f"₹ {total}",
+        ]
+    )
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e40af")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("BACKGROUND", (0, 1), (-1, -2), colors.whitesmoke),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+            ]
+        )
+    )
+    elements.append(table)
+    doc.build(elements)
+    return response
+
+
+@login_required
+def prepayment_dashboard(request):
+    today = timezone.localdate()
+    if request.user.is_staff:
+        prepayments = Prepayment.objects.select_related("loan", "loan__user").order_by(
+            "-prepayment_date", "-created_at"
+        )
+        paid_prepayments = prepayments.filter(status="paid")
+        pending_prepayments = prepayments.filter(status="pending")
+        summary = paid_prepayments.aggregate(
+            total_prepaid_amount=Sum("amount"),
+            total_interest_saved=Sum("interest_saved"),
+            total_tenure_reduced=Sum("months_reduced"),
+            loans_benefited=Count("loan", distinct=True),
+        )
+        total_prepaid_amount = summary["total_prepaid_amount"] or Decimal("0.00")
+        total_interest_saved = summary["total_interest_saved"] or Decimal("0.00")
+        total_tenure_reduced = summary["total_tenure_reduced"] or 0
+        loans_benefited = summary["loans_benefited"] or 0
+        today_prepaid_amount = paid_prepayments.filter(prepayment_date=today).aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0.00")
+        month_start = today.replace(day=1)
+        month_prepaid_amount = paid_prepayments.filter(
+            prepayment_date__gte=month_start,
+            prepayment_date__lte=today,
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        pending_amount = pending_prepayments.aggregate(total=Sum("amount"))[
+            "total"
+        ] or Decimal("0.00")
+        foreclosure_count = paid_prepayments.filter(payment_type="foreclosure").count()
+        foreclosure_amount = paid_prepayments.filter(
+            payment_type="foreclosure"
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        loan_prepaid_data = []
+        loan_ids = paid_prepayments.values_list("loan_id", flat=True).distinct()
+        loans = (
+            Loan.objects.filter(id__in=loan_ids)
+            .select_related("user")
+            .order_by("loan_name")
+        )
+        for loan in loans:
+            loan_prepayments = paid_prepayments.filter(loan=loan)
+            loan_summary = loan_prepayments.aggregate(
+                total_prepaid_amount=Sum("amount"),
+                total_interest_saved=Sum("interest_saved"),
+                total_months_reduced=Sum("months_reduced"),
+                last_prepayment_date=Max("prepayment_date"),
+                prepayment_count=Count("id"),
+            )
+            if not loan_summary["prepayment_count"]:
+                continue
+            loan_prepaid_data.append(
+                {
+                    "loan": loan,
+                    "user": loan.user,
+                    "total_prepaid_amount": (
+                        loan_summary["total_prepaid_amount"] or Decimal("0.00")
+                    ),
+                    "total_interest_saved": (
+                        loan_summary["total_interest_saved"] or Decimal("0.00")
+                    ),
+                    "months_reduced": (loan_summary["total_months_reduced"] or 0),
+                    "last_prepayment_date": (loan_summary["last_prepayment_date"]),
+                    "prepayment_count": (loan_summary["prepayment_count"] or 0),
+                }
+            )
+        context = {
+            "page_title": "Prepayments",
+            "admin_view": True,
+            "loans": loans,
+            "prepayments": paid_prepayments,
+            "admin_total_prepaid_amount": total_prepaid_amount,
+            "admin_total_interest_saved": total_interest_saved,
+            "admin_loans_benefited": loans_benefited,
+            "admin_total_tenure_reduced": total_tenure_reduced,
+            "admin_today_prepaid_amount": today_prepaid_amount,
+            "admin_month_prepaid_amount": month_prepaid_amount,
+            "admin_pending_count": pending_prepayments.count(),
+            "admin_pending_amount": pending_amount,
+            "admin_foreclosure_count": foreclosure_count,
+            "admin_foreclosure_amount": foreclosure_amount,
+            "admin_prepayment_count": paid_prepayments.count(),
+            "loan_prepayment_summary": loan_prepaid_data,
+        }
+        return render(
+            request,
+            "payments/prepayment_dashboard.html",
+            context,
+        )
+
+    loans = Loan.objects.filter(user=request.user).order_by("loan_name")
+    prepayment_qs = (
+        Prepayment.objects.filter(
+            loan__user=request.user,
+            status="paid",
+        )
+        .select_related("loan")
+        .order_by("-prepayment_date", "-created_at")
+    )
+    summary = prepayment_qs.aggregate(
+        total_prepaid_amount=Sum("amount"),
+        total_interest_saved=Sum("interest_saved"),
+        total_tenure_reduced=Sum("months_reduced"),
+        loans_benefited=Count("loan", distinct=True),
+    )
+    total_prepaid_amount = summary["total_prepaid_amount"] or Decimal("0.00")
+    total_interest_saved = summary["total_interest_saved"] or Decimal("0.00")
+    total_tenure_reduced = summary["total_tenure_reduced"] or 0
+    loans_benefited = summary["loans_benefited"] or 0
+    loan_prepaid_data = []
+    for loan in loans:
+        loan_prepayments = prepayment_qs.filter(loan=loan)
+        loan_summary = loan_prepayments.aggregate(
+            total_prepaid_amount=Sum("amount"),
+            total_interest_saved=Sum("interest_saved"),
+            total_months_reduced=Sum("months_reduced"),
+            last_prepayment_date=Max("prepayment_date"),
+            prepayment_count=Count("id"),
+        )
+        if not loan_summary["prepayment_count"]:
+            continue
+        loan_prepaid_data.append(
+            {
+                "loan": loan,
+                "total_prepaid_amount": (
+                    loan_summary["total_prepaid_amount"] or Decimal("0.00")
+                ),
+                "total_interest_saved": (
+                    loan_summary["total_interest_saved"] or Decimal("0.00")
+                ),
+                "months_reduced": (loan_summary["total_months_reduced"] or 0),
+                "last_prepayment_date": (loan_summary["last_prepayment_date"]),
+                "prepayment_count": (loan_summary["prepayment_count"] or 0),
+            }
+        )
+
+    paginator = Paginator(prepayment_qs, 15)
+    prepayments = paginator.get_page(request.GET.get("page"))
+
+    context = {
+        "page_title": "Prepayments",
+        "loans": loans,
+        "prepayments": prepayments,
+        "total_prepaid_amount": total_prepaid_amount,
+        "total_interest_saved": total_interest_saved,
+        "loans_benefited": loans_benefited,
+        "total_tenure_reduced": total_tenure_reduced,
+        "loan_prepayment_summary": loan_prepaid_data,
+        "has_prepayments": prepayment_qs.exists(),
+    }
+    return render(request, "payments/prepayment_dashboard.html", context)
+
+
+@login_required
+def export_prepayment_excel(request):
+    """Export user's complete prepayment history to Excel."""
+
+    prepayments = (
+        Prepayment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("-prepayment_date")
+    )
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Prepayments"
+
+    headers = [
+        "Loan Name",
+        "Date",
+        "Amount",
+        "Payment Type",
+        "Payment Mode",
+        "Interest Saved",
+        "Months Reduced",
+        "Status",
+    ]
+
+    for col, header in enumerate(headers, start=1):
+        cell = sheet.cell(row=1, column=col)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(
+            start_color="1E40AF",
+            end_color="1E40AF",
+            fill_type="solid",
+        )
+        cell.alignment = Alignment(horizontal="center")
+
+    row = 2
+
+    total_amount = Decimal("0.00")
+    total_interest_saved = Decimal("0.00")
+    total_months_reduced = 0
+
+    for prepayment in prepayments:
+        sheet.cell(row=row, column=1).value = prepayment.loan.loan_name
+        sheet.cell(row=row, column=2).value = prepayment.prepayment_date.strftime(
+            "%d-%m-%Y"
+        )
+        sheet.cell(row=row, column=3).value = float(prepayment.amount)
+        sheet.cell(row=row, column=4).value = prepayment.get_payment_type_display()
+        sheet.cell(row=row, column=5).value = prepayment.get_payment_mode_display()
+        sheet.cell(row=row, column=6).value = float(prepayment.interest_saved)
+        sheet.cell(row=row, column=7).value = prepayment.months_reduced
+        sheet.cell(row=row, column=8).value = prepayment.get_status_display()
+
+        total_amount += prepayment.amount
+        total_interest_saved += prepayment.interest_saved
+        total_months_reduced += prepayment.months_reduced
+
+        row += 1
+
+    # Summary
+    row += 1
+
+    sheet.cell(row=row, column=1).value = "SUMMARY"
+    sheet.cell(row=row, column=1).font = Font(bold=True)
+
+    row += 1
+    sheet.cell(row=row, column=1).value = "Total Prepaid Amount"
+    sheet.cell(row=row, column=2).value = float(total_amount)
+
+    row += 1
+    sheet.cell(row=row, column=1).value = "Total Interest Saved"
+    sheet.cell(row=row, column=2).value = float(total_interest_saved)
+
+    row += 1
+    sheet.cell(row=row, column=1).value = "Total Tenure Reduced"
+    sheet.cell(row=row, column=2).value = total_months_reduced
+
+    # Column widths
+    widths = {
+        "A": 30,
+        "B": 15,
+        "C": 18,
+        "D": 18,
+        "E": 18,
+        "F": 20,
+        "G": 18,
+        "H": 15,
+    }
+
+    for column, width in widths.items():
+        sheet.column_dimensions[column].width = width
+
+    response = HttpResponse(
+        content_type=(
+            "application/vnd.openxmlformats-officedocument." "spreadsheetml.sheet"
+        )
+    )
+
+    response["Content-Disposition"] = 'attachment; filename="prepayment_report.xlsx"'
+
+    workbook.save(response)
+
+    return response
+
+
+@login_required
+def export_prepayment_pdf(request):
+    """Export user's complete prepayment report to PDF."""
+
+    prepayments = (
+        Prepayment.objects.filter(loan__user=request.user)
+        .select_related("loan")
+        .order_by("-prepayment_date")
+    )
+
+    total_amount = Decimal("0.00")
+    total_interest_saved = Decimal("0.00")
+    total_months_reduced = 0
+
+    for prepayment in prepayments:
+        total_amount += prepayment.amount
+        total_interest_saved += prepayment.interest_saved
+        total_months_reduced += prepayment.months_reduced
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="Prepayment_Report.pdf"'
+
+    doc = SimpleDocTemplate(
+        response,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=30,
+    )
+
+    styles = getSampleStyleSheet()
+
+    elements = []
+
+    elements.append(
+        Paragraph(
+            "<b>NexusLoan Prepayment Report</b>",
+            styles["Title"],
+        )
+    )
+
+    elements.append(
+        Paragraph(
+            f"Customer: " f"{request.user.get_full_name() or request.user.username}",
+            styles["Normal"],
+        )
+    )
+
+    elements.append(Spacer(1, 0.25 * inch))
+
+    summary_data = [
+        ["Metric", "Value"],
+        [
+            "Total Prepaid Amount",
+            f"₹ {total_amount:,.2f}",
+        ],
+        [
+            "Total Interest Saved",
+            f"₹ {total_interest_saved:,.2f}",
+        ],
+        [
+            "Total Tenure Reduced",
+            f"{total_months_reduced} months",
+        ],
+    ]
+
+    summary_table = Table(summary_data, colWidths=[3.2 * inch, 2.5 * inch])
+
+    summary_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e40af")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+            ]
+        )
+    )
+
+    elements.append(summary_table)
+    elements.append(Spacer(1, 0.35 * inch))
+
+    elements.append(
+        Paragraph(
+            "<b>Prepayment History</b>",
+            styles["Heading2"],
+        )
+    )
+
+    data = [
+        [
+            "Loan",
+            "Date",
+            "Amount",
+            "Type",
+            "Mode",
+            "Interest Saved",
+            "Months",
+        ]
+    ]
+
+    for prepayment in prepayments:
+        data.append(
+            [
+                prepayment.loan.loan_name,
+                prepayment.prepayment_date.strftime("%d-%m-%Y"),
+                f"₹ {prepayment.amount:,.2f}",
+                prepayment.get_payment_type_display(),
+                prepayment.get_payment_mode_display(),
+                f"₹ {prepayment.interest_saved:,.2f}",
+                str(prepayment.months_reduced),
+            ]
+        )
+
+    if len(data) == 1:
+        data.append(
+            [
+                "No prepayments found",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+            ]
+        )
+
+    table = Table(
+        data,
+        repeatRows=1,
+        colWidths=[
+            1.35 * inch,
+            0.85 * inch,
+            0.9 * inch,
+            0.75 * inch,
+            0.75 * inch,
+            1.0 * inch,
+            0.55 * inch,
+        ],
+    )
+
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e40af")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+
+    elements.append(table)
+
+    doc.build(elements)
+
+    return response
