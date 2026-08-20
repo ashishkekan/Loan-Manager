@@ -1,0 +1,32 @@
+{% load report_filters %}
+{% if page_obj.has_other_pages %}
+<div class="report-pagination">
+    {% if page_obj.has_previous %}
+    <a href="?{% preserve_filters request page=page_obj.previous_page_number %}">
+        <i class="fas fa-chevron-left"></i> Prev
+    </a>
+    {% else %}
+    <span class="disabled"><i class="fas fa-chevron-left"></i> Prev</span>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="current">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?{% preserve_filters request page=num %}">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a href="?{% preserve_filters request page=page_obj.next_page_number %}">
+        Next <i class="fas fa-chevron-right"></i>
+    </a>
+    {% else %}
+    <span class="disabled">Next <i class="fas fa-chevron-right"></i></span>
+    {% endif %}
+</div>
+<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:8px;">
+    Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+</div>
+{% endif %}
+    

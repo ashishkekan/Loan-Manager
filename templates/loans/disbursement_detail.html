@@ -1,0 +1,63 @@
+{% extends 'app_layout.html' %}
+{% block app_content %}
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-header">
+        <h3>Disbursement #{{ disbursement.disbursement_number }}</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <tbody>
+                <tr>
+                    <th>Amount</th>
+                    <td>₹{{ disbursement.amount }}</td>
+                </tr>
+                <tr>
+                    <th>Date</th>
+                    <td>{{ disbursement.disbursement_date }}</td>
+                </tr>
+                <tr>
+                    <th>Purpose</th>
+                    <td>{{ disbursement.get_purpose_display }}</td>
+                </tr>
+                <tr>
+                    <th>Status</th>
+                    <td>{{ disbursement.get_status_display }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-header">
+        <h3>Interest History</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>EMI Date</th>
+                    <th>Days</th>
+                    <th>Interest</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in interest_entries %}
+                    <tr>
+                        <td>{{ item.emi_date }}</td>
+                        <td>{{ item.days }}</td>
+                        <td>₹{{ item.interest_amount }}</td>
+                        <td>{{ item.get_status_display }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            No Interest Generated
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

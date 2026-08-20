@@ -11,17 +11,25 @@
             <span>{{ loan.loan_name }}</span>
         </div>
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
-            <div class="lc-type-icon" style="background:{{ loan.type_color }}15;color:{{ loan.type_color }};width:36px;height:36px;font-size:15px;">
+            <div class="lc-type-icon" style="background:{{ loan.type_color }}15;color:{{ loan.type_color }};width:30px;height:25px;font-size:15px;text-align:center;">
                 <i class="fas {{ loan.type_icon }}"></i>
             </div>
             <h1 class="page-title">{{ loan.loan_name }}</h1>
+            {% if request.user.is_staff %}
+                <span style="font-size:13px; color:var(--text-secondary); margin-left:8px;">
+                    <i class="fas fa-user"></i>
+                    {{ loan.user.get_full_name|default:loan.user.username }}
+                </span>
+            {% endif %}
             <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status }}</span>
             <div class="health-badge badge-{{ health_score|health_color }}" style="font-size:11px;padding:3px 10px;">{{ health_label.0 }} ({{ health_score }})</div>
         </div>
         <span class="loan-card-type-badge" style="margin-bottom:0;">{{ loan.get_loan_type_display }}</span>
     </div>
-    
     <div class="page-actions">
+        <a href="{% url 'dashboard' %}" class="btn btn-outline">
+            <i class="fas fa-chart-line"></i>Dashboard
+        </a>
         <a href="{% url 'emi_schedule' loan.pk %}" class="btn btn-outline" title="Table View">
             <i class="fas fa-table"></i> Schedule
         </a>
@@ -34,23 +42,69 @@
         <a href="{% url 'transaction_ledger' loan.pk %}" class="btn btn-outline" title="Transaction History">
             <i class="fas fa-receipt"></i> Ledger
         </a>
+        {% if loan.status == "active" %}
+            <a href="{% url 'edit_loan' loan.pk %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <button class="btn btn-danger" onclick="openCloseLoanModal()">
+                <i class="fas fa-check-circle"></i> Close
+            </button>
+        {% endif %}
         <button class="btn btn-ghost" onclick="window.print()" title="Print Page">
             <i class="fas fa-print"></i>
         </button>
         {% if loan.status == 'active' %}
-            <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline;" onsubmit="return confirm('Delete this loan and all its payment history?')">
+            <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline; margin-top: 5px;" onsubmit="return confirm('Delete this loan and all its payment history?')">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan"><i class="fas fa-trash"></i></button>
+                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan" style="color: red;">
+                    <i class="fas fa-trash"></i>
+                </button>
             </form>
         {% endif %}
     </div>
 </div>
-{% if is_overdue %}
-    <div class="overdue-alert">
-        <div class="oa-icon"><i class="fas fa-exclamation-triangle"></i></div>
-        <div class="oa-info">
-            <strong>EMI Overdue!</strong> Payment #{{ next_emi_num }} was due on {{ next_emi_date|date:"M d, Y" }} — {{ overdue_days }} day{{ overdue_days|pluralize }} overdue
+{% if loan.status == "active" %}
+    <div class="loan-action-bar">
+        {% if is_overdue %}
+        <div class="overdue-alert-enhanced">
+            <div class="oa-icon">
+                <i class="fas fa-triangle-exclamation"></i>
+            </div>
+            <div class="oa-content">
+                <div class="oa-title">
+                    EMI #{{ next_emi_num }} Payment Pending
+                </div>
+                <div class="oa-meta">
+                    <span>
+                        <i class="fas fa-calendar"></i>
+                        Due {{ next_emi_date|date:"d M Y" }}
+                    </span>
+                    <span class="oa-days">
+                        {{ overdue_days }} Day{{ overdue_days|pluralize }} Overdue
+                    </span>
+                </div>
+                <div class="oa-note">
+                    Please clear this EMI to keep your repayment history healthy.
+                </div>
+            </div>
         </div>
+        {% else %}
+        <div class="loan-action-spacer"></div>
+        {% endif %}
+        {% if not loan.auto_debit %}
+        <form method="post" action="{% url 'pay_emi' loan.pk %}" class="pay-emi-form">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary pay-emi-small">
+                <i class="fas fa-wallet"></i>
+                <div class="pay-text">
+                    <strong>Pay EMI</strong>
+                    <small>
+                        ₹{{ loan.emi|floatformat:0 }}
+                    </small>
+                </div>
+            </button>
+        </form>
+        {% endif %}
     </div>
 {% endif %}
 <div class="summary-grid">
@@ -63,10 +117,25 @@
     </div>
     <div class="summary-card glass-card">
         <div class="sc-icon accent"><i class="fas fa-credit-card"></i></div>
-        <div class="sc-info">
-            <span class="sc-label">Monthly EMI</span>
+            <div class="sc-info">
+            <span class="sc-label">
+                {{ loan.get_emi_frequency_display }} EMI
+            </span>
             <span class="sc-value">₹{{ loan.emi|floatformat:0 }}</span>
             {% if next_emi_date %}<span class="sc-sub">Next: {{ next_emi_date|date:"M d" }}</span>{% endif %}
+            {% if loan.auto_debit %}
+                <div style="margin-top:8px;">
+                    <span class="sc-sub">
+                        <i class="fas fa-repeat"></i> Auto Debit
+                    </span>
+                </div>
+            {% else %}
+                <div style="margin-top:8px;">
+                    <span class="sc-sub">
+                       <i class="fas fa-hand-pointer"></i> Manual EMI
+                    </span>
+                </div>
+            {% endif %}
         </div>
     </div>
     <div class="summary-card glass-card">
@@ -99,21 +168,286 @@
         <span>₹{{ total_principal_paid|floatformat:0 }} repaid</span>
         <span>₹{{ loan.remaining_balance|floatformat:0 }} remaining</span>
     </div>
+    <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Principal Paid
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                ₹{{ total_principal_paid|floatformat:0 }}
+            </div>
+        </div>
+         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Interest Paid
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                ₹{{ loan.total_interest_paid|floatformat:0 }}
+            </div>
+        </div>
+         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Outstanding
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                ₹{{ loan.remaining_balance|floatformat:0 }}
+            </div>
+        </div>
+    </div>
 </div>
 
-{% if loan.status == 'active' %}
-    <div class="action-grid" style="margin-bottom: 24px;">
-        <form method="post" action="{% url 'pay_emi' loan.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-primary btn-lg btn-block action-btn-emi">
-                <i class="fas fa-check-circle"></i>
-                <div class="abi-text">
-                    <span>Pay EMI</span>
-                    <small>₹{{ loan.emi|floatformat:0 }} — #{{ next_emi_num }}</small>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div style="display: flex; gap: 660px;">
+            <h3>Loan Disbursement Summary</h3>
+            <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i>Add
+            </a>
+        </div>
+        <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Total Sanction
                 </div>
-            </button>
-        </form>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ loan.amount|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Remaining Sanction
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ remaining_sanction_amount|floatformat:0 }}
+                </div>
+            </div>
+            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                    Pending Accrued Interest
+                </div>
+                <div style="font-size:16px;font-weight:600;">
+                    ₹{{ pending_interest|floatformat:0|default:"0" }}
+                </div>
+            </div>
+        </div>
     </div>
+</div>
+
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div style="display: flex; gap: 720px;">
+            <h3>Recent Disbursements</h3>
+            <a href="{% url 'loan_disbursement_list' loan.id %}" class="btn btn-primary btn-sm" style="margin-bottom: 15px;">
+                View All
+            </a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Purpose</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in disbursements|slice:":5" %}
+                    <tr>
+                        <td>{{ item.disbursement_number }}</td>
+                        <td>{{ item.disbursement_date }}</td>
+                        <td>{{ item.get_purpose_display }}</td>
+                        <td>₹{{ item.amount }}</td>
+                        <td>{{ item.get_status_display }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            No disbursement added.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="card-body">
+        <div style="display:flex;gap:12px;">
+            <h3>Pending Additional Interest</h3>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Disbursement</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Days</th>
+                    <th>Interest</th>
+                    <th>EMI Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in pending_accrued_interest %}
+                    <tr>
+                        <td>
+                            #{{ item.disbursement.disbursement_number }}
+                        </td>
+                        <td>{{ item.from_date }}</td>
+                        <td>{{ item.to_date }}</td>
+                        <td>{{ item.days }}</td>
+                        <td>
+                            ₹{{ item.interest_amount }}
+                        </td>
+                        <td>
+                            {{ item.emi_date }}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            No pending accrued interest.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <h3 style="margin-bottom:20px;">
+        Loan Information
+    </h3>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Loan Created
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                {{ loan.start_date|date:"d M Y" }}
+            </div>
+        </div>
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                First EMI Date
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                {{ loan.first_emi_date|date:"d M Y" }}
+            </div>
+        </div>
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                EMI Frequency
+            </div>
+            <div style="font-size:16px;font-weight:600;">
+                {{ loan.get_emi_frequency_display }}
+            </div>
+        </div>
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Payment Mode
+            </div>
+            {% if loan.auto_debit %}
+                <span style="
+                    background:#dcfce7;
+                    color:#15803d;
+                    padding:6px 12px;
+                    border-radius:20px;
+                    font-weight:600;
+                    display:inline-block;
+                ">
+                    Auto Debit
+                </span>
+            {% else %}
+                <span style="
+                    background:#fef3c7;
+                    color:#b45309;
+                    padding:6px 12px;
+                    border-radius:20px;
+                    font-weight:600;
+                    display:inline-block;
+                ">
+                    Manual Payment
+                </span>
+            {% endif %}
+        </div>
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Last Payment
+            </div>
+            <div style="font-size:15px;font-weight:600;">
+                {% if last_payment %}
+                    {% if last_payment_type == "payment" %}
+                        Last EMI: ₹{{ last_payment.amount }} on {{ last_payment.payment_date }}
+                    {% else %}
+                        Last Prepayment: ₹{{ last_payment.amount }} on {{ last_payment.prepayment_date }}
+                    {% endif %}
+                {% else %}
+                    <strong>0</strong>
+                {% endif %}
+            </div>
+        </div>
+        <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Next EMI
+            </div>
+
+            <div style="font-size:16px;font-weight:600;">
+                {% if next_emi_date %}
+                    {{ next_emi_date|date:"d M Y" }}
+                {% else %}
+                    Completed
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <h3 style="margin-bottom:20px;">Loan Analytics</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Total Amount Paid
+            </div>
+            <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                ₹{{ total_paid|floatformat:0 }}
+            </div>
+            <small style="color:#64748b;">
+                EMI + Prepayments
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Total Prepayments
+            </div>
+            <div style="font-size:22px;font-weight:700;color:#16a34a;">
+                ₹{{ total_prepayment_amount|floatformat:0 }}
+            </div>
+            <small style="color:#64748b;">
+                {{ prepayments|length }} Transactions
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Estimated Loan Closing
+            </div>
+            <div style="font-size:20px;font-weight:700;">
+                {{ estimated_closure_date|date:"d M Y" }}
+            </div>
+            <small style="color:#64748b;">
+                Based on current repayment
+            </small>
+        </div>
+    </div>
+</div>
+{% if loan.status == 'active' %}
     <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
         <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
             <i class="fas fa-bolt" style="color: var(--accent);"></i> Prepayment Simulator
@@ -161,19 +495,388 @@
                     <label>Date</label>
                     <input type="date" name="prepayment_date" class="form-input" required value="{% now 'Y-m-d' %}">
                 </div>
-                <button type="submit" class="btn btn-primary" style="height: 44px; margin: 0; background: linear-gradient(135deg, var(--accent), #d97706);">
-                    <i class="fas fa-bolt"></i> Pay Now
-                </button>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-bolt"></i> Make Prepayment
+                    </button>
+                    {% if loan.auto_debit %}
+                        <span class="badge badge-success">
+                            <i class="fas fa-repeat"></i> Auto Debit Active
+                        </span>
+                    {% else %}
+                        <span class="badge badge-warning">
+                            <i class="fas fa-hand-pointer"></i> Manual EMI
+                        </span>
+                    {% endif %}
+                </div>
             </div>
-            <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block;">
+            <span style="font-size: 12px; color: var(--text-muted); margin-top: 8px; display: block; margin-bottom: 10px;">
                 Max: ₹{{ loan.remaining_balance|floatformat:0 }}
             </span>
         </form>
     </div>
+    <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
+        <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-bolt" style="color: var(--accent);"></i> Extra EMI Simulator
+        </h3>
+        <div class="card-body">
+            <form method="get">
+                <div style="display:flex;gap:12px;">
+                    <input
+                        type="number"
+                        class="form-input"
+                        name="extra_emi"
+                        placeholder="Extra EMI Amount"
+                        value="{{ extra_emi }}"
+                    >
+                    <button class="btn btn-primary">
+                        Simulate
+                    </button>
+                </div>
+            </form>
+            {% if simulation %}
+            <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;" class="mt-4">
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Months Saved
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        {{ simulation.months_saved }}
+                    </div>
+                </div>
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Interest Saved
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#16a34a;">
+                        ₹{{ simulation.interest_saved }}
+                    </div>
+                </div>
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Remaining EMI's
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        {{ simulation.new_payoff_periods }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
+        <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-bullseye" style="color: var(--accent);"></i> Loan Goal Tracker
+        </h3>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;" class="mt-4">
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Current Balance
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        ₹{{ loan.remaining_balance|floatformat:0 }}
+                    </div>
+                </div>
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Next Goal
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        ₹{{ goal_tracker.target|floatformat:0 }}
+                    </div>
+                </div>
+            </div>
+            <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
+            <div class="goal-progress">
+                <div class="goal-progress-bar" style="width: {{ goal_tracker.progress }}%;">
+                    {{ goal_tracker.progress }}%
+                </div>
+            </div>
+            <div class="mt-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    <strong>{{ goal_tracker.progress }}%</strong> Completed
+                </small>
+                {% if goal_tracker.achieved %}
+                    <span class="badge bg-success">
+                        🎉 Goal Achieved
+                    </span>
+                {% else %}
+                    <small class="text-muted">
+                        ₹{{ goal_tracker.remaining|floatformat:0 }} to reach goal
+                    </small>
+                {% endif %}
+            </div>
+        </div>
+        
+    </div>
+    <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-strong);">
+        <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-wallet" style="color: var(--accent);"></i> Loan Affordability Checker
+        </h3>
+        <div class="card-body">
+            <form method="get" class="mt-4">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+                    <div>
+                        <label style="font-size:15px;font-weight:600;">Monthly Income</label>
+                        <input
+                            type="number"
+                            name="income"
+                            class="form-input"
+                            placeholder="Enter Monthly Income"
+                            value="{{ request.GET.income }}"
+                            required
+                        >
+                    </div>
+                    <div>
+                        <label style="font-size:15px;font-weight:600;">Monthly Expenses</label>
+                        <input
+                            type="number"
+                            name="expenses"
+                            class="form-input"
+                            placeholder="Enter Monthly Expenses"
+                            value="{{ request.GET.expenses }}"
+                            required
+                        >
+                    </div>
+                    <div>
+                        <button class="btn btn-primary mt-3" style="margin-top: 25px;">
+                            <i class="fas fa-calculator"></i>
+                            Check Affordability
+                        </button>
+                    </div>
+                </div>
+            </form>
+            {% if affordability %}
+            <hr style="border:0;border-top:1px dashed var(--border);margin:24px 0 20px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Disposable Income
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        ₹{{ affordability.disposable|floatformat:0 }}
+                    </div>
+                </div>
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        EMI Ratio
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        {{ affordability.emi_ratio }}%
+                    </div>
+                </div>
+                <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                        Balance After EMI
+                    </div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;">
+                        ₹{{ affordability.balance_after_emi|floatformat:0 }}
+                    </div>
+                </div>
+            </div>
+            <hr style="border:0;border-top:1px dashed var(--border);margin:24px 0 20px;">
+            <div class="mt-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    EMI : <strong>₹{{ loan.emi|floatformat:0 }}</strong>
+                </small>
+                <span class="badge bg-{{ affordability.color }}">
+                    {{ affordability.status }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 {% endif %}
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <h3 style="margin-bottom:20px;">
+        <i class="fas fa-calendar-check" style="color:var(--primary);"></i> Estimated Loan Closure
+    </h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Estimated Closure
+            </div>
+            <div style="font-size:18px;font-weight:700;color:var(--primary);">
+                {{ estimated_closure_date|date:"d M Y" }}
+            </div>
+            <small style="color:#64748b;">
+                Based on current repayment progress
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Original Closure
+            </div>
+            <div style="font-size:18px;font-weight:700;">
+                {{ original_closure_date|date:"d M Y" }}
+            </div>
+            <small style="color:#64748b;">
+                Without any prepayments
+            </small>
+        </div>
+        <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
+                Time Saved
+            </div>
+            <div style="font-size:18px;font-weight:700;color:#16a34a;">
+                {% if months_saved > 0 %}
+                    {% if years_saved %}
+                        {{ years_saved }} Year{{ years_saved|pluralize }}
+                    {% endif %}
+                    {% if remaining_months_saved %}
+                        {{ remaining_months_saved }} Month{{ remaining_months_saved|pluralize }}
+                    {% endif %}
+                {% else %}
+                    No Savings Yet
+                {% endif %}
+            </div>
+            <small style="color:#64748b;">
+                Thanks to your prepayments
+            </small>
+        </div>
+    </div>
+</div>
+<div class="glass-card stats-card">
+    <div class="stats-header">
+        <div class="stats-icon success">
+            <i class="fas fa-piggy-bank"></i>
+        </div>
+        <div>
+            <h3>Lifetime Savings</h3>
+            <span class="stats-subtitle">
+                Savings achieved through prepayments
+            </span>
+        </div>
+    </div>
+    <div class="stats-grid">
+        <div class="stats-item">
+            <span class="stats-label">
+                Interest Saved
+            </span>
+            <span class="stats-value success">
+                ₹{{ lifetime_interest_saved|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Loan Closed Earlier
+            </span>
+            <span class="stats-value">
+                {{ lifetime_months_saved }}
+                <small>Months</small>
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Total Prepaid
+            </span>
+            <span class="stats-value">
+                ₹{{ total_prepayment_amount|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                ROI on Prepayment
+            </span>
+            <span class="stats-value primary">
+                {{ roi_percentage }}%
+            </span>
+        </div>
+    </div>
+</div>
+<div class="glass-card stats-card">
+    <div class="stats-header">
+        <div class="stats-icon primary">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div>
+            <h3>Next EMI Breakdown</h3>
+            <span class="stats-subtitle">
+                Scheduled for {{ next_emi_date|date:"d M Y" }}
+            </span>
+        </div>
+    </div>
+    <div class="stats-grid">
+        <div class="stats-item">
+            <span class="stats-label">
+                EMI Amount
+            </span>
+            <span class="stats-value">
+                ₹{{ loan.emi|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Principal
+            </span>
+            <span class="stats-value success">
+                ₹{{ next_principal|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Interest
+            </span>
+            <span class="stats-value warning">
+                ₹{{ next_interest|floatformat:0 }}
+            </span>
+        </div>
+        <div class="stats-item">
+            <span class="stats-label">
+                Balance After EMI
+            </span>
+            <span class="stats-value">
+                ₹{{ balance_after_next|floatformat:0 }}
+            </span>
+        </div>
+    </div>
+</div>
+<div class="glass-card health-card">
+    <div class="section-header">
+        <div>
+            <h3>
+                <i class="fas fa-heart-pulse"></i>
+                Loan Health Analysis
+            </h3>
+            <small>Your overall repayment performance</small>
+        </div>
 
+        <div class="overall-health">
+            <span class="score">{{ health_score }}/100</span>
+            <span class="label">{{ health_label.0 }}</span>
+        </div>
+    </div>
+    <div class="health-grid">
+        {% for item in health_factors %}
+        <div class="health-item">
+            <div class="health-icon">
+                <i class="fas {{ item.icon }}"></i>
+            </div>
+            <div class="health-content">
+                <div class="health-title">
+                    {{ item.title }}
+                </div>
+                <div class="health-status">
+                    {{ item.status }}
+                </div>
+                <div class="progress-small">
+                    <div
+                        class="progress-fill"
+                        style="width:{{ item.score }}%">
+                    </div>
+                </div>
+            </div>
+            <div class="health-score">
+                {{ item.score }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% if loan.status == 'active' and foreclosure %}
-    <div class="glass-card foreclosure-card" style="padding: 24px; margin-bottom: 24px;">
+    <div class="glass-card foreclosure-card" style="padding: 24px; margin-top: 24px;">
         <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
             <i class="fas fa-gavel" style="color: var(--accent);"></i> Foreclosure Calculator
         </h3>
@@ -200,7 +903,8 @@
         </div>
     </div>
 {% endif %}
-<div class="charts-grid">
+
+<div class="charts-grid" style="margin-top: 24px;">
     <div class="glass-card chart-card">
         <div class="chart-header">
             <div><h3>Balance Over Time</h3><span class="chart-subtitle">Projected</span></div>
@@ -269,7 +973,9 @@
                 <form method="post" action="{% url 'delete_note' loan.pk note.pk %}" style="display:inline;"
                       onsubmit="return confirm('Delete note?')">
                     {% csrf_token %}
-                    <button type="submit" class="note-delete"><i class="fas fa-trash-alt"></i></button>
+                    <button type="submit" class="btn btn-danger-ghost" title="Delete Note" style="color: red;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </form>
             </div>
         </div>
@@ -281,6 +987,29 @@
 </div>
 <div class="glass-card" style="padding: 24px; margin-top: 24px;">
     <h3 style="margin-bottom: 16px;">Payment History</h3>
+    <div class="payment-summary-badges">
+        <span class="summary-badge success">
+            <i class="fas fa-check-circle"></i>
+            <strong>{{ paid_payments|length }}</strong>
+            <small>EMIs Paid</small>
+        </span>
+        <span class="summary-badge warning">
+            <i class="fas fa-bolt"></i>
+            <strong>{{ prepayments|length }}</strong>
+            <small>Prepayments</small>
+        </span>
+        {% if loan.auto_debit %}
+        <span class="summary-badge primary">
+            <i class="fas fa-repeat"></i>
+            <small>Auto Debit</small>
+        </span>
+        {% else %}
+        <span class="summary-badge secondary">
+            <i class="fas fa-hand-pointer"></i>
+            <small>Manual Payment</small>
+        </span>
+        {% endif %}
+    </div>
     {% if paid_payments %}
     <div class="table-responsive">
         <table class="data-table">
@@ -292,17 +1021,49 @@
                     <th>Principal</th>
                     <th>Interest</th>
                     <th>Balance After</th>
+                    <th>Payment Type</th>
+                    <th>Mode</th>
+                    <th>Due Date</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in paid_payments reversed %}
                 <tr>
-                    <td><strong>{{ p.payment_number }}</strong></td>
+                    <td>#{{ p.payment_number }}</td>
                     <td>{{ p.payment_date|date:"M d, Y" }}</td>
                     <td>₹{{ p.amount|floatformat:0 }}</td>
                     <td style="color:var(--primary);">₹{{ p.principal_component|floatformat:0 }}</td>
                     <td style="color:var(--accent);">₹{{ p.interest_component|floatformat:0 }}</td>
                     <td>₹{{ p.balance_after|floatformat:0 }}</td>
+                    <td>
+                        {% if p.payment_type == "emi" %}
+                            <span class="badge badge-primary">
+                                EMI
+                            </span>
+                        {% elif p.payment_type == "prepayment" %}
+                            <span class="badge badge-warning">
+                                Prepayment
+                            </span>
+                        {% elif p.payment_type == "foreclosure" %}
+                            <span class="badge badge-danger">
+                                Foreclosure
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.payment_mode == "manual" %}
+                            <span class="badge badge-warning">
+                                <i class="fas fa-hand-pointer"></i>
+                                Manual
+                            </span>
+                        {% elif p.payment_mode == "auto_debit" %}
+                            <span class="badge badge-success">
+                                <i class="fas fa-repeat"></i>
+                                Auto Debit
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.due_date|date:"M d, Y" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -310,6 +1071,57 @@
     </div>
     {% else %}
     <p style="color: var(--text-secondary);">No payments recorded yet.</p>
+    {% endif %}
+</div>
+<div class="glass-card timeline-card">
+    <div class="timeline-header">
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-route" style="color: var(--primary);"></i> Prepayment Timeline</h3>
+        <small>Track every extra payment you've made</small>
+        <span class="timeline-count">
+            {{ prepayment_timeline|length }} Events
+        </span>
+    </div>
+    {% if prepayment_timeline %}
+        <div class="timeline">
+            {% for item in prepayment_timeline %}
+            <div class="timeline-item">
+                <div class="timeline-dot">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-date">
+                        {{ item.date|date:"d M Y" }}
+                    </div>
+                    <div class="timeline-title">
+                        Prepayment of
+                        <strong>₹{{ item.amount|floatformat:0 }}</strong>
+                    </div>
+                    <div class="timeline-meta">
+                        <span>
+                            <i class="fas fa-calendar-check"></i>
+                            {{ item.months_saved }} Months Saved
+                        </span>
+                        <span>
+                            <i class="fas fa-piggy-bank"></i>
+                            ₹{{ item.interest_saved|floatformat:0 }} Interest Saved
+                        </span>
+                        <span>
+                            <i class="fas fa-wallet"></i>
+                            {{ item.payment_mode }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="timeline-empty">
+            <i class="fas fa-clock"></i>
+            <h4>No Prepayments Yet</h4>
+            <p>
+                Make your first prepayment to reduce your loan tenure and interest.
+            </p>
+        </div>
     {% endif %}
 </div>
 {% if prepayments %}
@@ -323,22 +1135,118 @@
                         <th>Amount</th>
                         <th>Months Saved</th>
                         <th>Interest Saved</th>
+                        <th>Mode</th>
+                        <th>Type</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for prep in prepayments %}
-                    <tr>
-                        <td>{{ prep.prepayment_date|date:"M d, Y" }}</td>
-                        <td>₹{{ prep.amount|floatformat:0 }}</td>
-                        <td>{{ prep.months_reduced }} months</td>
-                        <td style="color: var(--primary); font-weight: 600;">₹{{ prep.interest_saved|floatformat:0 }}</td>
-                    </tr>
+                        <tr>
+                            <td>{{ prep.prepayment_date|date:"M d, Y" }}</td>
+                            <td>₹{{ prep.amount|floatformat:0 }}</td>
+                            <td>{{ prep.months_reduced }} months</td>
+                            <td style="color: var(--primary); font-weight: 600;">₹{{ prep.interest_saved|floatformat:0 }}</td>
+                            <td>{{ prep.get_payment_mode_display }}</td>
+                            <td>{{ prep.get_payment_type_display }}</td>
+                            <td>{{ prep.get_status_display }}</td>
+                        </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 {% endif %}
+<div class="glass-card tips-card">
+    <div class="tips-header">
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-lightbulb" style="color: var(--primary);"></i> Financial Tips
+        <span class="tips-count">
+            {{ financial_tips|length }} Tips
+        </span>
+    </div>
+    <div class="tips-list">
+        {% for tip in financial_tips %}
+            <div class="tip-item tip-{{ tip.type }}">
+                <div class="tip-icon">
+                    <i class="fas {{ tip.icon }}"></i>
+                </div>
+                <div class="tip-content">
+                    <div class="tip-title">
+                        {{ tip.title }}
+                    </div>
+                    <div class="tip-message">
+                        {{ tip.message }}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+<div class="glass-card badges-card">
+    <div class="badges-header">
+        <h3 style="margin-bottom: 16px;"><i class="fas fa-award" style="color: var(--primary);"></i> Achievement Badges
+        <span class="badge-count">
+            {{ achievement_badges|length }} Unlocked
+        </span>
+    </div>
+    <div class="badges-grid">
+        {% for badge in achievement_badges %}
+            <div class="achievement-card {{ badge.color }}">
+                <div class="badge-icon">
+                    <i class="fas {{ badge.icon }}"></i>
+                </div>
+                <div class="badge-title">
+                    {{ badge.title }}
+                </div>
+                <div class="badge-description">
+                    {{ badge.description }}
+                </div>
+                <span class="earned-tag">
+                    <i class="fas fa-check-circle"></i>
+                    Unlocked
+                </span>
+            </div>
+        {% empty %}
+            <div class="empty-badge">
+                <i class="fas fa-lock"></i>
+                <p>No achievements yet.</p>
+                <small>Keep paying EMIs to unlock badges.</small>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+<div id="closeLoanModal" class="custom-modal">
+    <div class="custom-modal-content">
+        <form method="post" action="{% url 'close_loan' loan.pk %}">
+            {% csrf_token %}
+            <div class="custom-modal-header">
+                <h3>Close Loan</h3>
+                <button type="button" class="custom-close" onclick="closeCloseLoanModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="custom-modal-body">
+                <p>Are you sure you want to close <strong>{{ loan.loan_name }}</strong>?</p>
+                <div class="form-group">
+                    <label>Closing Date</label>
+                    <input type="date" name="closing_date" class="form-input" value="{{ today|date:'Y-m-d' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Remarks (Optional)</label>
+                    <textarea name="remarks" rows="3" class="form-input"></textarea>
+                </div>
+            </div>
+            <div class="custom-modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeCloseLoanModal()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    Close Loan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
@@ -483,10 +1391,10 @@
     // Principal vs Interest — Doughnut Chart
     (function() {
         const data = {{ pie_data_json|safe }};
-        const ctx = document.getElementById('pieChart').getContext('2d');
+        const d_ctx = document.getElementById('pieChart').getContext('2d');
         const has = data.principal > 0 || data.interest > 0;
 
-        new Chart(ctx, {
+        new Chart(d_ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Principal Paid', 'Interest Paid'],
@@ -516,6 +1424,25 @@
         const w = b.style.width;
         b.style.width = '0%';
         requestAnimationFrame(() => requestAnimationFrame(() => { b.style.width = w }));
+    });
+    function openCloseLoanModal() {
+        document.getElementById("closeLoanModal").classList.add("show");
+        document.body.style.overflow = "hidden";
+    }
+    function closeCloseLoanModal() {
+        document.getElementById("closeLoanModal").classList.remove("show");
+        document.body.style.overflow = "";
+    }
+    window.addEventListener("click", function(e) {
+        const modal = document.getElementById("closeLoanModal");
+        if (e.target === modal) {
+            closeCloseLoanModal();
+        }
+    });
+    window.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            closeCloseLoanModal();
+        }
     });
 </script>
 {% endblock %}

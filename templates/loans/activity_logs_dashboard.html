@@ -1,0 +1,229 @@
+{% extends 'app_layout.html' %}
+{% load static %}
+{% block title %}Activity Logs — NexusLoan{% endblock %}
+{% block app_content %}
+<div class="page-header">
+    <div>
+        <h1>Activity Logs</h1>
+        <p class="text-muted">Monitor important loan and payment activities performed across NexusLoan.</p>
+    </div>
+</div>
+<div class="summary-grid">
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-clock-rotate-left"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Total Activities</span>
+            <span class="sc-value">{{ total_logs }}</span>
+            <span class="sc-sub">All recorded activities</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-calendar-day"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Today's Activities</span>
+            <span class="sc-value">{{ today_logs }}</span>
+            <span class="sc-sub">Activities recorded today</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-money-check-dollar"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">EMIs Paid</span>
+            <span class="sc-value">{{ emi_paid_count }}</span>
+            <span class="sc-sub">Recorded EMI payments</span>
+        </div>
+    </div>
+    <div class="summary-card glass-card">
+        <div class="sc-icon">
+            <i class="fas fa-bolt"></i>
+        </div>
+        <div class="sc-info">
+            <span class="sc-label">Auto Debit</span>
+            <span class="sc-value">{{ auto_debit_count }}</span>
+            <span class="sc-sub">Automatic payment activities</span>
+        </div>
+    </div>
+</div>
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div class="badges-header">
+        <div>
+            <h3 style="margin-bottom:6px;"><i class="fas fa-filter" style="color:var(--primary);"></i> Filter Activity Logs</h3>
+            <span class="sc-sub">Search and filter loan activity records.</span>
+        </div>
+    </div>
+    <form method="get" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;margin-top:20px;">
+        <div>
+            <label class="form-label">Search</label>
+            <input type="text" name="search" class="filter-input" value="{{ search }}" placeholder="Search title, loan or user...">
+        </div>
+        <div>
+            <label class="form-label">Activity Type</label>
+            <select name="action" class="form-input">
+                <option value="">All Activities</option>
+                {% for value, label in action_choices %}
+                <option value="{{ value }}" {% if selected_action == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Date Range</label>
+            <select name="date_range" class="form-input">
+                <option value="">All Time</option>
+                <option value="today" {% if selected_date_range == "today" %}selected{% endif %}>Today</option>
+                <option value="7_days" {% if selected_date_range == "7_days" %}selected{% endif %}>Last 7 Days</option>
+                <option value="30_days" {% if selected_date_range == "30_days" %}selected{% endif %}>Last 30 Days</option>
+            </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-filter"></i>
+                Filter
+            </button>
+            <a href="{% url 'activity_logs_dashboard' %}" class="btn btn-outline">
+                <i class="fas fa-rotate-left"></i>
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+<div class="glass-card" style="padding:24px;margin-bottom:24px;">
+    <div class="badges-header" style="margin-bottom:20px;">
+        <div>
+            <h3 style="margin-bottom:6px;"><i class="fas fa-list" style="color:var(--primary);"></i> Activity History</h3>
+            <span class="sc-sub">Recent loan, payment and account activities.</span>
+        </div>
+        <span class="text-muted">
+            {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
+        </span>
+    </div>
+    {% if logs %}
+    <div class="activity-log-list">
+        {% for log in logs %}
+        <div class="activity-log-item">
+            <div class="activity-log-icon">
+                {% if log.action == "loan_created" %}
+                <i class="fas fa-plus"></i>
+                {% elif log.action == "loan_closed" %}
+                <i class="fas fa-circle-check"></i>
+                {% elif log.action == "emi_paid" %}
+                <i class="fas fa-money-check-dollar"></i>
+                {% elif log.action == "prepayment" %}
+                <i class="fas fa-money-bill-transfer"></i>
+                {% elif log.action == "loan_updated" %}
+                <i class="fas fa-pen"></i>
+                {% elif log.action == "auto_debit" %}
+                <i class="fas fa-bolt"></i>
+                {% else %}
+                <i class="fas fa-circle-info"></i>
+                {% endif %}
+            </div>
+            <div class="activity-log-content">
+                <div class="activity-log-top">
+                    <div>
+                        <h4>{{ log.title }}</h4>
+                        <div class="activity-log-meta">
+                            <span>
+                                <i class="fas fa-user"></i>
+                                {{ log.user.username }}
+                            </span>
+                            {% if log.loan %}
+                            <span>
+                                <i class="fas fa-landmark"></i>
+                                {{ log.loan.loan_name }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="activity-badge">{{ log.get_action_display }}</span>
+                </div>
+                {% if log.description %}
+                <p class="activity-log-description">{{ log.description }}</p>
+                {% endif %}
+                <div class="activity-log-footer">
+                    <span class="text-muted">
+                        <i class="far fa-clock"></i>
+                        {{ log.created_at|date:"d M Y, h:i A" }}
+                    </span>
+                    {% if log.loan %}
+                    <a href="{% url 'loan_detail' log.loan.pk %}" class="btn btn-outline btn-sm">
+                        <i class="fas fa-eye"></i>
+                        View Loan
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="padding:60px 24px;text-align:center;">
+        <div class="empty-icon">
+            <i class="fas fa-clock-rotate-left"></i>
+        </div>
+        <h3 style="margin:16px 0 8px 0;">No Activity Logs Found</h3>
+        <p class="text-muted" style="max-width:500px;margin:0 auto 20px auto;">
+            {% if search or selected_action or selected_date_range %}
+            No activities match your current filters. Try changing the filters.
+            {% else %}
+            No activity has been recorded yet.
+            {% endif %}
+        </p>
+        {% if search or selected_action or selected_date_range %}
+        <a href="{% url 'activity_logs_dashboard' %}" class="btn btn-outline">
+            <i class="fas fa-rotate-left"></i>
+            Clear Filters
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if page_obj.has_other_pages %}
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:24px;">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&action={{ selected_action }}&date_range={{ selected_date_range }}" class="btn btn-outline btn-sm">
+            <i class="fas fa-chevron-left"></i>
+            Previous
+        </a>
+        {% endif %}
+        <span class="text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&action={{ selected_action }}&date_range={{ selected_date_range }}" class="btn btn-outline btn-sm">
+            Next
+            <i class="fas fa-chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+<style>
+.activity-log-list{display:flex;flex-direction:column;gap:12px}
+.activity-log-item{display:flex;gap:16px;padding:18px;border:1px solid rgba(148,163,184,.2);border-radius:14px;background:rgba(255,255,255,.35);transition:all .2s ease}
+.activity-log-item:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.06)}
+.activity-log-icon{width:44px;height:44px;min-width:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,.1);color:var(--primary);font-size:16px}
+.activity-log-content{flex:1;min-width:0}
+.activity-log-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.activity-log-top h4{margin:0 0 8px;font-size:15px;font-weight:600}
+.activity-log-meta{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:#64748b}
+.activity-log-meta span{display:flex;align-items:center;gap:5px}
+.activity-badge{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:rgba(59,130,246,.1);color:var(--primary);font-size:11px;font-weight:600;white-space:nowrap}
+.activity-log-description{margin:12px 0 0;color:#475569;line-height:1.6;font-size:14px}
+.activity-log-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;font-size:12px}
+.activity-log-footer .btn{font-size:12px}
+@media (max-width:900px){
+.page-header{flex-direction:column;align-items:flex-start!important;gap:16px}
+.glass-card form[method="get"]{grid-template-columns:1fr 1fr!important}
+}
+@media (max-width:700px){
+.glass-card form[method="get"]{grid-template-columns:1fr!important}
+.activity-log-item{padding:14px}
+.activity-log-top{flex-direction:column;gap:10px}
+.activity-badge{align-self:flex-start}
+.activity-log-footer{flex-direction:column;align-items:flex-start}
+}
+</style>
+{% endblock %}

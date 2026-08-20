@@ -29,31 +29,34 @@
                 {% endif %}
             </div>
         {% endfor %}
-
+        <div id="frequencyInfo" class="form-help" style="margin-bottom:15px;"></div>
         <div class="form-actions">
             <a href="{% url 'loan_list' %}" class="btn btn-ghost">Cancel</a>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-check"></i> Create Loan
-            </button>
+            <button type="submit" class="btn btn-primary"> Submit</button>
         </div>
     </form>
 </div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
-    (function() {
-        const amountInput = document.getElementById('id_amount');
-        const rateInput = document.getElementById('id_interest_rate');
-        const tenureInput = document.getElementById('id_tenure_years');
-        const preview = document.getElementById('emiPreview');
-        const previewValue = document.getElementById('emiPreviewValue');
+    (function () {
+        const amountInput = document.getElementById("id_amount");
+        const rateInput = document.getElementById("id_interest_rate");
+        const tenureInput = document.getElementById("id_tenure_years");
+        const preview = document.getElementById("emiPreview");
+        const previewValue = document.getElementById("emiPreviewValue");
+        const loanDate = document.getElementById("id_start_date");
+        const firstEMI = document.getElementById("id_first_emi_date");
+        const frequency = document.getElementById("id_emi_frequency");
+        const autoDebit = document.getElementById("id_auto_debit");
+        const frequencyInfo = document.getElementById("frequencyInfo");
 
         function calcEMI() {
-            const P = parseFloat(amountInput.value);
-            const annualRate = parseFloat(rateInput.value);
-            const years = parseInt(tenureInput.value);
+            const P = parseFloat(amountInput?.value);
+            const annualRate = parseFloat(rateInput?.value);
+            const years = parseInt(tenureInput?.value);
             if (!P || !annualRate || !years || P <= 0 || years <= 0) {
-                preview.style.display = 'none';
+                preview.style.display = "none";
                 return;
             }
             const R = annualRate / 12 / 100;
@@ -65,13 +68,70 @@
                 const factor = Math.pow(1 + R, N);
                 emi = (P * R * factor) / (factor - 1);
             }
-            preview.style.display = 'flex';
-            previewValue.textContent = '₹' + emi.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+            preview.style.display = "flex";
+            previewValue.textContent =
+                "₹" +
+                emi.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
         }
-
-        [amountInput, rateInput, tenureInput].forEach(el => {
-            el.addEventListener('input', calcEMI);
-        });
+        function validateDates() {
+            if (!loanDate || !firstEMI)
+                return;
+            if (!loanDate.value || !firstEMI.value)
+                return;
+            if (firstEMI.value < loanDate.value) {
+                firstEMI.setCustomValidity(
+                    "First EMI Date must be after Loan Creation Date."
+                );
+            } else {
+                firstEMI.setCustomValidity("");
+            }
+        }
+        if (amountInput && rateInput && tenureInput) {
+            [amountInput, rateInput, tenureInput].forEach(function (el) {
+                el.addEventListener("input", calcEMI);
+            });
+            calcEMI();
+        }
+        if (loanDate && firstEMI) {
+            loanDate.addEventListener("change", validateDates);
+            firstEMI.addEventListener("change", validateDates);
+        }
+        if (frequency) {
+            function updateFrequencyInfo() {
+                let text = "";
+                switch (frequency.value) {
+                    case "monthly":
+                        text = "📅 EMI will be deducted every month (12 EMI per year).";
+                        break;
+                    case "quarterly":
+                        text = "📅 EMI will be deducted every 3 months (4 EMI per year).";
+                        break;
+                    case "half_yearly":
+                        text = "📅 EMI will be deducted every 6 months (2 EMI per year).";
+                        break;
+                    case "yearly":
+                        text = "📅 EMI will be deducted once every year.";
+                        break;
+                    default:
+                        text = "";
+                }
+                frequencyInfo.textContent = text;
+            }
+            frequency.addEventListener("change", updateFrequencyInfo);
+            updateFrequencyInfo();
+        }
+        if (autoDebit) {
+            autoDebit.addEventListener("change", function () {
+                if (this.checked) {
+                    console.log("Auto Debit Enabled");
+                } else {
+                    console.log("Manual Payment Enabled");
+                }
+            });
+        }
     })();
 </script>
 {% endblock %}
