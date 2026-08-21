@@ -185,13 +185,15 @@ class EMIScheduleView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan_id = kwargs.get("loan_id")
-        loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
+
+        if self.request.user.is_staff:
+            loan = get_object_or_404(Loan, pk=loan_id)
+        else:
+            loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
 
         schedule = generate_full_schedule(loan)
 
-        # Add Pagination manually for tables
-
-        paginator = Paginator(schedule, 20)  # 20 rows per page
+        paginator = Paginator(schedule, 20)
         page_number = self.request.GET.get("page", 1)
         page_obj = paginator.get_page(page_number)
 
@@ -205,7 +207,11 @@ class EMIScheduleView(LoginRequiredMixin, TemplateView):
 @login_required
 def export_schedule_excel(request, loan_id):
     """Export beautifully formatted amortization schedule to Excel."""
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    if request.user.is_staff:
+        loan = get_object_or_404(Loan, pk=loan_id)
+    else:
+        loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+
     schedule = generate_full_schedule(loan)
 
     wb = openpyxl.Workbook()
@@ -239,11 +245,13 @@ def export_schedule_excel(request, loan_id):
     ]
     ws.append(headers)
 
-    # Style Headers (Green Background)
+    # Style Headers
     for cell in ws[6]:
         cell.font = Font(bold=True, color="FFFFFF", size=11)
         cell.fill = PatternFill(
-            start_color="28A745", end_color="28A745", fill_type="solid"
+            start_color="28A745",
+            end_color="28A745",
+            fill_type="solid",
         )
         cell.alignment = Alignment(horizontal="center")
 
@@ -288,7 +296,11 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan_id = kwargs.get("loan_id")
-        loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
+
+        if self.request.user.is_staff:
+            loan = get_object_or_404(Loan, pk=loan_id)
+        else:
+            loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
 
         transactions = []
 

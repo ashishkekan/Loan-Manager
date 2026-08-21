@@ -303,8 +303,191 @@
         </div>
     </div>
 
+    {% if next_emi_loan %}
+        <div class="glass-card reveal" style="padding:24px;margin-top:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <span class="chart-subtitle">NEXT PAYMENT</span>
+                    <h3 style="font-size:16px;font-weight:700;margin-top:4px;">
+                        <i class="fas fa-credit-card" style="color:var(--primary);"></i>
+                        {{ next_emi_loan.loan_name }}
+                    </h3>
+                </div>
+                {% if next_emi_auto_debit %}
+                    <span class="loan-status-badge badge-active" style="font-size:10px;padding:2px 8px;">
+                        <i class="fas fa-repeat"></i> Auto Debit
+                    </span>
+                {% else %}
+                    <span class="loan-status-badge badge-closed" style="font-size:10px;padding:2px 8px;">
+                        <i class="fas fa-hand-pointer"></i> Manual
+                    </span>
+                {% endif %}
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-card glass-card">
+                    <div class="sc-icon">
+                        <i class="fas fa-credit-card"></i>
+                    </div>
+                    <div class="sc-info">
+                        <span class="sc-label">Next EMI</span>
+                        <span class="sc-value" data-count="{{ next_emi_amount|floatformat:0 }}">₹{{ next_emi_amount|floatformat:0 }}</span>
+                        <span class="sc-sub">upcoming payment</span>
+                    </div>
+                </div>
+
+                <div class="summary-card glass-card">
+                    <div class="sc-icon accent">
+                        <i class="fas fa-calendar"></i>
+                    </div>
+                    <div class="sc-info">
+                        <span class="sc-label">Due Date</span>
+                        <span class="sc-value" style="font-size:20px;">{{ next_emi_date|date:"d M Y" }}</span>
+                        <span class="sc-sub">payment due on</span>
+                    </div>
+                </div>
+
+                <div class="summary-card glass-card">
+                    <div class="sc-icon warn">
+                        <i class="fas fa-hashtag"></i>
+                    </div>
+                    <div class="sc-info">
+                        <span class="sc-label">Payment</span>
+                        <span class="sc-value" style="font-size:20px;">EMI #{{ next_emi_payment_number }}</span>
+                        <span class="sc-sub">installment number</span>
+                    </div>
+                </div>
+
+                <div class="summary-card glass-card">
+                    <div class="sc-icon danger">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="sc-info">
+                        <span class="sc-label">Remaining</span>
+                        <span class="sc-value" style="font-size:20px;">
+                            {% if next_emi_days == 0 %}
+                                Due Today
+                            {% elif next_emi_days == 1 %}
+                                1 Day
+                            {% else %}
+                                {{ next_emi_days }} Days
+                            {% endif %}
+                        </span>
+                        <span class="sc-sub">time left</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px;text-align:right;">
+                <a href="{% url 'loan_detail' next_emi_loan.pk %}" class="btn btn-primary">
+                    View Loan
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="glass-card reveal" style="padding:24px;margin-top:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div>
+                <span class="chart-subtitle">MONTHLY OVERVIEW</span>
+                <h3 style="font-size:16px;font-weight:700;margin-top:4px;">
+                    <i class="fas fa-calendar-alt" style="color:var(--primary);"></i>
+                    This Month
+                </h3>
+            </div>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-card glass-card">
+                <div class="sc-icon">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+                <div class="sc-info">
+                    <span class="sc-label">EMI Paid</span>
+                    <span class="sc-value" data-count="{{ this_month_emi_paid|floatformat:0 }}">₹{{ this_month_emi_paid|floatformat:0 }}</span>
+                    <span class="sc-sub">total paid this month</span>
+                </div>
+            </div>
+
+            <div class="summary-card glass-card">
+                <div class="sc-icon accent">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="sc-info">
+                    <span class="sc-label">Principal Reduced</span>
+                    <span class="sc-value" data-count="{{ this_month_principal|floatformat:0 }}">₹{{ this_month_principal|floatformat:0 }}</span>
+                    <span class="sc-sub">balance reduced</span>
+                </div>
+            </div>
+
+            <div class="summary-card glass-card">
+                <div class="sc-icon warn">
+                    <i class="fas fa-percent"></i>
+                </div>
+                <div class="sc-info">
+                    <span class="sc-label">Interest Paid</span>
+                    <span class="sc-value" data-count="{{ this_month_interest|floatformat:0 }}">₹{{ this_month_interest|floatformat:0 }}</span>
+                    <span class="sc-sub">interest outflow</span>
+                </div>
+            </div>
+
+            <div class="summary-card glass-card">
+                <div class="sc-icon danger">
+                    <i class="fas fa-money-bill-transfer"></i>
+                </div>
+                <div class="sc-info">
+                    <span class="sc-label">Prepaid</span>
+                    <span class="sc-value" data-count="{{ this_month_prepayment|floatformat:0 }}">₹{{ this_month_prepayment|floatformat:0 }}</span>
+                    <span class="sc-sub">extra payments</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if upcoming_emis %}
+        <div class="glass-card reveal" style="padding:24px;margin-top:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <span class="chart-subtitle">UPCOMING</span>
+                    <h3 style="font-size:16px;font-weight:700;margin-top:4px;">
+                        <i class="fas fa-calendar-check" style="color:var(--primary);"></i>
+                        Upcoming Payments
+                    </h3>
+                </div>
+                <a href="{% url 'payment_dashboard' %}" class="link-accent">
+                    View Payments <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="loans-mini-list">
+                {% for item in upcoming_emis %}
+                <a href="{% url 'loan_detail' item.loan.pk %}" class="loans-mini-item">
+                    <div class="lmi-left">
+                        <div class="lmi-icon active">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <div>
+                            <div class="lmi-name">{{ item.loan.loan_name }}</div>
+                            <div class="lmi-meta">
+                                EMI #{{ item.payment_number }} · {{ item.due_date|date:"d M Y" }}
+                                {% if item.auto_debit %}
+                                    <span class="loan-status-badge badge-active" style="margin-left:8px;font-size:10px;padding:2px 8px;">Auto Debit</span>
+                                {% else %}
+                                    <span class="loan-status-badge badge-closed" style="margin-left:8px;font-size:10px;padding:2px 8px;">Manual</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="lmi-right">
+                        <div class="lmi-balance">₹{{ item.emi|floatformat:0 }}</div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
     {% if total_prepaid > 0 %}
-        <div class="savings-banner glass-card reveal">
+        <div class="savings-banner glass-card reveal" style="margin-top:24px;">
             <div class="savings-icon">
                 <i class="fas fa-piggy-bank"></i>
             </div>

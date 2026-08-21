@@ -749,7 +749,10 @@ class LoanCompareView(LoginRequiredMixin, TemplateView):
 
 
 def export_loan_csv(request, loan_id):
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    if request.user.is_staff:
+        loan = get_object_or_404(Loan, pk=loan_id)
+    else:
+        loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
     schedule = generate_full_schedule(loan)
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = (

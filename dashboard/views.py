@@ -221,7 +221,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             "interest": round(float(aggregates["total_interest"]), 2),
         }
         context["recent_payments"] = (
-            Payment.objects.filter(loan__user=user, status="paid")
+            Payment.objects.filter(
+                loan__user=user,
+                status="paid",
+            )
             .select_related("loan")
             .order_by("-payment_date")[:8]
         )
@@ -234,18 +237,90 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["total_paid"] = total_paid
         upcoming = []
         for loan in active_loans:
-            next_num = loan.payments.filter(status="paid").count()
-            due = add_periods(
+            paid_count = loan.payments.filter(status="paid").count()
+            due_date = add_periods(
                 loan.schedule_start_date,
-                next_num,
+                paid_count,
                 loan.emi_frequency,
             )
-            upcoming.append((due, loan))
-        upcoming.sort(key=lambda item: item[0])
-        context["upcoming_emi"] = upcoming[0] if upcoming else None
-        context["next_emi_date"] = upcoming[0][0] if upcoming else None
+            upcoming.append(
+                {
+                    "loan": loan,
+                    "due_date": due_date,
+                    "emi": loan.emi,
+                    "payment_number": paid_count + 1,
+                    "auto_debit": loan.auto_debit,
+                }
+            )
+        upcoming.sort(key=lambda item: item["due_date"])
+        context["upcoming_emis"] = upcoming
+        if upcoming:
+            next_emi = upcoming[0]
+            context["upcoming_emi"] = (
+                next_emi["due_date"],
+                next_emi["loan"],
+            )
+            context["next_emi_date"] = next_emi["due_date"]
+            context["next_emi_loan"] = next_emi["loan"]
+            context["next_emi_amount"] = next_emi["emi"]
+            context["next_emi_payment_number"] = next_emi["payment_number"]
+            context["next_emi_auto_debit"] = next_emi["auto_debit"]
+            today = timezone.now().date()
+            context["next_emi_days"] = max(
+                (next_emi["due_date"] - today).days,
+                0,
+            )
+        else:
+            context["upcoming_emi"] = None
+            context["next_emi_date"] = None
+            context["next_emi_loan"] = None
+            context["next_emi_amount"] = 0
+            context["next_emi_payment_number"] = None
+            context["next_emi_auto_debit"] = False
+            context["next_emi_days"] = None
+        today = timezone.now().date()
+        month_start = today.replace(day=1)
+        month_payments = Payment.objects.filter(
+            loan__user=user,
+            status="paid",
+            payment_date__gte=month_start,
+            payment_date__lte=today,
+        )
+        month_payment_stats = month_payments.aggregate(
+            total=Coalesce(
+                Sum("amount"),
+                0,
+                output_field=DecimalField(),
+            ),
+            principal=Coalesce(
+                Sum("principal_component"),
+                0,
+                output_field=DecimalField(),
+            ),
+            interest=Coalesce(
+                Sum("interest_component"),
+                0,
+                output_field=DecimalField(),
+            ),
+        )
+        month_prepayment_stats = Prepayment.objects.filter(
+            loan__user=user,
+            created_at__date__gte=month_start,
+            created_at__date__lte=today,
+        ).aggregate(
+            total=Coalesce(
+                Sum("amount"),
+                0,
+                output_field=DecimalField(),
+            ),
+        )
+        context["this_month_emi_paid"] = month_payment_stats["total"]
+        context["this_month_principal"] = month_payment_stats["principal"]
+        context["this_month_interest"] = month_payment_stats["interest"]
+        context["this_month_prepayment"] = month_prepayment_stats["total"]
         context["total_payments"] = Payment.objects.filter(
-            loan__user=user, status="paid"
+            loan__user=user,
+            status="paid",
         ).count()
         context["activities"] = (
             ActivityLog.objects.filter(user=user)
