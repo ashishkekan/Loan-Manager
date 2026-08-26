@@ -58,9 +58,15 @@
         </div>
     </div>
     <form method="get" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;margin-top:20px;">
-        <div>
+        <div class="filter-search">
             <label class="form-label">Search</label>
-            <input type="text" name="search" class="filter-input" value="{{ search }}" placeholder="Search title, loan or user...">
+            <input
+                type="text"
+                name="search"
+                class="filter-input"
+                value="{{ search }}"
+                placeholder="Search title, loan or user..."
+            >
         </div>
         <div>
             <label class="form-label">Activity Type</label>
