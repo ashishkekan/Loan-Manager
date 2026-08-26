@@ -102,9 +102,15 @@
         </div>
     </div>
     <form method="get" class="notification-filter-form">
-        <div>
+        <div class="filter-search">
             <label class="form-label">Search</label>
-            <input type="text" name="search" class="filter-input" value="{{ search }}" placeholder="{% if is_admin %}Search user, email, notification or loan...{% else %}Search notification or loan...{% endif %}">
+            <input
+                type="text"
+                name="search"
+                class="filter-input"
+                value="{{ search }}"
+                placeholder="{% if is_admin %}Search user, email, notification or loan...{% else %}Search notification or loan...{% endif %}"
+            >
         </div>
         <div>
             <label class="form-label">Notification Type</label>
