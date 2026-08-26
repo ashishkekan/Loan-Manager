@@ -34,12 +34,12 @@
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <div class="sidebar-logo">
+            <a href="{% url 'dashboard' %}" class="sidebar-logo">
                 <div class="logo-icon">
                     <i class="fas fa-landmark"></i>
                 </div>
                 <span class="logo-text">NexusLoan</span>
-            </div>
+            </a>
         </div>
         <nav class="sidebar-nav">
             <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
