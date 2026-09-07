@@ -238,6 +238,8 @@ def export_schedule_excel(request, loan_id):
         "Period",
         "Due Date",
         "EMI (₹)",
+        "Additional Interest (₹)",
+        "Total Debit (₹)",
         "Principal (₹)",
         "Interest (₹)",
         "Balance (₹)",
@@ -262,6 +264,8 @@ def export_schedule_excel(request, loan_id):
                 row["period"],
                 row["due_date"].strftime("%Y-%m-%d"),
                 float(row["regular_emi"]),
+                float(row.get("additional_interest", 0)),
+                float(row["total_debit"]),
                 float(row["principal"]),
                 float(row["interest"]),
                 float(row["balance"]),
@@ -272,9 +276,9 @@ def export_schedule_excel(request, loan_id):
     # Column Widths
     ws.column_dimensions["A"].width = 10
     ws.column_dimensions["B"].width = 15
-    for col in ["C", "D", "E", "F"]:
+    for col in ["C", "D", "E", "F", "G", "H"]:
         ws.column_dimensions[col].width = 20
-    ws.column_dimensions["G"].width = 12
+    ws.column_dimensions["I"].width = 12
 
     # Response
     response = HttpResponse(

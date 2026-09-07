@@ -158,6 +158,8 @@ def build_projected_schedule(loan):
     Generates projected EMIs from current loan state.
     Does not use Payment table.
     """
+    from django.db.models import Sum
+
     from loans.models import LoanAccruedInterest
 
     frequency = getattr(loan, "emi_frequency", "monthly")
@@ -171,7 +173,12 @@ def build_projected_schedule(loan):
     balance = Decimal(str(loan.amount))
     today = date.today()
     accrued_lookup = {
-        obj.emi_date: obj for obj in LoanAccruedInterest.objects.filter(loan=loan)
+        row["emi_date"]: row["total"]
+        for row in (
+            LoanAccruedInterest.objects.filter(loan=loan, status="pending")
+            .values("emi_date")
+            .annotate(total=Sum("interest_amount"))
+        )
     }
     prepayments = list(loan.prepayments.order_by("prepayment_date"))
     prepayment_index = 0
@@ -199,10 +206,9 @@ def build_projected_schedule(loan):
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
         projected_balance = max(Decimal("0.00"), balance - principal)
-        accrued = accrued_lookup.get(due_date)
-        additional_interest = (
-            Decimal(str(accrued.interest_amount)) if accrued else Decimal("0.00")
-        )
+        additional_interest = Decimal(
+            str(accrued_lookup.get(due_date, Decimal("0.00")))
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         total_debit = (current_emi + additional_interest).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )

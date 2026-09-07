@@ -896,6 +896,8 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
             loan=form.instance, status="pending"
         ).delete()
         for disbursement in form.instance.disbursements.filter(status="released"):
+            disbursement.is_interest_processed = False
+            disbursement.save(update_fields=["is_interest_processed"])
             AccruedInterestService.generate_for_disbursement(disbursement)
         return super().form_valid(form)
 
@@ -1039,9 +1041,10 @@ class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         response = super().form_valid(form)
         LoanAccruedInterest.objects.filter(
-            disbursement=self.object,
-            status="pending",
+            disbursement=self.object, status="pending"
         ).delete()
+        self.object.is_interest_processed = False
+        self.object.save(update_fields=["is_interest_processed"])
         if self.object.status == "released":
             AccruedInterestService.generate_for_disbursement(self.object)
         messages.success(self.request, "Disbursement updated successfully.")
