@@ -29,23 +29,26 @@ class Command(BaseCommand):
         skipped = 0
         failed = 0
 
-        loans = Loan.objects.filter(
-            status="active",
-            auto_debit=True,
-        ).order_by("id")
-
+        loans = Loan.objects.filter(status="active", auto_debit=True).order_by("id")
         for loan in loans:
-            if loan.status == "closed":
-                break
             try:
-                schedule_start = loan.schedule_start_date
-                if schedule_start > today:
+                emi_start_date = loan.first_emi_date
+                if not emi_start_date:
+                    skipped += 1
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"[SKIPPED] {loan.loan_name} | " f"First EMI date missing"
+                        )
+                    )
+                    continue
+
+                if emi_start_date > today:
                     skipped += 1
                     continue
 
                 paid_count = loan.payments.filter(status="paid").count()
                 next_due_date = add_periods(
-                    schedule_start, paid_count, loan.emi_frequency
+                    emi_start_date, paid_count, loan.emi_frequency
                 )
 
                 if next_due_date > today:
@@ -55,7 +58,7 @@ class Command(BaseCommand):
                 while True:
                     paid_count = loan.payments.filter(status="paid").count()
                     next_due_date = add_periods(
-                        loan.schedule_start_date, paid_count, loan.emi_frequency
+                        emi_start_date, paid_count, loan.emi_frequency
                     )
                     if next_due_date > today:
                         break
@@ -77,13 +80,13 @@ class Command(BaseCommand):
                 failed += 1
                 self.stderr.write(
                     self.style.ERROR(
-                        f"[FAILED] Loan #{loan.id} " f"({loan.loan_name}) " f"{exc}"
+                        f"[FAILED] Loan #{loan.id} " f"({loan.loan_name}) {exc}"
                     )
                 )
 
         self.stdout.write("")
         self.stdout.write("=" * 70)
         self.stdout.write(self.style.SUCCESS(f"Processed : {processed}"))
-        self.stdout.write(self.style.WARNING(f"Skipped  : {skipped}"))
-        self.stdout.write(self.style.ERROR(f"Failed   : {failed}"))
+        self.stdout.write(self.style.WARNING(f"Skipped   : {skipped}"))
+        self.stdout.write(self.style.ERROR(f"Failed    : {failed}"))
         self.stdout.write("=" * 70)
