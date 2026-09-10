@@ -333,18 +333,6 @@ class Loan(models.Model):
     def has_pending_accrued_interest(self):
         return self.accrued_interests.filter(status="pending").exists()
 
-    @classmethod
-    def has_pending_interest(cls, loan, emi_date):
-        return LoanAccruedInterest.objects.filter(
-            loan=loan, emi_date=emi_date, status="pending"
-        ).exists()
-
-    @classmethod
-    def get_recovered_interest(cls, loan):
-        return LoanAccruedInterest.objects.filter(
-            loan=loan, status="recovered"
-        ).aggregate(total=Sum("recovered_amount"))["total"] or Decimal("0.00")
-
 
 class LoanNote(models.Model):
     """User can add notes/memos to their loans."""
@@ -485,7 +473,6 @@ class LoanDisbursement(models.Model):
     )
     remarks = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="released")
-    is_interest_processed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -522,94 +509,6 @@ class LoanDisbursement(models.Model):
     @property
     def is_released(self):
         return self.status == "released"
-
-
-class LoanAccruedInterest(models.Model):
-    STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("recovered", "Recovered"),
-        ("cancelled", "Cancelled"),
-    ]
-    loan = models.ForeignKey(
-        "loans.Loan", on_delete=models.CASCADE, related_name="accrued_interests"
-    )
-    disbursement = models.ForeignKey(
-        "loans.LoanDisbursement",
-        on_delete=models.CASCADE,
-        related_name="interest_entries",
-    )
-    emi_payment = models.ForeignKey(
-        "payments.Payment",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="accrued_interest_entries",
-    )
-    from_date = models.DateField()
-    to_date = models.DateField()
-    emi_date = models.DateField()
-    days = models.PositiveIntegerField()
-    annual_interest_rate = models.DecimalField(max_digits=7, decimal_places=4)
-    disbursed_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    interest_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    recovered_amount = models.DecimalField(
-        max_digits=15, decimal_places=2, default=Decimal("0.00")
-    )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-    recovered_on = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "loan_accrued_interest"
-        ordering = ["emi_date", "id"]
-
-        constraints = [
-            models.UniqueConstraint(
-                fields=[
-                    "loan",
-                    "disbursement",
-                    "from_date",
-                    "to_date",
-                    "emi_date",
-                ],
-                name="unique_accrued_interest_cycle",
-            ),
-            models.CheckConstraint(
-                check=models.Q(interest_amount__gte=0),
-                name="loan_interest_positive",
-            ),
-            models.CheckConstraint(
-                check=models.Q(days__gte=0),
-                name="loan_interest_days_positive",
-            ),
-        ]
-
-        indexes = [
-            models.Index(fields=["loan"]),
-            models.Index(fields=["status"]),
-            models.Index(fields=["emi_date"]),
-            models.Index(fields=["disbursement"]),
-            models.Index(fields=["loan", "status"]),
-            models.Index(fields=["loan", "emi_date"]),
-            models.Index(fields=["loan", "disbursement"]),
-            models.Index(fields=["loan", "emi_date", "status"]),  # ✅ yaha hona chahiye
-        ]
-
-    def __str__(self):
-        return f"{self.loan.loan_name} - ₹{self.interest_amount}"
-
-    @property
-    def pending_amount(self):
-        return self.interest_amount - self.recovered_amount
-
-    @property
-    def is_pending(self):
-        return self.status == "pending"
-
-    @property
-    def is_recovered(self):
-        return self.status == "recovered"
 
 
 class Notification(models.Model):

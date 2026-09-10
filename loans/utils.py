@@ -134,9 +134,6 @@ def build_paid_schedule(loan):
             "interest": Decimal(str(payment.interest_component)).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             ),
-            "additional_interest": Decimal(
-                str(payment.additional_interest or 0)
-            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
             "total_debit": Decimal(str(payment.total_debit_amount)).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             ),
@@ -158,9 +155,6 @@ def build_projected_schedule(loan):
     Generates projected EMIs from current loan state.
     Does not use Payment table.
     """
-    from django.db.models import Sum
-
-    from loans.models import LoanAccruedInterest
 
     frequency = getattr(loan, "emi_frequency", "monthly")
     _, periods_per_year = get_period_details(frequency)
@@ -172,14 +166,6 @@ def build_projected_schedule(loan):
     emi = Decimal(str(loan.emi))
     balance = Decimal(str(loan.amount))
     today = date.today()
-    accrued_lookup = {
-        row["emi_date"]: row["total"]
-        for row in (
-            LoanAccruedInterest.objects.filter(loan=loan, status="pending")
-            .values("emi_date")
-            .annotate(total=Sum("interest_amount"))
-        )
-    }
     prepayments = list(loan.prepayments.order_by("prepayment_date"))
     prepayment_index = 0
     rows = {}
@@ -206,12 +192,7 @@ def build_projected_schedule(loan):
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
         projected_balance = max(Decimal("0.00"), balance - principal)
-        additional_interest = Decimal(
-            str(accrued_lookup.get(due_date, Decimal("0.00")))
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        total_debit = (current_emi + additional_interest).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        total_debit = current_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         status = "pending" if due_date >= today else "overdue"
         rows[period] = {
             "period": period,
@@ -223,10 +204,6 @@ def build_projected_schedule(loan):
             "regular_emi": current_emi,
             "principal": principal,
             "interest": interest,
-            "additional_interest": additional_interest.quantize(
-                Decimal("0.01"),
-                rounding=ROUND_HALF_UP,
-            ),
             "total_debit": total_debit,
             "balance": projected_balance,
             "payment_mode": ("auto_debit" if loan.auto_debit else "manual"),
@@ -313,7 +290,6 @@ def get_schedule_summary(loan):
 
     principal_paid = Decimal("0.00")
     interest_paid = Decimal("0.00")
-    additional_interest = Decimal("0.00")
 
     for row in schedule:
         if row["status"] == "paid":
@@ -321,7 +297,6 @@ def get_schedule_summary(loan):
             paid_amount += row["total_debit"]
             principal_paid += row["principal"]
             interest_paid += row["interest"]
-            additional_interest += row["additional_interest"]
         elif row["status"] == "pending":
             pending += 1
             pending_amount += row["total_debit"]
@@ -337,7 +312,6 @@ def get_schedule_summary(loan):
         "overdue_amount": overdue_amount.quantize(Decimal("0.01")),
         "principal_paid": principal_paid.quantize(Decimal("0.01")),
         "interest_paid": interest_paid.quantize(Decimal("0.01")),
-        "additional_interest": additional_interest.quantize(Decimal("0.01")),
     }
 
 

@@ -4,7 +4,6 @@ from django.http import HttpResponse
 from loans.models import (
     Investment,
     Loan,
-    LoanAccruedInterest,
     LoanDisbursement,
     LoanDocument,
     LoanNote,
@@ -132,26 +131,7 @@ class LoanDisbursementAdmin(admin.ModelAdmin):
         "amount",
         "purpose",
         "status",
-        "is_interest_processed",
     )
-
-
-@admin.register(LoanAccruedInterest)
-class LoanAccruedInterestAdmin(admin.ModelAdmin):
-    list_display = (
-        "loan",
-        "disbursement",
-        "emi_date",
-        "interest_amount",
-        "status",
-        "recovered_on",
-    )
-    list_filter = ("status", "emi_date")
-    search_fields = ("loan__loan_name", "loan__user__username")
-    readonly_fields = ("created_at", "updated_at")
-    ordering = ("-emi_date",)
-    date_hierarchy = "emi_date"
-    list_select_related = ("loan", "disbursement")
 
 
 @admin.register(SupportTicket)
