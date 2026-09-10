@@ -21,10 +21,7 @@ from payments.models import Payment
 
 @transaction.atomic
 def process_emi_payment(
-    loan,
-    payment_date=None,
-    payment_mode="manual",
-    payment_type="emi",
+    loan, payment_date=None, payment_mode="manual", payment_type="emi"
 ):
     """
     Process a single EMI payment.
@@ -52,10 +49,7 @@ def process_emi_payment(
         return None
 
     # Already fully paid
-    if (
-        loan.remaining_balance == Decimal("0.00")
-        and not loan.has_pending_accrued_interest
-    ):
+    if loan.remaining_balance == Decimal("0.00"):
         loan.remaining_balance = Decimal("0.00")
         loan.status = "closed"
         loan.closed_date = payment_date
@@ -103,7 +97,6 @@ def process_emi_payment(
 
     regular_emi = breakup["regular_emi"]
     regular_interest = breakup["regular_interest"]
-    additional_interest = breakup["additional_interest"]
     total_debit = breakup["total_debit"]
 
     principal = (regular_emi - regular_interest).quantize(Decimal("0.01"))
@@ -112,16 +105,15 @@ def process_emi_payment(
         raise ValueError("EMI is too low to cover interest.")
 
     # Last EMI adjustment
-    if principal >= loan.remaining_balance:
-        principal = loan.remaining_balance
-
-        payment_amount = (principal + regular_interest + additional_interest).quantize(
-            Decimal("0.01")
-        )
+    if principal >= breakup["outstanding_disbursed"]:
+        principal = breakup["outstanding_disbursed"]
+        payment_amount = (principal + regular_interest).quantize(Decimal("0.01"))
     else:
         payment_amount = total_debit.quantize(Decimal("0.01"))
 
-    new_balance = (loan.remaining_balance - principal).quantize(Decimal("0.01"))
+    new_balance = (breakup["outstanding_disbursed"] - principal).quantize(
+        Decimal("0.01")
+    )
 
     if new_balance < Decimal("0.00"):
         new_balance = Decimal("0.00")
@@ -133,7 +125,6 @@ def process_emi_payment(
         principal_component=principal,
         interest_component=regular_interest,
         regular_emi_amount=regular_emi,
-        additional_interest=additional_interest,
         total_debit_amount=total_debit,
         balance_after=new_balance,
         due_date=due_date,
@@ -143,26 +134,15 @@ def process_emi_payment(
         status="paid",
     )
 
-    AccruedInterestService.mark_interest_recovered(
-        loan=loan,
-        emi_date=due_date,
-        payment=payment,
-    )
-
     loan.remaining_balance = new_balance
-    loan.total_interest_paid += (regular_interest + additional_interest).quantize(
-        Decimal("0.01")
-    )
+    loan.total_interest_paid += regular_interest.quantize(Decimal("0.01"))
 
     update_fields = [
         "remaining_balance",
         "total_interest_paid",
     ]
 
-    if (
-        loan.remaining_balance == Decimal("0.00")
-        and not loan.has_pending_accrued_interest
-    ):
+    if loan.remaining_balance == Decimal("0.00"):
         loan.remaining_balance = Decimal("0.00")
         loan.status = "closed"
         loan.closed_date = payment_date

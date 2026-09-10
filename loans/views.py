@@ -46,7 +46,6 @@ from loans.models import (
     AppearancePreference,
     BankAccount,
     Loan,
-    LoanAccruedInterest,
     LoanDisbursement,
     LoanDocument,
     LoanNote,
@@ -284,15 +283,10 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             )
             next_interest = loan.remaining_balance * period_rate
             next_principal = Decimal(str(loan.emi)) - next_interest
-            additional_interest = loan.total_pending_accrued_interest
-
-            total_debit = (Decimal(str(loan.emi)) + additional_interest).quantize(
-                Decimal("0.01")
-            )
+            total_debit = Decimal(str(loan.emi)).quantize(Decimal("0.01"))
 
             context.update(
                 {
-                    "additional_interest": additional_interest,
                     "total_debit": total_debit,
                 }
             )
@@ -614,26 +608,12 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                 pass
         context["goal_tracker"] = self.object.goal_tracker
         context["disbursements"] = loan.disbursements.order_by("disbursement_number")
-
-        context["pending_accrued_interest"] = loan.accrued_interests.filter(
-            status="pending"
-        ).order_by("emi_date")
-
-        context["recovered_accrued_interest"] = loan.accrued_interests.filter(
-            status="recovered"
-        ).order_by("-emi_date")[:20]
-
         context["total_disbursed_amount"] = loan.total_disbursed_amount
-
         context["remaining_sanction_amount"] = loan.remaining_sanction_amount
-
-        context["pending_interest"] = loan.total_pending_accrued_interest
-
-        context["recovered_interest"] = loan.total_recovered_accrued_interest
         if loan.status == "active" and next_emi_date:
+
             summary = AccruedInterestService.calculate_total_debit(loan, next_emi_date)
             context["regular_emi"] = summary["regular_emi"]
-            context["additional_interest"] = summary["additional_interest"]
             context["next_emi_total_debit"] = summary["total_debit"]
             context["regular_interest"] = summary["regular_interest"]
         affordability = {}
@@ -650,9 +630,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                     Decimal("0"),
                 )
 
-                effective_emi = (
-                    Decimal(str(loan.emi)) + loan.total_pending_accrued_interest
-                )
+                effective_emi = Decimal(str(loan.emi))
 
                 if disposable_income > 0:
                     emi_ratio = (effective_emi / disposable_income) * Decimal("100")
@@ -892,9 +870,6 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
             form.instance.first_emi_date = form.instance.start_date
 
         messages.success(self.request, "Loan updated successfully.")
-        LoanAccruedInterest.objects.filter(
-            loan=form.instance, status="pending"
-        ).delete()
         for disbursement in form.instance.disbursements.filter(status="released"):
             disbursement.is_interest_processed = False
             disbursement.save(update_fields=["is_interest_processed"])
@@ -1040,9 +1015,6 @@ class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
     @transaction.atomic
     def form_valid(self, form):
         response = super().form_valid(form)
-        LoanAccruedInterest.objects.filter(
-            disbursement=self.object, status="pending"
-        ).delete()
         self.object.is_interest_processed = False
         self.object.save(update_fields=["is_interest_processed"])
         if self.object.status == "released":
@@ -1071,10 +1043,6 @@ class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
         loan_id = self.object.loan.pk
-        LoanAccruedInterest.objects.filter(
-            disbursement=self.object,
-            status="pending",
-        ).delete()
         self.object.delete()
         messages.success(request, "Disbursement deleted successfully.")
         return redirect(

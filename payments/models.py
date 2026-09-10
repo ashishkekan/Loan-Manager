@@ -54,12 +54,6 @@ class Payment(models.Model):
     payment_type = models.CharField(
         max_length=20, choices=PAYMENT_TYPE_CHOICES, default="emi"
     )
-    additional_interest = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=Decimal("0.00"),
-        help_text="Additional accrued interest recovered with this EMI.",
-    )
     regular_emi_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
