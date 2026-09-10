@@ -238,10 +238,9 @@ def export_schedule_excel(request, loan_id):
         "Period",
         "Due Date",
         "EMI (₹)",
-        "Additional Interest (₹)",
-        "Total Debit (₹)",
         "Principal (₹)",
         "Interest (₹)",
+        "Total Debit (₹)",
         "Balance (₹)",
         "Status",
     ]
@@ -264,10 +263,9 @@ def export_schedule_excel(request, loan_id):
                 row["period"],
                 row["due_date"].strftime("%Y-%m-%d"),
                 float(row["regular_emi"]),
-                float(row.get("additional_interest", 0)),
-                float(row["total_debit"]),
                 float(row["principal"]),
                 float(row["interest"]),
+                float(row["total_debit"]),
                 float(row["balance"]),
                 row["status"].title(),
             ]
@@ -374,9 +372,6 @@ def payment_dashboard(request):
         interest_collected = paid_payments.aggregate(total=Sum("interest_component"))[
             "total"
         ] or Decimal("0.00")
-        late_interest_collected = paid_payments.aggregate(
-            total=Sum("additional_interest")
-        )["total"] or Decimal("0.00")
         auto_debit_payments = payments.filter(payment_mode="auto_debit")
         auto_debit_total = auto_debit_payments.count()
         auto_debit_success = auto_debit_payments.filter(status="paid").count()
@@ -490,7 +485,6 @@ def payment_dashboard(request):
         analytics = {
             "avg_emi": Decimal("0.00"),
             "highest_emi": Decimal("0.00"),
-            "additional_interest": Decimal("0.00"),
             "principal_paid": Decimal("0.00"),
             "interest_paid": Decimal("0.00"),
             "late_payments": 0,
@@ -515,7 +509,6 @@ def payment_dashboard(request):
             overdue_amount += stats["overdue_amount"]
             analytics["principal_paid"] += stats["principal_paid"]
             analytics["interest_paid"] += stats["interest_paid"]
-            analytics["additional_interest"] += stats["additional_interest"]
             paid = 0
             pending = 0
             overdue = 0
@@ -571,11 +564,9 @@ def payment_dashboard(request):
             analytics["auto_debit_rate"] = round(auto_success * 100 / auto_total, 1)
         if overdue_emi:
             overdue_days = (today - overdue_emi["due_date"]).days
-            late_interest = overdue_emi["additional_interest"]
             total_payable = overdue_emi["total_debit"]
         else:
             overdue_days = 0
-            late_interest = Decimal("0.00")
             total_payable = Decimal("0.00")
         auto_debit_count = loans.filter(auto_debit=True, status="active").count()
         recent_payments = payment_queryset.filter(status="paid")[:5]
@@ -649,7 +640,6 @@ def export_payment_excel(request):
         sheet.cell(row=row, column=5).value = payment.get_status_display()
         sheet.cell(row=row, column=6).value = payment.get_payment_mode_display()
         sheet.cell(row=row, column=7).value = float(payment.regular_emi_amount)
-        sheet.cell(row=row, column=8).value = float(payment.additional_interest)
         sheet.cell(row=row, column=9).value = float(payment.total_debit_amount)
         sheet.cell(row=row, column=10).value = float(payment.principal_component)
         sheet.cell(row=row, column=11).value = float(payment.interest_component)

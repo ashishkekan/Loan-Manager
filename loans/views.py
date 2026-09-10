@@ -25,6 +25,10 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from dashboard.models import ActivityLog
 from dashboard.utils import add_activity
@@ -724,50 +728,6 @@ class LoanCompareView(LoginRequiredMixin, TemplateView):
             context["comparison"] = compare_loans(loans)
         context["loans"] = loans
         return context
-
-
-def export_loan_csv(request, loan_id):
-    if request.user.is_staff:
-        loan = get_object_or_404(Loan, pk=loan_id)
-    else:
-        loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    schedule = generate_full_schedule(loan)
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = (
-        f'attachment; filename="{loan.loan_name}_schedule.csv"'
-    )
-    writer = csv.writer(response)
-    writer.writerow(
-        [
-            f"Amortization Schedule — {loan.loan_name}",
-            f"Amount: ₹{loan.amount}",
-            f"Rate: {loan.interest_rate}%",
-            f"Tenure: {loan.tenure_years} years",
-            f"{loan.get_emi_frequency_display()} EMI: ₹{loan.emi}",
-            "",
-            "Period",
-            "Due Date",
-            "EMI",
-            "Principal",
-            "Interest",
-            "Balance",
-            "Status",
-        ]
-    )
-    for row in schedule:
-        writer.writerow(
-            [
-                "",
-                row["period"],
-                row["due_date"],
-                row["regular_emi"],
-                row["principal"],
-                row["interest"],
-                row["balance"],
-                row["status"],
-            ]
-        )
-    return response
 
 
 @login_required

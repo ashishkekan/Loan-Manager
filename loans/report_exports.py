@@ -265,28 +265,6 @@ def _export_excel(report_type, f):
     return response
 
 
-def _export_csv(report_type, f):
-    meta = REPORT_META[report_type]
-    buffer = StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow([meta["title"]])
-    writer.writerow([f"Generated: {timezone.now().strftime('%Y-%m-%d %H:%M')}"])
-    writer.writerow([])
-    writer.writerow(meta["headers"])
-
-    gen = ROW_GENERATORS[report_type]
-    for row_data in gen(f):
-        writer.writerow(row_data)
-
-    today_str = timezone.localdate().isoformat()
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = (
-        f'attachment; filename="{meta["filename"]}_{today_str}.csv"'
-    )
-    response.write(buffer.getvalue())
-    return response
-
-
 def _export_pdf(report_type, f):
     meta = REPORT_META[report_type]
     response = HttpResponse(content_type="application/pdf")
@@ -358,8 +336,6 @@ def export_report(report_type, fmt, f):
     """Dispatch the export to the correct format handler."""
     if fmt == "excel":
         return _export_excel(report_type, f)
-    if fmt == "csv":
-        return _export_csv(report_type, f)
     if fmt == "pdf":
         return _export_pdf(report_type, f)
     raise ValueError(f"Unsupported export format: {fmt}")

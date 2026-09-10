@@ -26,7 +26,6 @@ from loans.views import (
     delete_note,
     documents_dashboard,
     download_document,
-    export_loan_csv,
     logout_all_devices,
     mark_all_notifications_read,
     mark_notification_read,
@@ -53,7 +52,6 @@ urlpatterns = [
     path("loans/<int:pk>/delete/", LoanDeleteView.as_view(), name="delete_loan"),
     path("loan/<int:pk>/edit/", LoanUpdateView.as_view(), name="edit_loan"),
     path("loan/<int:pk>/close/", close_loan, name="close_loan"),
-    path("loans/<int:loan_id>/export/csv/", export_loan_csv, name="export_csv"),
     path("loans/<int:loan_id>/note/add/", add_note, name="add_note"),
     path(
         "loans/<int:loan_id>/note/<int:note_id>/delete/",
