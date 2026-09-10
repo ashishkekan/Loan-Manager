@@ -47,10 +47,9 @@
                     <th>Month</th>
                     <th>Due Date</th>
                     <th>Regular EMI</th>
-                    <th>Additional Interest</th>
-                    <th>Total Debit</th>
                     <th>Principal</th>
                     <th>Interest</th>
+                    <th>Total Debit</th>
                     <th>Balance</th>
                     <th>Status</th>
                 </tr>
@@ -61,10 +60,9 @@
                         <td>{{ row.period }}</td>
                         <td>{{ row.due_date|date:"M d, Y" }}</td>
                         <td>₹{{ row.regular_emi|floatformat:0 }}</td>
-                        <td>₹{{ row.additional_interest|floatformat:0 }}</td>
-                        <td>₹{{ row.total_debit|floatformat:0 }}</td>
                         <td>₹{{ row.principal|floatformat:0 }}</td>
                         <td>₹{{ row.interest|floatformat:0 }}</td>
+                        <td>₹{{ row.total_debit|floatformat:0 }}</td>
                         <td>₹{{ row.balance|floatformat:0 }}</td>
                         <td>
                             {% if row.status == 'paid' %}
@@ -100,7 +98,17 @@
             let count = 0;
 
             rows.forEach(row => {
-                if (filter === 'all' || row.dataset.status === filter) {
+                const status = row.dataset.status;
+                let show = false;
+                if (filter === 'all') {
+                    show = true;
+                } else if (filter === 'paid') {
+                    show = status === 'paid';
+                } else if (filter === 'projected') {
+                    show = status === 'pending' || status === 'overdue';
+                }
+
+                if (show) {
                     row.style.display = '';
                     count++;
                 } else {
