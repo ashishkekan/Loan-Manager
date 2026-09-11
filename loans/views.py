@@ -86,10 +86,8 @@ class LoanListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         queryset = Loan.objects.select_related("user").order_by("-created_at")
-
         if self.request.user.is_staff:
             return queryset
-
         return queryset.filter(user=self.request.user)
 
 
@@ -113,19 +111,12 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
         tenure = form.cleaned_data["tenure_years"]
 
         form.instance.emi = calculate_emi(
-            amount,
-            rate,
-            tenure,
-            form.cleaned_data["emi_frequency"],
+            amount, rate, tenure, form.cleaned_data["emi_frequency"]
         )
-
         form.instance.remaining_balance = amount
-
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
-
         response = super().form_valid(form)
-
         add_activity(
             self.request.user,
             "loan_created",
@@ -133,7 +124,6 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
             self.object,
             f"Loan of ₹{self.object.amount:,.0f} added.",
         )
-
         create_notification(
             user=self.request.user,
             title="Loan Created",
@@ -141,9 +131,7 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
             notification_type="loan",
             loan=self.object,
         )
-
         messages.success(self.request, f'"{self.object.loan_name}" created!')
-
         return response
 
     def get_success_url(self):
@@ -157,19 +145,15 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
 
     def get_queryset(self):
         return get_user_loans(self.request.user).prefetch_related(
-            "payments",
-            "prepayments",
-            "notes",
+            "payments", "prepayments", "notes"
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan = self.object
-
         context["paid_payments"] = loan.payments.filter(status="paid").order_by(
             "-payment_number"
         )[:20]
-
         context["prepayments"] = loan.prepayments.all().order_by("-prepayment_date")
         context["notes"] = loan.notes.all()[:10]
         context["note_form"] = LoanNoteForm()
@@ -207,9 +191,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             next_num = loan.payments.filter(status="paid").count() + 1
             context["next_emi_num"] = next_num
             context["next_emi_date"] = add_periods(
-                loan.schedule_start_date,
-                next_num - 1,
-                loan.emi_frequency,
+                loan.schedule_start_date, next_num - 1, loan.emi_frequency
             )
             next_emi_date = add_periods(
                 loan.schedule_start_date, next_num - 1, loan.emi_frequency
@@ -288,7 +270,6 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             next_interest = loan.remaining_balance * period_rate
             next_principal = Decimal(str(loan.emi)) - next_interest
             total_debit = Decimal(str(loan.emi)).quantize(Decimal("0.01"))
-
             context.update(
                 {
                     "total_debit": total_debit,
@@ -628,21 +609,15 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             try:
                 monthly_income = Decimal(monthly_income)
                 monthly_expenses = Decimal(monthly_expenses)
-
-                disposable_income = max(
-                    monthly_income - monthly_expenses,
-                    Decimal("0"),
-                )
+                disposable_income = max(monthly_income - monthly_expenses, Decimal("0"))
 
                 effective_emi = Decimal(str(loan.emi))
-
                 if disposable_income > 0:
                     emi_ratio = (effective_emi / disposable_income) * Decimal("100")
                 else:
                     emi_ratio = Decimal("100")
 
                 emi_ratio = emi_ratio.quantize(Decimal("0.1"))
-
                 if emi_ratio <= 35:
                     status = "Excellent"
                     color = "success"
@@ -668,10 +643,8 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
                     "status": status,
                     "color": color,
                 }
-
             except Exception:
                 pass
-
         context["affordability"] = affordability
         return context
 
@@ -682,10 +655,8 @@ class LoanDeleteView(LoginRequiredMixin, DeleteView):
 
     def get_queryset(self):
         queryset = Loan.objects.all()
-
         if self.request.user.is_staff:
             return queryset
-
         return queryset.filter(user=self.request.user)
 
     def delete(self, request, *args, **kwargs):
@@ -779,10 +750,7 @@ def close_loan(request, pk):
             messages.error(
                 request, "Loan cannot be closed while accrued interest is pending."
             )
-            return redirect(
-                "loan_detail",
-                pk=loan.pk,
-            )
+            return redirect("loan_detail", pk=loan.pk)
         loan.status = "closed"
         loan.closed_date = parse_date(request.POST.get("closing_date"))
         loan.save()
@@ -811,24 +779,19 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_queryset(self):
         queryset = Loan.objects.all()
-
         if self.request.user.is_staff:
             return queryset
-
         return queryset.filter(user=self.request.user)
 
     def form_valid(self, form):
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
-
         form.instance.emi = calculate_emi(
             amount, rate, tenure, form.cleaned_data["emi_frequency"]
         )
-
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
-
         messages.success(self.request, "Loan updated successfully.")
         for disbursement in form.instance.disbursements.filter(status="released"):
             disbursement.is_interest_processed = False
@@ -837,10 +800,7 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy(
-            "loan_detail",
-            kwargs={"pk": self.object.pk},
-        )
+        return reverse_lazy("loan_detail", kwargs={"pk": self.object.pk})
 
 
 class LoanDisbursementListView(LoginRequiredMixin, ListView):
@@ -864,17 +824,11 @@ class LoanDisbursementListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         context["loan"] = self.loan
-
         context["total_disbursed"] = self.loan.total_disbursed_amount
-
         context["remaining_sanction"] = self.loan.remaining_sanction_amount
-
         context["pending_interest"] = self.loan.total_pending_accrued_interest
-
         context["recovered_interest"] = self.loan.total_recovered_accrued_interest
-
         return context
 
 
@@ -885,25 +839,19 @@ class LoanDisbursementDetailView(LoginRequiredMixin, DetailView):
 
     def get_queryset(self):
         queryset = LoanDisbursement.objects.select_related("loan")
-
         if self.request.user.is_staff:
             return queryset
-
         return queryset.filter(loan__user=self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         context["interest_entries"] = self.object.interest_entries.order_by("emi_date")
-
         context["total_interest"] = self.object.interest_entries.filter(
             status="recovered"
         ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
-
         context["pending_interest"] = self.object.interest_entries.filter(
             status="pending"
         ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
-
         return context
 
 
@@ -935,18 +883,13 @@ class LoanDisbursementCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.loan = self.loan
         response = super().form_valid(form)
-
         if self.object.status == "released":
             AccruedInterestService.generate_for_disbursement(self.object)
-
         messages.success(self.request, "Loan disbursement created successfully.")
         return response
 
     def get_success_url(self):
-        return reverse_lazy(
-            "loan_disbursement_list",
-            kwargs={"loan_id": self.loan.pk},
-        )
+        return reverse_lazy("loan_disbursement_list", kwargs={"loan_id": self.loan.pk})
 
 
 class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
@@ -956,10 +899,8 @@ class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_queryset(self):
         queryset = LoanDisbursement.objects.select_related("loan")
-
         if self.request.user.is_staff:
             return queryset
-
         return queryset.filter(loan__user=self.request.user)
 
     def get_form_kwargs(self):
@@ -993,10 +934,8 @@ class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
 
     def get_queryset(self):
         queryset = LoanDisbursement.objects.all()
-
         if self.request.user.is_staff:
             return queryset
-
         return queryset.filter(loan__user=self.request.user)
 
     @transaction.atomic
@@ -1005,25 +944,11 @@ class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
         loan_id = self.object.loan.pk
         self.object.delete()
         messages.success(request, "Disbursement deleted successfully.")
-        return redirect(
-            "loan_disbursement_list",
-            loan_id=loan_id,
-        )
+        return redirect("loan_disbursement_list", loan_id=loan_id)
 
 
 @login_required
 def documents_dashboard(request):
-    """
-    User Document Vault.
-
-    Features:
-        - Document listing
-        - Search
-        - Loan filter
-        - Document type filter
-        - Summary statistics
-        - Pagination
-    """
     loans = Loan.objects.filter(user=request.user).order_by("loan_name")
     documents = (
         LoanDocument.objects.filter(loan__user=request.user)
@@ -1103,7 +1028,6 @@ def view_document(request, document_id):
 @login_required
 def notifications_dashboard(request):
     is_admin = request.user.is_staff or request.user.is_superuser
-
     if is_admin:
         notifications = (
             Notification.objects.select_related("user", "loan")
@@ -1118,11 +1042,9 @@ def notifications_dashboard(request):
             .order_by("-created_at")
         )
         all_notifications = Notification.objects.filter(user=request.user)
-
     search = request.GET.get("search", "").strip()
     notification_type = request.GET.get("type", "").strip()
     status = request.GET.get("status", "").strip()
-
     if search:
         search_filter = (
             Q(title__icontains=search)
@@ -1137,29 +1059,23 @@ def notifications_dashboard(request):
                 | Q(user__last_name__icontains=search)
             )
         notifications = notifications.filter(search_filter)
-
     if notification_type:
         notifications = notifications.filter(notification_type=notification_type)
-
     if status == "read":
         notifications = notifications.filter(is_read=True)
     elif status == "unread":
         notifications = notifications.filter(is_read=False)
-
     total_notifications = all_notifications.count()
     unread_count = all_notifications.filter(is_read=False).count()
     payment_alerts = all_notifications.filter(notification_type="payment").count()
     loan_updates = all_notifications.filter(notification_type="loan").count()
-
     if is_admin:
         notified_users = all_notifications.values("user_id").distinct().count()
     else:
         notified_users = 1
-
     paginator = Paginator(notifications, 12)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-
     context = {
         "page_title": "Notifications",
         "notifications": page_obj.object_list,
@@ -1176,27 +1092,20 @@ def notifications_dashboard(request):
         "has_notifications": total_notifications > 0,
         "is_admin": is_admin,
     }
-
     return render(request, "loans/notifications_dashboard.html", context)
 
 
 @login_required
 def mark_notification_read(request, notification_id):
     notification = get_object_or_404(
-        Notification,
-        id=notification_id,
-        user=request.user,
+        Notification, id=notification_id, user=request.user
     )
-
     if request.method == "POST":
         notification.is_read = True
         notification.save(update_fields=["is_read"])
-
     next_url = request.POST.get("next")
-
     if next_url:
         return redirect(next_url)
-
     return redirect("notifications_dashboard")
 
 
@@ -1243,21 +1152,13 @@ def support_dashboard(request):
         "status_choices": SupportTicket.STATUS_CHOICES,
         "category_choices": SupportTicket.CATEGORY_CHOICES,
     }
-    return render(
-        request,
-        "loans/support_dashboard.html",
-        context,
-    )
+    return render(request, "loans/support_dashboard.html", context)
 
 
 @login_required
 def create_support_ticket(request):
     if request.method == "POST":
-        form = SupportTicketForm(
-            request.POST,
-            request.FILES,
-            user=request.user,
-        )
+        form = SupportTicketForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             ticket = form.save(commit=False)
             ticket.user = request.user
@@ -1276,39 +1177,25 @@ def create_support_ticket(request):
                 "system",
                 ticket.loan,
             )
-            return redirect(
-                "support_ticket_detail",
-                ticket_id=ticket.id,
-            )
+            return redirect("support_ticket_detail", ticket_id=ticket.id)
     else:
         form = SupportTicketForm(user=request.user)
     return render(
         request,
         "loans/support_create_ticket.html",
-        {
-            "page_title": "Create Support Ticket",
-            "form": form,
-        },
+        {"page_title": "Create Support Ticket", "form": form},
     )
 
 
 @login_required
 def support_ticket_detail(request, ticket_id):
     ticket = get_object_or_404(
-        SupportTicket.objects.select_related("loan"),
-        id=ticket_id,
-        user=request.user,
+        SupportTicket.objects.select_related("loan"), id=ticket_id, user=request.user
     )
     if request.method == "POST":
         if ticket.status in ["resolved", "closed"]:
-            return redirect(
-                "support_ticket_detail",
-                ticket_id=ticket.id,
-            )
-        form = SupportReplyForm(
-            request.POST,
-            request.FILES,
-        )
+            return redirect("support_ticket_detail", ticket_id=ticket.id)
+        form = SupportReplyForm(request.POST, request.FILES)
         if form.is_valid():
             reply = form.save(commit=False)
             reply.ticket = ticket
@@ -1317,17 +1204,8 @@ def support_ticket_detail(request, ticket_id):
             reply.save()
             ticket.status = "open"
             ticket.last_response_at = timezone.now()
-            ticket.save(
-                update_fields=[
-                    "status",
-                    "last_response_at",
-                    "updated_at",
-                ]
-            )
-            return redirect(
-                "support_ticket_detail",
-                ticket_id=ticket.id,
-            )
+            ticket.save(update_fields=["status", "last_response_at", "updated_at"])
+            return redirect("support_ticket_detail", ticket_id=ticket.id)
     else:
         form = SupportReplyForm()
     messages = ticket.messages.select_related("user").all()
@@ -1347,12 +1225,7 @@ def support_ticket_detail(request, ticket_id):
 def request_account_deactivation(request):
     if request.method != "POST":
         return redirect("settings")
-
-    messages.success(
-        request,
-        "Your account deactivation request has been submitted.",
-    )
-
+    messages.success(request, "Your account deactivation request has been submitted.")
     return redirect("settings")
 
 
@@ -1360,12 +1233,7 @@ def request_account_deactivation(request):
 def request_account_deletion(request):
     if request.method != "POST":
         return redirect("settings")
-
-    messages.success(
-        request,
-        "Your account deletion request has been submitted.",
-    )
-
+    messages.success(request, "Your account deletion request has been submitted.")
     return redirect("settings")
 
 
@@ -1373,16 +1241,9 @@ def request_account_deletion(request):
 def update_settings_profile(request):
     settings_data = ensure_user_settings(request.user)
     profile = settings_data["profile"]
-
     if request.method != "POST":
         return redirect("settings")
-
-    form = SettingsProfileForm(
-        request.POST,
-        request.FILES,
-        instance=profile,
-    )
-
+    form = SettingsProfileForm(request.POST, request.FILES, instance=profile)
     if form.is_valid():
         form.save()
         messages.success(request, "Profile updated successfully.")
@@ -1391,7 +1252,6 @@ def update_settings_profile(request):
             request,
             "Please correct the errors in your profile information.",
         )
-
     return redirect("settings")
 
 
@@ -1399,64 +1259,37 @@ def update_settings_profile(request):
 def change_settings_password(request):
     if request.method != "POST":
         return redirect("settings")
-
-    form = SettingsPasswordForm(
-        request.user,
-        request.POST,
-    )
-
+    form = SettingsPasswordForm(request.user, request.POST)
     if form.is_valid():
         user = form.save()
         update_session_auth_hash(request, user)
-
-        messages.success(
-            request,
-            "Your password has been changed successfully.",
-        )
+        messages.success(request, "Your password has been changed successfully.")
     else:
         messages.error(
-            request,
-            "Unable to change password. Please check the entered details.",
+            request, "Unable to change password. Please check the entered details."
         )
-
     return redirect("settings")
 
 
 @login_required
 def edit_bank_account(request, pk):
-    bank_account = get_object_or_404(
-        BankAccount,
-        pk=pk,
-        user=request.user,
-    )
-
+    bank_account = get_object_or_404(BankAccount, pk=pk, user=request.user)
     if request.method == "POST":
-        form = BankAccountForm(
-            request.POST,
-            instance=bank_account,
-        )
-
+        form = BankAccountForm(request.POST, instance=bank_account)
         if form.is_valid():
             if form.cleaned_data.get("is_default"):
                 BankAccount.objects.filter(user=request.user).exclude(
                     pk=bank_account.pk
                 ).update(is_default=False)
-
             form.save()
-
             messages.success(request, "Bank account updated successfully.")
-
             return redirect("settings")
     else:
         form = BankAccountForm(instance=bank_account)
-
     return render(
         request,
         "settings/edit_bank_account.html",
-        {
-            "form": form,
-            "bank_account": bank_account,
-        },
+        {"form": form, "bank_account": bank_account},
     )
 
 
@@ -1470,15 +1303,10 @@ def admin_banks(request):
     banks = BankAccount.objects.select_related("user").order_by(
         "bank_name", "account_holder"
     )
-
     total_bank_accounts = banks.count()
-
     total_banks = BankAccount.objects.values("bank_name").distinct().count()
-
     total_users_with_bank = BankAccount.objects.values("user_id").distinct().count()
-
     default_accounts = BankAccount.objects.filter(is_default=True).count()
-
     bank_summary = (
         BankAccount.objects.values("bank_name")
         .annotate(
@@ -1487,7 +1315,6 @@ def admin_banks(request):
         )
         .order_by("bank_name")
     )
-
     context = {
         "page_title": "Banks",
         "banks": banks,
@@ -1497,7 +1324,6 @@ def admin_banks(request):
         "default_accounts": default_accounts,
         "bank_summary": bank_summary,
     }
-
     return render(request, "loans/banks.html", context)
 
 
@@ -1505,17 +1331,14 @@ def admin_banks(request):
 def activity_logs_dashboard(request):
     if not request.user.is_staff:
         return redirect("dashboard")
-
     logs = (
         ActivityLog.objects.filter(user__isnull=False)
         .select_related("user", "loan")
         .order_by("-created_at")
     )
-
     search = request.GET.get("search", "").strip()
     action = request.GET.get("action", "").strip()
     date_range = request.GET.get("date_range", "").strip()
-
     if search:
         logs = logs.filter(
             Q(title__icontains=search)
@@ -1523,33 +1346,23 @@ def activity_logs_dashboard(request):
             | Q(user__username__icontains=search)
             | Q(loan__loan_name__icontains=search)
         )
-
     if action:
         logs = logs.filter(action=action)
-
     today = timezone.localdate()
-
     if date_range == "today":
         logs = logs.filter(created_at__date=today)
     elif date_range == "7_days":
         logs = logs.filter(created_at__date__gte=today - timedelta(days=6))
     elif date_range == "30_days":
         logs = logs.filter(created_at__date__gte=today - timedelta(days=29))
-
     all_logs = ActivityLog.objects.all()
-
     total_logs = all_logs.count()
-
     today_logs = all_logs.filter(created_at__date=today).count()
-
     emi_paid_count = all_logs.filter(action="emi_paid").count()
-
     auto_debit_count = all_logs.filter(action="auto_debit").count()
-
     paginator = Paginator(logs, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-
     context = {
         "page_title": "Activity Logs",
         "logs": page_obj.object_list,
@@ -1564,15 +1377,10 @@ def activity_logs_dashboard(request):
         "action_choices": ActivityLog.ACTIONS,
     }
 
-    return render(
-        request,
-        "loans/activity_logs_dashboard.html",
-        context,
-    )
+    return render(request, "loans/activity_logs_dashboard.html", context)
 
 
 def _resolve_target_user(request, user_id):
-    """Helper to determine if admin is editing another user or self."""
     if user_id:
         if not request.user.is_staff:
             return None, redirect("settings_dashboard")
@@ -1592,17 +1400,14 @@ def update_settings_theme(request, user_id=None):
 
     theme = request.POST.get("theme")
     allowed_themes = {value for value, label in AppearancePreference.THEME_CHOICES}
-
     if theme not in allowed_themes:
         messages.error(request, "Invalid theme selected.")
         return redirect("settings_dashboard")
 
     settings_data = ensure_user_settings(target_user)
     appearance = settings_data["appearance_preferences"]
-
     appearance.theme = theme
     appearance.save(update_fields=["theme"])
-
     messages.success(request, "Theme preference updated.")
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
@@ -1642,7 +1447,6 @@ def settings_dashboard(request, user_id=None):
         return error_redirect
 
     settings_data = ensure_user_settings(target_user)
-
     context = {
         "page_title": "Settings",
         "target_user": target_user,
@@ -1662,14 +1466,12 @@ def settings_dashboard(request, user_id=None):
         ),
         **settings_data,
     }
-
     if request.user.is_staff:
         context.update(get_admin_statistics())
         if target_user != request.user:
             context.update(get_account_statistics(target_user))
     else:
         context.update(get_account_statistics(request.user))
-
     return render(request, "loans/settings.html", context)
 
 
@@ -1681,7 +1483,6 @@ def update_profile(request, user_id=None):
 
     settings_data = ensure_user_settings(target_user)
     profile = settings_data["profile"]
-
     if request.method == "POST":
         form = SettingsProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
@@ -1696,7 +1497,6 @@ def update_profile(request, user_id=None):
                 if user_id
                 else redirect("settings_dashboard")
             )
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
@@ -1711,20 +1511,17 @@ def update_password(request, user_id=None):
         return error_redirect
 
     settings_data = ensure_user_settings(target_user)
-
     if request.method == "POST":
         form = SettingsPasswordForm(target_user, request.POST)
         if form.is_valid():
             user = form.save()
             if target_user == request.user:
                 update_session_auth_hash(request, user)
-
             settings_data["security_settings"].last_password_change = timezone.now()
             settings_data["security_settings"].save(
                 update_fields=["last_password_change", "updated_at"]
             )
             messages.success(request, "Password changed successfully.")
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
@@ -1740,13 +1537,11 @@ def update_notification_preferences(request, user_id=None):
 
     settings_data = ensure_user_settings(target_user)
     preferences = settings_data["notification_preferences"]
-
     if request.method == "POST":
         form = NotificationPreferenceForm(request.POST, instance=preferences)
         if form.is_valid():
             form.save()
             messages.success(request, "Notification preferences updated successfully.")
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
@@ -1762,13 +1557,11 @@ def update_appearance_preferences(request, user_id=None):
 
     settings_data = ensure_user_settings(target_user)
     preferences = settings_data["appearance_preferences"]
-
     if request.method == "POST":
         form = AppearancePreferenceForm(request.POST, instance=preferences)
         if form.is_valid():
             form.save()
             messages.success(request, "Appearance preferences updated successfully.")
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
@@ -1784,13 +1577,11 @@ def update_privacy_settings(request, user_id=None):
 
     settings_data = ensure_user_settings(target_user)
     privacy_settings = settings_data["privacy_settings"]
-
     if request.method == "POST":
         form = PrivacySettingForm(request.POST, instance=privacy_settings)
         if form.is_valid():
             form.save()
             messages.success(request, "Privacy settings updated successfully.")
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
@@ -1813,7 +1604,6 @@ def add_bank_account(request, user_id=None):
                 BankAccount.objects.filter(user=target_user).update(is_default=False)
             bank_account.save()
             messages.success(request, "Bank account added successfully.")
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
@@ -1833,7 +1623,6 @@ def delete_bank_account(request, user_id=None, pk=None):
     else:
         bank.delete()
         messages.success(request, "Bank account removed successfully.")
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
@@ -1855,7 +1644,6 @@ def set_default_bank_account(request, user_id=None, pk=None):
         bank.is_default = True
         bank.save(update_fields=["is_default", "updated_at"])
         messages.success(request, "Default bank account updated.")
-
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
         if user_id
