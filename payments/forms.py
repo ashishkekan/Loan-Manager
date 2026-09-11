@@ -8,8 +8,6 @@ from payments.models import Prepayment
 
 
 class PrepaymentForm(forms.ModelForm):
-    """Form for making a prepayment towards loan principal."""
-
     class Meta:
         model = Prepayment
         fields = ["amount", "prepayment_date"]

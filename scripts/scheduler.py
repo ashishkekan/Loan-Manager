@@ -16,17 +16,8 @@ if not server:
 print(f"Running scheduler for : {server}")
 
 if server == "ubuntu":
-    subprocess.run(
-        ["bash", str(BASE_DIR / "ubuntu_auto_debit.sh")],
-        check=True,
-    )
-
+    subprocess.run(["bash", str(BASE_DIR / "ubuntu_auto_debit.sh")], check=True)
 elif server == "windows":
-    subprocess.run(
-        [str(BASE_DIR / "windows_auto_debit.bat")],
-        shell=True,
-        check=True,
-    )
-
+    subprocess.run([str(BASE_DIR / "windows_auto_debit.bat")], shell=True, check=True)
 else:
     raise Exception(f"Unknown server type : {server}")

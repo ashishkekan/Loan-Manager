@@ -37,8 +37,6 @@ class SetupProfileView(LoginRequiredMixin, CreateView):
 
 
 class MarketplaceView(LoginRequiredMixin, ListView):
-    """Dashboard for Lenders to find investment opportunities."""
-
     model = Loan
     template_name = "marketplace/marketplace.html"
     context_object_name = "opportunities"
@@ -78,9 +76,8 @@ def invest_in_loan(request, loan_id):
         Investment.objects.create(loan=loan, lender=request.user, amount=amount)
         loan.funded_amount += amount
         if loan.funded_amount >= loan.amount:
-            loan.status = "active"  # Fully funded
+            loan.status = "active"
         loan.save()
-
         messages.success(
             request, f"Successfully invested ₹{amount:,.0f} in {loan.loan_name}!"
         )
