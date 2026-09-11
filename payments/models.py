@@ -1,5 +1,3 @@
-"""Payment and Prepayment models — track EMI payments and extra payments."""
-
 from decimal import Decimal
 
 from django.conf import settings
@@ -7,11 +5,6 @@ from django.db import models
 
 
 class Payment(models.Model):
-    """
-    Records a single EMI payment with its principal/interest breakdown
-    and the balance remaining after the payment.
-    """
-
     STATUS_CHOICES = [
         ("paid", "Paid"),
         ("pending", "Pending"),
@@ -55,14 +48,10 @@ class Payment(models.Model):
         max_length=20, choices=PAYMENT_TYPE_CHOICES, default="emi"
     )
     regular_emi_amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=Decimal("0.00"),
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
     )
     total_debit_amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=Decimal("0.00"),
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -82,20 +71,9 @@ class Payment(models.Model):
 
 
 class Prepayment(models.Model):
-    """
-    Records an extra payment made towards the loan principal,
-    reducing the outstanding balance and saving future interest.
-    """
+    STATUS_CHOICES = [("paid", "Paid"), ("pending", "Pending")]
 
-    STATUS_CHOICES = [
-        ("paid", "Paid"),
-        ("pending", "Pending"),
-    ]
-
-    PAYMENT_MODE_CHOICES = [
-        ("manual", "Manual"),
-        ("auto_debit", "Auto Debit"),
-    ]
+    PAYMENT_MODE_CHOICES = [("manual", "Manual"), ("auto_debit", "Auto Debit")]
 
     PAYMENT_TYPE_CHOICES = [
         ("prepayment", "Prepayment"),

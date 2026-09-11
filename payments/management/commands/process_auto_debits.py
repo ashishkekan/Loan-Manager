@@ -1,11 +1,3 @@
-"""
-Daily command to process automatic EMI payments.
-
-Run using:
-
-python manage.py process_auto_debits
-"""
-
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -28,7 +20,6 @@ class Command(BaseCommand):
         processed = 0
         skipped = 0
         failed = 0
-
         loans = Loan.objects.filter(status="active", auto_debit=True).order_by("id")
         for loan in loans:
             try:

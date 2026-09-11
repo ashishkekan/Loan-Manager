@@ -16,13 +16,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import (
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from dashboard.utils import add_activity
 from loans.models import Loan
@@ -72,12 +66,7 @@ def pay_emi(request, loan_id):
 
 
 def make_prepayment(request, loan_id):
-    """
-    Process a prepayment (extra payment towards principal).
-    Recalculates interest saved and months reduced.
-    """
     loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-
     if loan.status == "closed":
         messages.warning(request, "Cannot make prepayment on a closed loan.")
         return redirect("loan_detail", pk=loan_id)
@@ -91,7 +80,6 @@ def make_prepayment(request, loan_id):
             old_balance = loan.remaining_balance
             new_balance = old_balance - amount
             frequency = getattr(loan, "emi_frequency", "monthly")
-            # Calculate months reduced
             old_periods = calculate_remaining_periods(
                 old_balance, loan.interest_rate, loan.emi, frequency
             )
@@ -102,7 +90,6 @@ def make_prepayment(request, loan_id):
                 frequency,
             )
             periods_reduced = max(0, old_periods - new_periods)
-            # Estimate interest saved (average monthly interest × months saved)
             _, periods_per_year = get_period_details(frequency)
             R = (
                 Decimal(str(loan.interest_rate))
@@ -111,7 +98,6 @@ def make_prepayment(request, loan_id):
             )
             avg_period_interest = (old_balance + new_balance) / 2 * R
             months_per_period, _ = get_period_details(frequency)
-
             months_reduced = periods_reduced * months_per_period
             interest_saved = avg_period_interest * months_reduced
             prepayment = Prepayment.objects.create(
@@ -135,8 +121,6 @@ def make_prepayment(request, loan_id):
                 notification_type="payment",
                 loan=loan,
             )
-
-            # Update loan balance
             loan.remaining_balance = max(new_balance, Decimal("0.00"))
             loan.save(update_fields=["remaining_balance", "status"])
             if (
@@ -155,7 +139,6 @@ def make_prepayment(request, loan_id):
                     f"~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.",
                 )
             loan.save()
-
             add_activity(
                 loan.user,
                 "prepayment",
@@ -178,25 +161,19 @@ def make_prepayment(request, loan_id):
 
 
 class EMIScheduleView(LoginRequiredMixin, TemplateView):
-    """Display the full amortization schedule for a loan."""
-
     template_name = "payments/emi_schedule.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan_id = kwargs.get("loan_id")
-
         if self.request.user.is_staff:
             loan = get_object_or_404(Loan, pk=loan_id)
         else:
             loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
-
         schedule = generate_full_schedule(loan)
-
         paginator = Paginator(schedule, 20)
         page_number = self.request.GET.get("page", 1)
         page_obj = paginator.get_page(page_number)
-
         context["loan"] = loan
         context["schedule"] = page_obj.object_list
         context["page_obj"] = page_obj
@@ -206,25 +183,18 @@ class EMIScheduleView(LoginRequiredMixin, TemplateView):
 
 @login_required
 def export_schedule_excel(request, loan_id):
-    """Export beautifully formatted amortization schedule to Excel."""
     if request.user.is_staff:
         loan = get_object_or_404(Loan, pk=loan_id)
     else:
         loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-
     schedule = generate_full_schedule(loan)
-
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Amortization Schedule"
-
-    # Title Row
     ws.merge_cells("A1:G1")
     ws["A1"] = f"Loan Schedule - {loan.loan_name}"
     ws["A1"].font = Font(bold=True, size=14, color="28A745")
     ws["A1"].alignment = Alignment(horizontal="center")
-
-    # Meta Info
     ws.append([])
     ws.append(["Loan Amount:", float(loan.amount)])
     ws.append(["Interest Rate:", f"{loan.interest_rate}%"])
@@ -232,8 +202,6 @@ def export_schedule_excel(request, loan_id):
     frequency_label = loan.get_emi_frequency_display()
     ws.append([f"{frequency_label} EMI:", float(loan.emi)])
     ws.append([])
-
-    # Headers
     headers = [
         "Period",
         "Due Date",
@@ -245,8 +213,6 @@ def export_schedule_excel(request, loan_id):
         "Status",
     ]
     ws.append(headers)
-
-    # Style Headers
     for cell in ws[6]:
         cell.font = Font(bold=True, color="FFFFFF", size=11)
         cell.fill = PatternFill(
@@ -255,8 +221,6 @@ def export_schedule_excel(request, loan_id):
             fill_type="solid",
         )
         cell.alignment = Alignment(horizontal="center")
-
-    # Data Rows
     for row in schedule:
         ws.append(
             [
@@ -270,15 +234,11 @@ def export_schedule_excel(request, loan_id):
                 row["status"].title(),
             ]
         )
-
-    # Column Widths
     ws.column_dimensions["A"].width = 10
     ws.column_dimensions["B"].width = 15
     for col in ["C", "D", "E", "F", "G", "H"]:
         ws.column_dimensions[col].width = 20
     ws.column_dimensions["I"].width = 12
-
-    # Response
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
@@ -291,22 +251,16 @@ def export_schedule_excel(request, loan_id):
 
 
 class TransactionLedgerView(LoginRequiredMixin, TemplateView):
-    """Combined view of all EMIs and Prepayments sorted by date."""
-
     template_name = "payments/transaction_ledger.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan_id = kwargs.get("loan_id")
-
         if self.request.user.is_staff:
             loan = get_object_or_404(Loan, pk=loan_id)
         else:
             loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
-
         transactions = []
-
-        # Add EMIs
         for p in loan.payments.filter(status="paid").order_by("-payment_date"):
             transactions.append(
                 {
@@ -316,8 +270,6 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
                     "detail": f"EMI #{p.payment_number}",
                 }
             )
-
-        # Add Prepayments
         for p in loan.prepayments.all().order_by("-prepayment_date"):
             transactions.append(
                 {
@@ -327,10 +279,7 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
                     "detail": "Prepayment",
                 }
             )
-
-        # Sort combined list by date descending
         transactions.sort(key=lambda x: x["date"], reverse=True)
-
         context["loan"] = loan
         context["transactions"] = transactions
         return context
@@ -677,16 +626,7 @@ def download_statement(request):
     )
 
     elements.append(Spacer(1, 0.30 * inch))
-    data = [
-        [
-            "Loan",
-            "EMI",
-            "Due Date",
-            "Payment Date",
-            "Status",
-            "Amount",
-        ]
-    ]
+    data = [["Loan", "EMI", "Due Date", "Payment Date", "Status", "Amount"]]
     total = 0
     for payment in payments:
         total += payment.total_debit_amount
@@ -704,16 +644,7 @@ def download_statement(request):
                 f"₹ {payment.total_debit_amount}",
             ]
         )
-    data.append(
-        [
-            "",
-            "",
-            "",
-            "",
-            "Total",
-            f"₹ {total}",
-        ]
-    )
+    data.append(["", "", "", "", "Total", f"₹ {total}"])
     table = Table(data)
     table.setStyle(
         TableStyle(
@@ -820,18 +751,11 @@ def prepayment_dashboard(request):
             "admin_prepayment_count": paid_prepayments.count(),
             "loan_prepayment_summary": loan_prepaid_data,
         }
-        return render(
-            request,
-            "payments/prepayment_dashboard.html",
-            context,
-        )
+        return render(request, "payments/prepayment_dashboard.html", context)
 
     loans = Loan.objects.filter(user=request.user).order_by("loan_name")
     prepayment_qs = (
-        Prepayment.objects.filter(
-            loan__user=request.user,
-            status="paid",
-        )
+        Prepayment.objects.filter(loan__user=request.user, status="paid")
         .select_related("loan")
         .order_by("-prepayment_date", "-created_at")
     )
@@ -874,7 +798,6 @@ def prepayment_dashboard(request):
 
     paginator = Paginator(prepayment_qs, 15)
     prepayments = paginator.get_page(request.GET.get("page"))
-
     context = {
         "page_title": "Prepayments",
         "loans": loans,
@@ -891,18 +814,14 @@ def prepayment_dashboard(request):
 
 @login_required
 def export_prepayment_excel(request):
-    """Export user's complete prepayment history to Excel."""
-
     prepayments = (
         Prepayment.objects.filter(loan__user=request.user)
         .select_related("loan")
         .order_by("-prepayment_date")
     )
-
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.title = "Prepayments"
-
     headers = [
         "Loan Name",
         "Date",
@@ -913,24 +832,18 @@ def export_prepayment_excel(request):
         "Months Reduced",
         "Status",
     ]
-
     for col, header in enumerate(headers, start=1):
         cell = sheet.cell(row=1, column=col)
         cell.value = header
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill(
-            start_color="1E40AF",
-            end_color="1E40AF",
-            fill_type="solid",
+            start_color="1E40AF", end_color="1E40AF", fill_type="solid"
         )
         cell.alignment = Alignment(horizontal="center")
-
     row = 2
-
     total_amount = Decimal("0.00")
     total_interest_saved = Decimal("0.00")
     total_months_reduced = 0
-
     for prepayment in prepayments:
         sheet.cell(row=row, column=1).value = prepayment.loan.loan_name
         sheet.cell(row=row, column=2).value = prepayment.prepayment_date.strftime(
@@ -942,32 +855,23 @@ def export_prepayment_excel(request):
         sheet.cell(row=row, column=6).value = float(prepayment.interest_saved)
         sheet.cell(row=row, column=7).value = prepayment.months_reduced
         sheet.cell(row=row, column=8).value = prepayment.get_status_display()
-
         total_amount += prepayment.amount
         total_interest_saved += prepayment.interest_saved
         total_months_reduced += prepayment.months_reduced
-
         row += 1
 
-    # Summary
     row += 1
-
     sheet.cell(row=row, column=1).value = "SUMMARY"
     sheet.cell(row=row, column=1).font = Font(bold=True)
-
     row += 1
     sheet.cell(row=row, column=1).value = "Total Prepaid Amount"
     sheet.cell(row=row, column=2).value = float(total_amount)
-
     row += 1
     sheet.cell(row=row, column=1).value = "Total Interest Saved"
     sheet.cell(row=row, column=2).value = float(total_interest_saved)
-
     row += 1
     sheet.cell(row=row, column=1).value = "Total Tenure Reduced"
     sheet.cell(row=row, column=2).value = total_months_reduced
-
-    # Column widths
     widths = {
         "A": 30,
         "B": 15,
@@ -978,91 +882,54 @@ def export_prepayment_excel(request):
         "G": 18,
         "H": 15,
     }
-
     for column, width in widths.items():
         sheet.column_dimensions[column].width = width
-
     response = HttpResponse(
         content_type=(
             "application/vnd.openxmlformats-officedocument." "spreadsheetml.sheet"
         )
     )
-
     response["Content-Disposition"] = 'attachment; filename="prepayment_report.xlsx"'
-
     workbook.save(response)
-
     return response
 
 
 @login_required
 def export_prepayment_pdf(request):
-    """Export user's complete prepayment report to PDF."""
-
     prepayments = (
         Prepayment.objects.filter(loan__user=request.user)
         .select_related("loan")
         .order_by("-prepayment_date")
     )
-
     total_amount = Decimal("0.00")
     total_interest_saved = Decimal("0.00")
     total_months_reduced = 0
-
     for prepayment in prepayments:
         total_amount += prepayment.amount
         total_interest_saved += prepayment.interest_saved
         total_months_reduced += prepayment.months_reduced
-
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="Prepayment_Report.pdf"'
-
     doc = SimpleDocTemplate(
-        response,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=30,
-        bottomMargin=30,
+        response, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30
     )
-
     styles = getSampleStyleSheet()
-
     elements = []
-
-    elements.append(
-        Paragraph(
-            "<b>NexusLoan Prepayment Report</b>",
-            styles["Title"],
-        )
-    )
-
+    elements.append(Paragraph("<b>NexusLoan Prepayment Report</b>", styles["Title"]))
     elements.append(
         Paragraph(
             f"Customer: " f"{request.user.get_full_name() or request.user.username}",
             styles["Normal"],
         )
     )
-
     elements.append(Spacer(1, 0.25 * inch))
-
     summary_data = [
         ["Metric", "Value"],
-        [
-            "Total Prepaid Amount",
-            f"₹ {total_amount:,.2f}",
-        ],
-        [
-            "Total Interest Saved",
-            f"₹ {total_interest_saved:,.2f}",
-        ],
-        [
-            "Total Tenure Reduced",
-            f"{total_months_reduced} months",
-        ],
+        ["Total Prepaid Amount", f"₹ {total_amount:,.2f}"],
+        ["Total Interest Saved", f"₹ {total_interest_saved:,.2f}"],
+        ["Total Tenure Reduced", f"{total_months_reduced} months"],
     ]
-
     summary_table = Table(summary_data, colWidths=[3.2 * inch, 2.5 * inch])
-
     summary_table.setStyle(
         TableStyle(
             [
@@ -1076,29 +943,10 @@ def export_prepayment_pdf(request):
             ]
         )
     )
-
     elements.append(summary_table)
     elements.append(Spacer(1, 0.35 * inch))
-
-    elements.append(
-        Paragraph(
-            "<b>Prepayment History</b>",
-            styles["Heading2"],
-        )
-    )
-
-    data = [
-        [
-            "Loan",
-            "Date",
-            "Amount",
-            "Type",
-            "Mode",
-            "Interest Saved",
-            "Months",
-        ]
-    ]
-
+    elements.append(Paragraph("<b>Prepayment History</b>", styles["Heading2"]))
+    data = [["Loan", "Date", "Amount", "Type", "Mode", "Interest Saved", "Months"]]
     for prepayment in prepayments:
         data.append(
             [
@@ -1111,20 +959,8 @@ def export_prepayment_pdf(request):
                 str(prepayment.months_reduced),
             ]
         )
-
     if len(data) == 1:
-        data.append(
-            [
-                "No prepayments found",
-                "-",
-                "-",
-                "-",
-                "-",
-                "-",
-                "-",
-            ]
-        )
-
+        data.append(["No prepayments found", "-", "-", "-", "-", "-", "-"])
     table = Table(
         data,
         repeatRows=1,
@@ -1138,7 +974,6 @@ def export_prepayment_pdf(request):
             0.55 * inch,
         ],
     )
-
     table.setStyle(
         TableStyle(
             [
@@ -1153,9 +988,6 @@ def export_prepayment_pdf(request):
             ]
         )
     )
-
     elements.append(table)
-
     doc.build(elements)
-
     return response
