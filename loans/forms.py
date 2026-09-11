@@ -1,5 +1,3 @@
-"""Forms for creating and managing loans."""
-
 import os
 from decimal import Decimal
 
@@ -43,22 +41,11 @@ class LoanForm(forms.ModelForm):
         ]
 
         widgets = {
-            "user": forms.Select(
-                attrs={
-                    "class": "form-input",
-                }
-            ),
+            "user": forms.Select(attrs={"class": "form-input"}),
             "loan_name": forms.TextInput(
-                attrs={
-                    "class": "form-input",
-                    "placeholder": "e.g. SBI Home Loan",
-                }
+                attrs={"class": "form-input", "placeholder": "e.g. SBI Home Loan"}
             ),
-            "loan_type": forms.Select(
-                attrs={
-                    "class": "form-input",
-                }
-            ),
+            "loan_type": forms.Select(attrs={"class": "form-input"}),
             "amount": forms.NumberInput(
                 attrs={
                     "class": "form-input",
@@ -85,27 +72,13 @@ class LoanForm(forms.ModelForm):
                 }
             ),
             "start_date": forms.DateInput(
-                attrs={
-                    "class": "form-input",
-                    "type": "date",
-                }
+                attrs={"class": "form-input", "type": "date"}
             ),
             "first_emi_date": forms.DateInput(
-                attrs={
-                    "class": "form-input",
-                    "type": "date",
-                }
+                attrs={"class": "form-input", "type": "date"}
             ),
-            "emi_frequency": forms.Select(
-                attrs={
-                    "class": "form-input",
-                }
-            ),
-            "auto_debit": forms.CheckboxInput(
-                attrs={
-                    "class": "form-checkbox",
-                }
-            ),
+            "emi_frequency": forms.Select(attrs={"class": "form-input"}),
+            "auto_debit": forms.CheckboxInput(attrs={"class": "form-checkbox"}),
         }
         labels = {
             "user": "Loan Owner",
@@ -183,19 +156,10 @@ class LoanNoteForm(forms.ModelForm):
 class LoanDisbursementForm(forms.ModelForm):
     class Meta:
         model = LoanDisbursement
-        fields = [
-            "disbursement_date",
-            "amount",
-            "purpose",
-            "remarks",
-            "status",
-        ]
+        fields = ["disbursement_date", "amount", "purpose", "remarks", "status"]
         widgets = {
             "disbursement_date": forms.DateInput(
-                attrs={
-                    "class": "form-input",
-                    "type": "date",
-                }
+                attrs={"class": "form-input", "type": "date"}
             ),
             "amount": forms.NumberInput(
                 attrs={
@@ -205,11 +169,7 @@ class LoanDisbursementForm(forms.ModelForm):
                     "step": "0.01",
                 }
             ),
-            "purpose": forms.Select(
-                attrs={
-                    "class": "form-input",
-                }
-            ),
+            "purpose": forms.Select(attrs={"class": "form-input"}),
             "remarks": forms.Textarea(
                 attrs={
                     "class": "form-input",
@@ -217,11 +177,7 @@ class LoanDisbursementForm(forms.ModelForm):
                     "placeholder": "Add disbursement remarks...",
                 }
             ),
-            "status": forms.Select(
-                attrs={
-                    "class": "form-input",
-                }
-            ),
+            "status": forms.Select(attrs={"class": "form-input"}),
         }
 
     def __init__(self, *args, loan=None, **kwargs):
@@ -307,14 +263,7 @@ class LoanDocumentForm(forms.ModelForm):
         max_size = 10 * 1024 * 1024
         if file.size > max_size:
             raise ValidationError("Maximum file size is 10 MB.")
-        allowed_extensions = {
-            ".pdf",
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".doc",
-            ".docx",
-        }
+        allowed_extensions = {".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"}
         extension = os.path.splitext(file.name)[1].lower()
         if extension not in allowed_extensions:
             raise ValidationError("Only PDF, JPG, PNG, DOC and DOCX files are allowed.")
@@ -338,10 +287,7 @@ class SupportTicketForm(forms.ModelForm):
             "loan": forms.Select(attrs={"class": "form-input"}),
             "category": forms.Select(attrs={"class": "form-input"}),
             "subject": forms.TextInput(
-                attrs={
-                    "class": "form-input",
-                    "placeholder": "Enter your issue title",
-                }
+                attrs={"class": "form-input", "placeholder": "Enter your issue title"}
             ),
             "message": forms.Textarea(
                 attrs={
@@ -370,14 +316,7 @@ class SupportTicketForm(forms.ModelForm):
         max_size = 10 * 1024 * 1024
         if attachment.size > max_size:
             raise ValidationError("Maximum attachment size is 10MB.")
-        allowed_extensions = {
-            ".pdf",
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".doc",
-            ".docx",
-        }
+        allowed_extensions = {".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"}
         import os
 
         extension = os.path.splitext(attachment.name)[1].lower()
@@ -409,14 +348,7 @@ class SupportReplyForm(forms.ModelForm):
             raise ValidationError("Maximum attachment size is 10MB.")
         import os
 
-        allowed_extensions = {
-            ".pdf",
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".doc",
-            ".docx",
-        }
+        allowed_extensions = {".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"}
         extension = os.path.splitext(attachment.name)[1].lower()
         if extension not in allowed_extensions:
             raise ValidationError("Allowed files: PDF, JPG, JPEG, PNG, DOC and DOCX.")
@@ -428,29 +360,20 @@ class SettingsProfileForm(forms.ModelForm):
         max_length=150,
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-input",
-                "placeholder": "First Name",
-            }
+            attrs={"class": "form-input", "placeholder": "First Name"}
         ),
     )
     last_name = forms.CharField(
         max_length=150,
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-input",
-                "placeholder": "Last Name",
-            }
+            attrs={"class": "form-input", "placeholder": "Last Name"}
         ),
     )
     email = forms.EmailField(
         required=True,
         widget=forms.EmailInput(
-            attrs={
-                "class": "form-input",
-                "placeholder": "Email Address",
-            }
+            attrs={"class": "form-input", "placeholder": "Email Address"}
         ),
     )
 
@@ -505,28 +428,19 @@ class SettingsPasswordForm(PasswordChangeForm):
     old_password = forms.CharField(
         label="Current Password",
         widget=forms.PasswordInput(
-            attrs={
-                "class": "form-input",
-                "placeholder": "Current Password",
-            }
+            attrs={"class": "form-input", "placeholder": "Current Password"}
         ),
     )
     new_password1 = forms.CharField(
         label="New Password",
         widget=forms.PasswordInput(
-            attrs={
-                "class": "form-input",
-                "placeholder": "New Password",
-            }
+            attrs={"class": "form-input", "placeholder": "New Password"}
         ),
     )
     new_password2 = forms.CharField(
         label="Confirm New Password",
         widget=forms.PasswordInput(
-            attrs={
-                "class": "form-input",
-                "placeholder": "Confirm New Password",
-            }
+            attrs={"class": "form-input", "placeholder": "Confirm New Password"}
         ),
     )
 

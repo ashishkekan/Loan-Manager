@@ -16,11 +16,7 @@ class ActivityLog(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="activities")
     loan = models.ForeignKey(
-        Loan,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="activities",
+        Loan, on_delete=models.CASCADE, null=True, blank=True, related_name="activities"
     )
     action = models.CharField(max_length=40, choices=ACTIONS)
     title = models.CharField(max_length=150)

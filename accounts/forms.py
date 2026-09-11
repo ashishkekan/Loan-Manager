@@ -1,8 +1,6 @@
-"""Authentication forms with custom styling."""
-
 from django import forms
-from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 
 
 class RegistrationForm(UserCreationForm):
@@ -10,41 +8,51 @@ class RegistrationForm(UserCreationForm):
 
     email = forms.EmailField(
         required=True,
-        widget=forms.EmailInput(attrs={
-            'class': 'form-input',
-            'placeholder': 'Email address',
-        })
+        widget=forms.EmailInput(
+            attrs={"class": "form-input", "placeholder": "Email address"}
+        ),
     )
     first_name = forms.CharField(
         max_length=100,
-        widget=forms.TextInput(attrs={
-            'class': 'form-input',
-            'placeholder': 'First name',
-        })
+        widget=forms.TextInput(
+            attrs={"class": "form-input", "placeholder": "First name"}
+        ),
     )
     last_name = forms.CharField(
         max_length=100,
-        widget=forms.TextInput(attrs={
-            'class': 'form-input',
-            'placeholder': 'Last name',
-        })
+        widget=forms.TextInput(
+            attrs={"class": "form-input", "placeholder": "Last name"}
+        ),
     )
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2']
+        fields = [
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "password1",
+            "password2",
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['username'].widget.attrs.update({'class': 'form-input', 'placeholder': 'Username'})
-        self.fields['password1'].widget.attrs.update({'class': 'form-input', 'placeholder': 'Password'})
-        self.fields['password2'].widget.attrs.update({'class': 'form-input', 'placeholder': 'Confirm password'})
+        self.fields["username"].widget.attrs.update(
+            {"class": "form-input", "placeholder": "Username"}
+        )
+        self.fields["password1"].widget.attrs.update(
+            {"class": "form-input", "placeholder": "Password"}
+        )
+        self.fields["password2"].widget.attrs.update(
+            {"class": "form-input", "placeholder": "Confirm password"}
+        )
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.email = self.cleaned_data['email']
-        user.first_name = self.cleaned_data['first_name']
-        user.last_name = self.cleaned_data['last_name']
+        user.email = self.cleaned_data["email"]
+        user.first_name = self.cleaned_data["first_name"]
+        user.last_name = self.cleaned_data["last_name"]
         if commit:
             user.save()
         return user

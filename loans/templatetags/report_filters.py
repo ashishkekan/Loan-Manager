@@ -7,7 +7,6 @@ register = template.Library()
 
 @register.filter
 def inr(value):
-    """Format a number as Indian currency with Cr/L notation."""
     if value is None or value == "":
         return "₹0"
     try:
@@ -23,10 +22,6 @@ def inr(value):
 
 @register.simple_tag
 def preserve_filters(request, **kwargs):
-    """Build a query string preserving current GET params, updating with kwargs.
-
-    Always strips 'page' unless explicitly provided via kwargs.
-    """
     get = request.GET.copy()
     if "page" not in kwargs:
         get.pop("page", None)

@@ -1,10 +1,3 @@
-"""
-Reusable export functions for admin reports.
-
-Supports Excel (openpyxl), CSV, and PDF (reportlab).
-All exports respect the active filters passed via the filter dict.
-"""
-
 import csv
 from datetime import date
 from decimal import Decimal
@@ -17,13 +10,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from reportlab.lib import colors as rl_colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import (
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from loans.models import Loan
 from loans.reports import (
@@ -116,9 +103,7 @@ def _iter_loan_portfolio(f):
     for loan in qs.select_related("user"):
         _, ppy = get_period_details(loan.emi_frequency)
         end_date = add_periods(
-            loan.schedule_start_date,
-            loan.tenure_years * ppy,
-            loan.emi_frequency,
+            loan.schedule_start_date, loan.tenure_years * ppy, loan.emi_frequency
         )
         yield [
             loan.loan_name,
@@ -210,7 +195,6 @@ def _export_excel(report_type, f):
     ws = wb.active
     ws.title = meta["title"][:31]
 
-    # Title row
     ws.merge_cells(
         start_row=1, start_column=1, end_row=1, end_column=len(meta["headers"])
     )
@@ -218,7 +202,6 @@ def _export_excel(report_type, f):
     ws.cell(row=1, column=1).font = Font(bold=True, size=14, color="28A745")
     ws.cell(row=1, column=1).alignment = Alignment(horizontal="center")
 
-    # Generated-at row
     ws.merge_cells(
         start_row=2, start_column=1, end_row=2, end_column=len(meta["headers"])
     )
@@ -228,7 +211,6 @@ def _export_excel(report_type, f):
     ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
     ws.cell(row=2, column=1).font = Font(italic=True, size=10, color="64748b")
 
-    # Header row
     header_row = 4
     for col, header in enumerate(meta["headers"], start=1):
         cell = ws.cell(row=header_row, column=col, value=header)
@@ -238,13 +220,11 @@ def _export_excel(report_type, f):
         )
         cell.alignment = Alignment(horizontal="center")
 
-    # Data rows
     gen = ROW_GENERATORS[report_type]
     for row_idx, row_data in enumerate(gen(f), start=header_row + 1):
         for col_idx, value in enumerate(row_data, start=1):
             ws.cell(row=row_idx, column=col_idx, value=value)
 
-    # Auto column widths (approximate)
     for col_idx, header in enumerate(meta["headers"], start=1):
         max_len = len(header)
         for row_idx in range(header_row + 1, ws.max_row + 1):
@@ -274,11 +254,7 @@ def _export_pdf(report_type, f):
     )
 
     doc = SimpleDocTemplate(
-        response,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=30,
-        bottomMargin=30,
+        response, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -286,8 +262,7 @@ def _export_pdf(report_type, f):
     elements.append(Paragraph(f"<b>{meta['title']}</b>", styles["Title"]))
     elements.append(
         Paragraph(
-            f"Generated: {timezone.now().strftime('%Y-%m-%d %H:%M')}",
-            styles["Normal"],
+            f"Generated: {timezone.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]
         )
     )
     elements.append(Spacer(1, 0.25 * inch))
@@ -300,7 +275,6 @@ def _export_pdf(report_type, f):
     if len(data) == 1:
         data.append(["No records found"] + [""] * (len(meta["headers"]) - 1))
 
-    # Calculate column widths
     page_width = doc.width
     num_cols = len(meta["headers"])
     col_width = page_width / num_cols
@@ -333,7 +307,6 @@ def _export_pdf(report_type, f):
 
 
 def export_report(report_type, fmt, f):
-    """Dispatch the export to the correct format handler."""
     if fmt == "excel":
         return _export_excel(report_type, f)
     if fmt == "pdf":

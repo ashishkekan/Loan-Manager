@@ -13,7 +13,6 @@ User = get_user_model()
 
 
 def get_report_filters(request):
-    """Parse and validate common report filters from GET parameters."""
     raw_from = request.GET.get("from_date", "").strip()
     raw_to = request.GET.get("to_date", "").strip()
 
@@ -101,7 +100,6 @@ def get_report_filters(request):
 
 
 def _apply_loan_filters(qs, f):
-    """Apply common filters to a Loan queryset (date → start_date)."""
     if f["from_date_obj"]:
         qs = qs.filter(start_date__gte=f["from_date_obj"])
     if f["to_date_obj"]:
@@ -119,7 +117,6 @@ def _apply_loan_filters(qs, f):
 
 
 def _apply_payment_filters(qs, f):
-    """Apply common filters to a Payment queryset (date → payment_date)."""
     if f["from_date_obj"]:
         qs = qs.filter(payment_date__gte=f["from_date_obj"])
     if f["to_date_obj"]:
@@ -141,7 +138,6 @@ def _apply_payment_filters(qs, f):
 
 
 def _apply_overdue_filters(qs, f):
-    """Apply common + overdue-specific filters to a Payment queryset."""
     if f["from_date_obj"]:
         qs = qs.filter(due_date__gte=f["from_date_obj"])
     if f["to_date_obj"]:
@@ -175,7 +171,6 @@ def _apply_overdue_filters(qs, f):
 
 
 def get_reports_kpis(f):
-    """Return the 4 top-level KPI values shown on the reports page."""
     loan_qs = _apply_loan_filters(Loan.objects.all(), f)
 
     total_loans = loan_qs.count()
@@ -200,7 +195,6 @@ def get_reports_kpis(f):
     total_overdue = overdue_qs.aggregate(t=Sum("total_debit_amount"))["t"] or Decimal(
         "0"
     )
-
     return {
         "total_loans": total_loans,
         "total_disbursed": total_disbursed,
@@ -212,21 +206,18 @@ def get_reports_kpis(f):
 
 
 def get_loan_portfolio_qs(f):
-    """Return a filtered Loan queryset for the portfolio report."""
     return _apply_loan_filters(Loan.objects.select_related("user"), f).order_by(
         "-created_at"
     )
 
 
 def get_payment_collection_qs(f):
-    """Return a filtered Payment queryset for the collection report."""
     return _apply_payment_filters(
         Payment.objects.select_related("loan", "loan__user"), f
     ).order_by("-payment_date", "-payment_number")
 
 
 def get_payment_summary(f):
-    """Return aggregate summary for the payment collection report."""
     qs = _apply_payment_filters(Payment.objects.all(), f)
     today = timezone.localdate()
     return {
@@ -250,13 +241,11 @@ def get_payment_summary(f):
 
 
 def get_overdue_qs(f):
-    """Return a filtered Payment queryset for the overdue report."""
     qs = Payment.objects.select_related("loan", "loan__user").filter(status="overdue")
     return _apply_overdue_filters(qs, f).order_by("due_date")
 
 
 def get_overdue_summary(f):
-    """Return aggregate summary for the overdue report."""
     today = timezone.localdate()
     base = Payment.objects.filter(status="overdue")
     base = _apply_overdue_filters(base, f)
@@ -282,9 +271,7 @@ def get_overdue_summary(f):
 
 
 def get_user_summary_qs(f):
-    """Return an annotated User queryset for the user financial summary."""
     qs = User.objects.filter(is_active=True)
-
     if f["user_id"]:
         try:
             qs = qs.filter(pk=int(f["user_id"]))
@@ -364,14 +351,7 @@ def get_user_summary_qs(f):
 
 
 def get_performance_data(f):
-    """Return aggregated performance data grouped by bank or loan type.
-
-    Uses per-loan subqueries for payment aggregates to avoid
-    cross-product duplication.
-    """
     group_by = f["group_by"]
-
-    # Per-loan payment subqueries (no cross-product)
     paid_sq = (
         Payment.objects.filter(loan=OuterRef("pk"), status="paid")
         .values("loan")
@@ -386,11 +366,9 @@ def get_performance_data(f):
     )
 
     qs = Loan.objects.annotate(
-        _repaid=Subquery(paid_sq),
-        _overdue_amount=Subquery(overdue_sq),
+        _repaid=Subquery(paid_sq), _overdue_amount=Subquery(overdue_sq)
     )
     qs = _apply_loan_filters(qs, f)
-
     if group_by == "bank":
         bank_sub = (
             BankAccount.objects.filter(user=OuterRef("user"))

@@ -34,59 +34,31 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         all_payments = Payment.objects.filter(status="paid")
         all_prepayments = Prepayment.objects.all()
         loan_stats = all_loans.aggregate(
-            total_amount=Coalesce(
-                Sum("amount"),
-                0,
-                output_field=DecimalField(),
-            ),
+            total_amount=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
             outstanding=Coalesce(
-                Sum("remaining_balance"),
-                0,
-                output_field=DecimalField(),
+                Sum("remaining_balance"), 0, output_field=DecimalField()
             ),
             interest_paid=Coalesce(
-                Sum("total_interest_paid"),
-                0,
-                output_field=DecimalField(),
+                Sum("total_interest_paid"), 0, output_field=DecimalField()
             ),
-            average_rate=Coalesce(
-                Avg("interest_rate"),
-                0,
-                output_field=DecimalField(),
-            ),
+            average_rate=Coalesce(Avg("interest_rate"), 0, output_field=DecimalField()),
         )
         payment_stats = all_payments.aggregate(
-            total_collected=Coalesce(
-                Sum("amount"),
-                0,
-                output_field=DecimalField(),
-            ),
+            total_collected=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
             principal_collected=Coalesce(
-                Sum("principal_component"),
-                0,
-                output_field=DecimalField(),
+                Sum("principal_component"), 0, output_field=DecimalField()
             ),
             interest_collected=Coalesce(
-                Sum("interest_component"),
-                0,
-                output_field=DecimalField(),
+                Sum("interest_component"), 0, output_field=DecimalField()
             ),
         )
         prepayment_stats = all_prepayments.aggregate(
-            total_prepaid=Coalesce(
-                Sum("amount"),
-                0,
-                output_field=DecimalField(),
-            ),
+            total_prepaid=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
             interest_saved=Coalesce(
-                Sum("interest_saved"),
-                0,
-                output_field=DecimalField(),
+                Sum("interest_saved"), 0, output_field=DecimalField()
             ),
             months_saved=Coalesce(
-                Sum("months_reduced"),
-                0,
-                output_field=DecimalField(),
+                Sum("months_reduced"), 0, output_field=DecimalField()
             ),
         )
         total_principal = loan_stats["total_amount"] or 0
@@ -114,10 +86,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["admin_total_payments"] = all_payments.count()
         context["admin_loan_status_chart"] = {
             "labels": ["Active", "Closed"],
-            "values": [
-                active_loans.count(),
-                closed_loans.count(),
-            ],
+            "values": [active_loans.count(), closed_loans.count()],
         }
         context["admin_collection_chart"] = {
             "labels": ["Principal", "Interest"],
@@ -140,30 +109,18 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def _build_user_context(self, context, loans, user):
         aggregates = loans.aggregate(
-            total_amount=Coalesce(
-                Sum("amount"),
-                0,
-                output_field=DecimalField(),
-            ),
+            total_amount=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
             total_remaining=Coalesce(
-                Sum("remaining_balance"),
-                0,
-                output_field=DecimalField(),
+                Sum("remaining_balance"), 0, output_field=DecimalField()
             ),
             total_interest=Coalesce(
-                Sum("total_interest_paid"),
-                0,
-                output_field=DecimalField(),
+                Sum("total_interest_paid"), 0, output_field=DecimalField()
             ),
         )
         active_loans = loans.filter(status="active")
         closed_loans = loans.filter(status="closed")
         monthly_emi = active_loans.aggregate(
-            total=Coalesce(
-                Sum("emi"),
-                0,
-                output_field=DecimalField(),
-            )
+            total=Coalesce(Sum("emi"), 0, output_field=DecimalField())
         )["total"]
         context["total_loans"] = loans.count()
         context["active_loans"] = active_loans.count()
@@ -183,20 +140,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["total_payable"] = total_payable
         context["projected_interest"] = total_payable - aggregates["total_amount"]
         prepay_stats = Prepayment.objects.filter(loan__user=user).aggregate(
-            total_prepaid=Coalesce(
-                Sum("amount"),
-                0,
-                output_field=DecimalField(),
-            ),
-            total_saved=Coalesce(
-                Sum("interest_saved"),
-                0,
-                output_field=DecimalField(),
-            ),
+            total_prepaid=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
+            total_saved=Coalesce(Sum("interest_saved"), 0, output_field=DecimalField()),
             total_months_saved=Coalesce(
-                Sum("months_reduced"),
-                0,
-                output_field=DecimalField(),
+                Sum("months_reduced"), 0, output_field=DecimalField()
             ),
         )
         context["total_prepaid"] = prepay_stats["total_prepaid"]
@@ -221,10 +168,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             "interest": round(float(aggregates["total_interest"]), 2),
         }
         context["recent_payments"] = (
-            Payment.objects.filter(
-                loan__user=user,
-                status="paid",
-            )
+            Payment.objects.filter(loan__user=user, status="paid")
             .select_related("loan")
             .order_by("-payment_date")[:8]
         )
@@ -239,9 +183,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         for loan in active_loans:
             paid_count = loan.payments.filter(status="paid").count()
             due_date = add_periods(
-                loan.schedule_start_date,
-                paid_count,
-                loan.emi_frequency,
+                loan.schedule_start_date, paid_count, loan.emi_frequency
             )
             upcoming.append(
                 {
@@ -256,20 +198,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["upcoming_emis"] = upcoming
         if upcoming:
             next_emi = upcoming[0]
-            context["upcoming_emi"] = (
-                next_emi["due_date"],
-                next_emi["loan"],
-            )
+            context["upcoming_emi"] = (next_emi["due_date"], next_emi["loan"])
             context["next_emi_date"] = next_emi["due_date"]
             context["next_emi_loan"] = next_emi["loan"]
             context["next_emi_amount"] = next_emi["emi"]
             context["next_emi_payment_number"] = next_emi["payment_number"]
             context["next_emi_auto_debit"] = next_emi["auto_debit"]
             today = timezone.now().date()
-            context["next_emi_days"] = max(
-                (next_emi["due_date"] - today).days,
-                0,
-            )
+            context["next_emi_days"] = max((next_emi["due_date"] - today).days, 0)
         else:
             context["upcoming_emi"] = None
             context["next_emi_date"] = None
@@ -287,20 +223,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             payment_date__lte=today,
         )
         month_payment_stats = month_payments.aggregate(
-            total=Coalesce(
-                Sum("amount"),
-                0,
-                output_field=DecimalField(),
-            ),
+            total=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
             principal=Coalesce(
-                Sum("principal_component"),
-                0,
-                output_field=DecimalField(),
+                Sum("principal_component"), 0, output_field=DecimalField()
             ),
             interest=Coalesce(
-                Sum("interest_component"),
-                0,
-                output_field=DecimalField(),
+                Sum("interest_component"), 0, output_field=DecimalField()
             ),
         )
         month_prepayment_stats = Prepayment.objects.filter(
@@ -308,19 +236,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             created_at__date__gte=month_start,
             created_at__date__lte=today,
         ).aggregate(
-            total=Coalesce(
-                Sum("amount"),
-                0,
-                output_field=DecimalField(),
-            ),
+            total=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
         )
         context["this_month_emi_paid"] = month_payment_stats["total"]
         context["this_month_principal"] = month_payment_stats["principal"]
         context["this_month_interest"] = month_payment_stats["interest"]
         context["this_month_prepayment"] = month_prepayment_stats["total"]
         context["total_payments"] = Payment.objects.filter(
-            loan__user=user,
-            status="paid",
+            loan__user=user, status="paid"
         ).count()
         context["activities"] = (
             ActivityLog.objects.filter(user=user)
@@ -349,9 +272,7 @@ class AdminUsersView(LoginRequiredMixin, ListView):
             .annotate(
                 total_loans=Count("loans", distinct=True),
                 total_loan_amount=Coalesce(
-                    Sum("loans__amount"),
-                    0,
-                    output_field=DecimalField(),
+                    Sum("loans__amount"), 0, output_field=DecimalField()
                 ),
             )
             .order_by("-date_joined")

@@ -1,5 +1,3 @@
-"""Authentication views: login, registration, and proper logout."""
-
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.views import LoginView
 from django.contrib.messages import success
@@ -9,15 +7,12 @@ from accounts.forms import RegistrationForm
 
 
 def custom_logout(request):
-    """Log out the user and redirect to homepage."""
     if request.method in ("GET", "POST"):
         logout(request)
     return redirect("/")
 
 
 class CustomLoginView(LoginView):
-    """Styled login view with custom template."""
-
     template_name = "accounts/login.html"
 
     def get_context_data(self, **kwargs):
@@ -32,7 +27,6 @@ class CustomLoginView(LoginView):
 
 
 def register_view(request):
-    """Handle user registration."""
     if request.user.is_authenticated:
         return redirect("dashboard")
 
@@ -48,5 +42,4 @@ def register_view(request):
             return redirect("dashboard")
     else:
         form = RegistrationForm()
-
     return render(request, "accounts/register.html", {"form": form})
