@@ -1,11 +1,12 @@
+from loans.models import Notification
+
+
 def loan_notifications(request):
     if not request.user.is_authenticated:
         return {
             "header_notifications": [],
             "header_unread_notifications": 0,
         }
-
-    from loans.models import Notification
 
     if request.user.is_staff:
         notifications = Notification.objects.select_related("loan", "user").order_by(
@@ -19,8 +20,7 @@ def loan_notifications(request):
             .order_by("-created_at")[:5]
         )
         unread_count = Notification.objects.filter(
-            user=request.user,
-            is_read=False,
+            user=request.user, is_read=False
         ).count()
 
     return {

@@ -120,7 +120,6 @@ urlpatterns = [
         support_ticket_detail,
         name="support_ticket_detail",
     ),
-    # ── Settings URLs (Self & Admin managing others) ──────────────
     path("settings/", settings_dashboard, name="settings_dashboard"),
     path(
         "settings/user/<int:user_id>/",
