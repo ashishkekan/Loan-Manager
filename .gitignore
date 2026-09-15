@@ -1,4 +1,12 @@
-# Python cache
 __pycache__/
 *.py[cod]
-*$py.class
+*.sqlite3
+.env
+.venv/
+venv/
+env/
+staticfiles/
+media/
+.DS_Store
+.idea/
+.vscode/
