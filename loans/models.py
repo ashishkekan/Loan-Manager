@@ -8,11 +8,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
-from loans.utils import (
-    add_periods,
-    calculate_remaining_periods,
-    get_period_details,
-)
+from loans.utils import add_periods, calculate_remaining_periods, get_period_details
 
 
 class Loan(models.Model):
@@ -59,13 +55,10 @@ class Loan(models.Model):
     )
 
     emi_frequency = models.CharField(
-        max_length=20,
-        choices=EMI_FREQUENCY_CHOICES,
-        default="monthly",
+        max_length=20, choices=EMI_FREQUENCY_CHOICES, default="monthly"
     )
     auto_debit = models.BooleanField(
-        default=True,
-        help_text="Automatically deduct EMI on due date.",
+        default=True, help_text="Automatically deduct EMI on due date."
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
     closed_date = models.DateField(null=True, blank=True)
@@ -74,7 +67,6 @@ class Loan(models.Model):
         max_digits=15, decimal_places=2, default=0
     )
 
-    # Marketplace fields
     is_public = models.BooleanField(
         default=False, help_text="Make visible to lenders for investment"
     )
@@ -231,22 +223,11 @@ class Loan(models.Model):
 
     @property
     def schedule_start_date(self):
-        """
-        Backward compatibility.
-
-        Old loans don't have first_emi_date.
-
-        Therefore existing calculations will still work.
-        """
         return self.first_emi_date or self.start_date
 
     @property
     def goal_tracker(self):
-        """
-        Loan Goal Tracker
-        """
         current_balance = Decimal(str(self.remaining_balance))
-
         if current_balance <= 0:
             return {
                 "target": Decimal("0.00"),
@@ -263,14 +244,10 @@ class Loan(models.Model):
             target -= Decimal("100000")
 
         target = max(target, Decimal("0"))
-
         paid_towards_goal = current_balance - target
 
         if current_balance > 0:
-            progress = round(
-                float((paid_towards_goal / current_balance) * 100),
-                1,
-            )
+            progress = round(float((paid_towards_goal / current_balance) * 100), 1)
         else:
             progress = 100
 
@@ -283,8 +260,6 @@ class Loan(models.Model):
 
     @property
     def total_disbursed_amount(self):
-        from django.db.models import Sum
-
         return self.disbursements.filter(status="released").aggregate(
             total=Sum("amount")
         )["total"] or Decimal("0.00")
@@ -295,16 +270,12 @@ class Loan(models.Model):
 
     @property
     def total_pending_accrued_interest(self):
-        from django.db.models import Sum
-
         return self.accrued_interests.filter(status="pending").aggregate(
             total=Sum("interest_amount")
         )["total"] or Decimal("0.00")
 
     @property
     def total_recovered_accrued_interest(self):
-        from django.db.models import Sum
-
         return self.accrued_interests.filter(status="recovered").aggregate(
             total=Sum("interest_amount")
         )["total"] or Decimal("0.00")
@@ -333,22 +304,8 @@ class Loan(models.Model):
     def has_pending_accrued_interest(self):
         return self.accrued_interests.filter(status="pending").exists()
 
-    @classmethod
-    def has_pending_interest(cls, loan, emi_date):
-        return LoanAccruedInterest.objects.filter(
-            loan=loan, emi_date=emi_date, status="pending"
-        ).exists()
-
-    @classmethod
-    def get_recovered_interest(cls, loan):
-        return LoanAccruedInterest.objects.filter(
-            loan=loan, status="recovered"
-        ).aggregate(total=Sum("recovered_amount"))["total"] or Decimal("0.00")
-
 
 class LoanNote(models.Model):
-    """User can add notes/memos to their loans."""
-
     loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name="notes")
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -361,8 +318,6 @@ class LoanNote(models.Model):
 
 
 class LoanDocument(models.Model):
-    """Uploaded documents for a loan."""
-
     DOC_TYPES = [
         ("agreement", "Loan Agreement"),
         ("sanction_letter", "Sanction Letter"),
@@ -435,8 +390,6 @@ class LoanDocument(models.Model):
 
 
 class Investment(models.Model):
-    """Records when a lender invests in a borrower's loan."""
-
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("active", "Active"),
@@ -485,7 +438,6 @@ class LoanDisbursement(models.Model):
     )
     remarks = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="released")
-    is_interest_processed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -519,98 +471,6 @@ class LoanDisbursement(models.Model):
     def __str__(self):
         return f"{self.loan.loan_name} - Disbursement #{self.disbursement_number}"
 
-    @property
-    def is_released(self):
-        return self.status == "released"
-
-
-class LoanAccruedInterest(models.Model):
-    STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("recovered", "Recovered"),
-        ("cancelled", "Cancelled"),
-    ]
-    loan = models.ForeignKey(
-        "loans.Loan", on_delete=models.CASCADE, related_name="accrued_interests"
-    )
-    disbursement = models.ForeignKey(
-        "loans.LoanDisbursement",
-        on_delete=models.CASCADE,
-        related_name="interest_entries",
-    )
-    emi_payment = models.ForeignKey(
-        "payments.Payment",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="accrued_interest_entries",
-    )
-    from_date = models.DateField()
-    to_date = models.DateField()
-    emi_date = models.DateField()
-    days = models.PositiveIntegerField()
-    annual_interest_rate = models.DecimalField(max_digits=7, decimal_places=4)
-    disbursed_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    interest_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    recovered_amount = models.DecimalField(
-        max_digits=15, decimal_places=2, default=Decimal("0.00")
-    )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-    recovered_on = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "loan_accrued_interest"
-        ordering = ["emi_date", "id"]
-
-        constraints = [
-            models.UniqueConstraint(
-                fields=[
-                    "loan",
-                    "disbursement",
-                    "from_date",
-                    "to_date",
-                    "emi_date",
-                ],
-                name="unique_accrued_interest_cycle",
-            ),
-            models.CheckConstraint(
-                check=models.Q(interest_amount__gte=0),
-                name="loan_interest_positive",
-            ),
-            models.CheckConstraint(
-                check=models.Q(days__gte=0),
-                name="loan_interest_days_positive",
-            ),
-        ]
-
-        indexes = [
-            models.Index(fields=["loan"]),
-            models.Index(fields=["status"]),
-            models.Index(fields=["emi_date"]),
-            models.Index(fields=["disbursement"]),
-            models.Index(fields=["loan", "status"]),
-            models.Index(fields=["loan", "emi_date"]),
-            models.Index(fields=["loan", "disbursement"]),
-            models.Index(fields=["loan", "emi_date", "status"]),  # ✅ yaha hona chahiye
-        ]
-
-    def __str__(self):
-        return f"{self.loan.loan_name} - ₹{self.interest_amount}"
-
-    @property
-    def pending_amount(self):
-        return self.interest_amount - self.recovered_amount
-
-    @property
-    def is_pending(self):
-        return self.status == "pending"
-
-    @property
-    def is_recovered(self):
-        return self.status == "recovered"
-
 
 class Notification(models.Model):
     TYPE_CHOICES = [
@@ -622,9 +482,7 @@ class Notification(models.Model):
     ]
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="notifications",
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
     )
     loan = models.ForeignKey(
         "loans.Loan",
@@ -636,9 +494,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=255)
     message = models.TextField()
     notification_type = models.CharField(
-        max_length=20,
-        choices=TYPE_CHOICES,
-        default="system",
+        max_length=20, choices=TYPE_CHOICES, default="system"
     )
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -693,15 +549,11 @@ class SupportTicket(models.Model):
     subject = models.CharField(max_length=200)
     message = models.TextField()
     attachment = models.FileField(
-        upload_to="support_tickets/%Y/%m/",
-        null=True,
-        blank=True,
+        upload_to="support_tickets/%Y/%m/", null=True, blank=True
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
     priority = models.CharField(
-        max_length=20,
-        choices=PRIORITY_CHOICES,
-        default="medium",
+        max_length=20, choices=PRIORITY_CHOICES, default="medium"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -730,9 +582,7 @@ class SupportTicket(models.Model):
 
 class SupportMessage(models.Model):
     ticket = models.ForeignKey(
-        SupportTicket,
-        on_delete=models.CASCADE,
-        related_name="messages",
+        SupportTicket, on_delete=models.CASCADE, related_name="messages"
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -741,9 +591,7 @@ class SupportMessage(models.Model):
     )
     message = models.TextField()
     attachment = models.FileField(
-        upload_to="support_messages/%Y/%m/",
-        null=True,
-        blank=True,
+        upload_to="support_messages/%Y/%m/", null=True, blank=True
     )
     is_staff_reply = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -757,9 +605,7 @@ class SupportMessage(models.Model):
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="loan_profile",
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="loan_profile"
     )
     phone = models.CharField(max_length=20, blank=True)
     photo = models.ImageField(upload_to="profile_photos/", blank=True, null=True)
@@ -825,9 +671,7 @@ class AppearancePreference(models.Model):
     language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")
     currency = models.CharField(max_length=10, default="INR")
     date_format = models.CharField(
-        max_length=30,
-        choices=DATE_FORMAT_CHOICES,
-        default="DD MMM YYYY",
+        max_length=30, choices=DATE_FORMAT_CHOICES, default="DD MMM YYYY"
     )
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -868,9 +712,7 @@ class SecuritySetting(models.Model):
 
 class BankAccount(models.Model):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="bank_accounts",
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bank_accounts"
     )
     bank_name = models.CharField(max_length=150)
     account_holder = models.CharField(max_length=150)

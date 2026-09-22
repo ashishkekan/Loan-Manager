@@ -1,5 +1,3 @@
-"""Views for the admin-only Reports section."""
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -42,13 +40,11 @@ def _staff_required(user):
 
 @login_required
 def admin_reports(request):
-    """Main admin reports page — KPIs, filters, and tabbed report data."""
     if not request.user.is_staff:
         messages.error(request, "You do not have permission to access Reports.")
         return redirect("dashboard")
 
     f = get_report_filters(request)
-
     for error in f["errors"]:
         messages.error(request, error)
 
@@ -57,7 +53,6 @@ def admin_reports(request):
         active_report = "loan_portfolio"
 
     kpis = get_reports_kpis(f)
-
     context = {
         "kpis": kpis,
         "filters": f,
@@ -83,9 +78,7 @@ def admin_reports(request):
         for loan in page_obj.object_list:
             _, ppy = get_period_details(loan.emi_frequency)
             loan.computed_end_date = add_periods(
-                loan.schedule_start_date,
-                loan.tenure_years * ppy,
-                loan.emi_frequency,
+                loan.schedule_start_date, loan.tenure_years * ppy, loan.emi_frequency
             )
         context["page_obj"] = page_obj
 
@@ -122,7 +115,6 @@ def admin_reports(request):
 
 @login_required
 def export_admin_report(request, report_type, format):
-    """Export a report to Excel, CSV, or PDF — respecting active filters."""
     if not request.user.is_staff:
         messages.error(request, "You do not have permission to export reports.")
         return redirect("dashboard")
@@ -136,7 +128,6 @@ def export_admin_report(request, report_type, format):
         return redirect("admin_reports")
 
     f = get_report_filters(request)
-
     for error in f["errors"]:
         messages.error(request, error)
 

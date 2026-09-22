@@ -1,10 +1,11 @@
+import csv
+
 from django.contrib import admin
 from django.http import HttpResponse
 
 from loans.models import (
     Investment,
     Loan,
-    LoanAccruedInterest,
     LoanDisbursement,
     LoanDocument,
     LoanNote,
@@ -55,23 +56,15 @@ class LoanAdmin(admin.ModelAdmin):
         ),
         (
             "Current Status",
-            {
-                "fields": (
-                    "remaining_balance",
-                    "total_interest_paid",
-                )
-            },
+            {"fields": ("remaining_balance", "total_interest_paid")},
         ),
     )
     date_hierarchy = "created_at"
 
-    # Admin Action: Export to CSV
     actions = ["export_to_csv"]
     inlines = [LoanDisbursementInline]
 
     def export_to_csv(self, request, queryset):
-        import csv
-
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = "attachment; filename=loans_report.csv"
         writer = csv.writer(response)
@@ -132,26 +125,7 @@ class LoanDisbursementAdmin(admin.ModelAdmin):
         "amount",
         "purpose",
         "status",
-        "is_interest_processed",
     )
-
-
-@admin.register(LoanAccruedInterest)
-class LoanAccruedInterestAdmin(admin.ModelAdmin):
-    list_display = (
-        "loan",
-        "disbursement",
-        "emi_date",
-        "interest_amount",
-        "status",
-        "recovered_on",
-    )
-    list_filter = ("status", "emi_date")
-    search_fields = ("loan__loan_name", "loan__user__username")
-    readonly_fields = ("created_at", "updated_at")
-    ordering = ("-emi_date",)
-    date_hierarchy = "emi_date"
-    list_select_related = ("loan", "disbursement")
 
 
 @admin.register(SupportTicket)
@@ -165,34 +139,13 @@ class SupportTicketAdmin(admin.ModelAdmin):
         "priority",
         "created_at",
     ]
-    list_filter = [
-        "status",
-        "category",
-        "priority",
-    ]
-    search_fields = [
-        "ticket_number",
-        "subject",
-        "message",
-        "user__username",
-    ]
-    readonly_fields = [
-        "ticket_number",
-        "created_at",
-        "updated_at",
-    ]
+    list_filter = ["status", "category", "priority"]
+    search_fields = ["ticket_number", "subject", "message", "user__username"]
+    readonly_fields = ["ticket_number", "created_at", "updated_at"]
 
 
 @admin.register(SupportMessage)
 class SupportMessageAdmin(admin.ModelAdmin):
-    list_display = [
-        "ticket",
-        "user",
-        "is_staff_reply",
-        "created_at",
-    ]
+    list_display = ["ticket", "user", "is_staff_reply", "created_at"]
     list_filter = ["is_staff_reply"]
-    search_fields = [
-        "ticket__ticket_number",
-        "message",
-    ]
+    search_fields = ["ticket__ticket_number", "message"]

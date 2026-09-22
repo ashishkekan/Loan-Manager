@@ -697,7 +697,6 @@
                         <th>Loan</th>
                         <th>Due Date</th>
                         <th>Regular EMI</th>
-                        <th>Additional Interest</th>
                         <th>Total Debit</th>
                         <th>Status</th>
                     </tr>
@@ -707,7 +706,6 @@
                         <td>{{ upcoming_emi.loan.loan_name }}</td>
                         <td>{{ upcoming_emi.due_date|date:"d M Y" }}</td>
                         <td>₹{{ upcoming_emi.regular_emi|floatformat:0 }}</td>
-                        <td>₹{{ upcoming_emi.additional_interest|floatformat:0 }}</td>
                         <td>₹{{ upcoming_emi.total_debit|floatformat:0 }}</td>
                         <td>Pending</td>
                     </tr>
@@ -774,7 +772,6 @@
                         <th>Loan</th>
                         <th>Due Date</th>
                         <th>Regular EMI</th>
-                        <th>Late Interest</th>
                         <th>Total Payable</th>
                         <th>Status</th>
                     </tr>
@@ -784,7 +781,6 @@
                         <td>{{ overdue_emi.loan.loan_name }}</td>
                         <td>{{ overdue_emi.due_date|date:"d M Y" }}</td>
                         <td>₹{{ overdue_emi.regular_emi|floatformat:0 }}</td>
-                        <td class="text-danger">₹{{ overdue_emi.additional_interest|floatformat:0 }}</td>
                         <td class="text-danger">₹{{ overdue_emi.total_debit|floatformat:0 }}</td>
                         <td>
                             <span class="status-badge status-overdue">
@@ -876,10 +872,6 @@
                 <div style="font-size:16px;font-weight:600;">₹{{ analytics.highest_emi|floatformat:0 }}</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Additional Interest Paid</div>
-                <div style="font-size:16px;font-weight:600;color:#dc2626;">₹{{ analytics.additional_interest|floatformat:0 }}</div>
-            </div>
-            <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
                 <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Late Payments</div>
                 <div style="font-size:16px;font-weight:600;">{{ analytics.late_payments }}</div>
             </div>
@@ -942,7 +934,6 @@
                         <th>Due Date</th>
                         <th>Payment Date</th>
                         <th>Regular EMI</th>
-                        <th>Additional Interest</th>
                         <th>Total Debit</th>
                         <th>Principal</th>
                         <th>Interest</th>
@@ -971,13 +962,6 @@
                             {% endif %}
                         </td>
                         <td>₹{{ payment.regular_emi_amount|floatformat:0 }}</td>
-                        <td>
-                            {% if payment.additional_interest > 0 %}
-                                <span class="text-danger">₹{{ payment.additional_interest|floatformat:0 }}</span>
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
                         <td><strong>₹{{ payment.total_debit_amount|floatformat:0 }}</strong></td>
                         <td>₹{{ payment.principal_component|floatformat:0 }}</td>
                         <td>₹{{ payment.interest_component|floatformat:0 }}</td>
