@@ -1,94 +1,7 @@
-{% extends 'base.html' %}
-{% load static %}
+{% extends 'app_layout.html' %}
 {% block title %}Users — NexusLoan{% endblock %}
-{% block content %}
-<div class="app-layout">
-    <header class="mobile-header">
-        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
-            <i class="fas fa-bars"></i>
-        </button>
-        <span class="mobile-logo">NexusLoan</span>
-        <button class="theme-toggle-mobile" id="themeToggleMobile" aria-label="Toggle theme">
-            <i class="fas fa-moon"></i>
-        </button>
-    </header>
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="sidebar-logo">
-                <div class="logo-icon">
-                    <i class="fas fa-landmark"></i>
-                </div>
-                <span class="logo-text">NexusLoan</span>
-            </div>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="{% url 'dashboard' %}" class="nav-item">
-                <i class="fas fa-chart-pie"></i>
-                <span>Dashboard</span>
-            </a>
-            <a href="{% url 'admin_users' %}" class="nav-item active">
-                <i class="fas fa-users"></i>
-                <span>Users</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-wallet"></i>
-                <span>Loans</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-credit-card"></i>
-                <span>Payments</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-money-bill-wave"></i>
-                <span>Prepayments</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-university"></i>
-                <span>Banks</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-bell"></i>
-                <span>Notifications</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-chart-column"></i>
-                <span>Reports</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-clock-rotate-left"></i>
-                <span>Activity Logs</span>
-            </a>
-            <a href="{% url 'loan_list' %}" class="nav-item">
-                <i class="fas fa-gear"></i>
-                <span>Settings</span>
-            </a>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <div class="user-avatar">{{ request.user.first_name.0|default:request.user.username.0|upper }}</div>
-                <div class="user-details">
-                    <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                    <span class="user-role">
-                        {% if request.user.profile %}
-                            {{ request.user.profile.get_role_display }}
-                        {% else %}
-                            Admin
-                        {% endif %}
-                    </span>
-                </div>
-            </div>
-            <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-                <i class="fas fa-moon" id="themeIcon"></i>
-                <span id="themeLabel" style="font-size:10px;">Dark Mode</span>
-            </button>
-            <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="nav-item nav-logout">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Logout</span>
-            </button></form>
-        </div>
-    </aside>
-    <main class="main-content">
+{% block app_content %}
+
         <div class="page-header">
             <div>
                 <h1 class="page-title">Users</h1>
@@ -266,8 +179,7 @@
             </div>
             {% endif %}
         </div>
-    </main>
-</div>
+
 <style>
 .users-filter-form {
     display: flex;

@@ -194,7 +194,7 @@
         </button>
     </form>
     {% if tickets %}
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;">
+        <div class="responsive-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;">
             {% for ticket in tickets %}
                 <div style="border:1px solid #e5e7eb;border-radius:14px;padding:20px;background:rgba(255,255,255,.5);">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;">

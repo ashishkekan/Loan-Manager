@@ -1,1 +1,22 @@
-{% extends "app_layout.html" %}{% block app_content %}<h1>Compare Loans</h1><table class="table"><tr><th>Loan</th><th>EMI per period</th><th>Frequency</th><th>Projected total</th></tr>{% for item in comparison %}<tr><td>{{ item.loan.loan_name }}</td><td>{{ item.emi }}</td><td>{{ item.loan.get_emi_frequency_display }}</td><td>{{ item.total_payable }}</td></tr>{% empty %}<tr><td>Add at least two loans to compare.</td></tr>{% endfor %}</table>{% endblock %}
+{% extends "app_layout.html" %}
+{% block title %}Compare Loans{% endblock %}
+{% block app_content %}
+<div class="page-header"><h1 class="page-title">Compare Loans</h1></div>
+<div class="glass-card table-responsive">
+    <table class="data-table">
+        <thead><tr><th>Loan</th><th>EMI per period</th><th>Frequency</th><th>Projected total</th></tr></thead>
+        <tbody>
+            {% for item in comparison %}
+            <tr>
+                <td>{{ item.loan.loan_name }}</td>
+                <td>₹{{ item.emi|floatformat:2 }}</td>
+                <td>{{ item.loan.get_emi_frequency_display }}</td>
+                <td>₹{{ item.total_payable|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">Add at least two loans to compare.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

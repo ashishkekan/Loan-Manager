@@ -3,14 +3,14 @@
 {% load static %}
 {% block title %}{{ loan.loan_name }}{% endblock %}
 {% block app_content %}
-<div class="page-header">
+<div class="page-header loan-page-header">
     <div>
         <div class="breadcrumb">
             <a href="{% url 'loan_list' %}">My Loans</a>
             <i class="fas fa-chevron-right"></i>
             <span>{{ loan.loan_name }}</span>
         </div>
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+        <div class="loan-title-row">
             <div class="lc-type-icon" style="background:{{ loan.type_color }}15;color:{{ loan.type_color }};width:30px;height:25px;font-size:15px;text-align:center;">
                 <i class="fas {{ loan.type_icon }}"></i>
             </div>
@@ -26,7 +26,7 @@
         </div>
         <span class="loan-card-type-badge" style="margin-bottom:0;">{{ loan.get_loan_type_display }}</span>
     </div>
-    <div class="page-actions">
+    <div class="page-actions loan-toolbar">
         <a href="{% url 'dashboard' %}" class="btn btn-outline">
             <i class="fas fa-chart-line"></i>Dashboard
         </a>
@@ -40,27 +40,43 @@
             <i class="fas fa-receipt"></i> Ledger
         </a>
         {% if loan.status == "active" %}
-            <a href="{% url 'edit_loan' loan.pk %}" class="btn btn-outline-primary">
+            <a href="{% url 'edit_loan' loan.pk %}" class="btn btn-outline">
                 <i class="fas fa-edit"></i> Edit
             </a>
             <button class="btn btn-danger" onclick="openCloseLoanModal()">
                 <i class="fas fa-check-circle"></i> Close
             </button>
         {% endif %}
-        <button class="btn btn-ghost" onclick="window.print()" title="Print Page">
+        <button class="btn btn-outline btn-icon" onclick="window.print()" title="Print Page" aria-label="Print page">
             <i class="fas fa-print"></i>
         </button>
         {% if loan.status == 'active' %}
-            <form method="post" action="{% url 'delete_loan' loan.pk %}" style="display:inline; margin-top: 5px;" onsubmit="return confirm('Delete this loan and all its payment history?')">
+            <form method="post" action="{% url 'delete_loan' loan.pk %}" class="toolbar-form" onsubmit="return confirm('Delete this loan and all its payment history?')">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger-ghost" title="Delete Loan" style="color: red;">
+                <button type="submit" class="btn btn-danger-ghost btn-icon" title="Delete Loan" aria-label="Delete loan">
                     <i class="fas fa-trash"></i>
                 </button>
             </form>
         {% endif %}
+        {% if loan.status == "active" %}
+        {% if not loan.auto_debit %}
+        <form method="post" action="{% url 'pay_emi' loan.pk %}" class="pay-emi-form toolbar-form">
+            {% csrf_token %}<input type="hidden" name="payment_number" value="{{ next_emi_num }}">
+            <button type="submit" class="btn btn-primary pay-emi-small">
+                <i class="fas fa-wallet"></i>
+                <div class="pay-text">
+                    <strong>Pay EMI</strong>
+                    <small>
+                        ₹{{ next_emi_total_debit|floatformat:0 }}
+                    </small>
+                </div>
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
     </div>
 </div>
-{% if loan.status == "active" %}
+{% if loan.status == "active" and is_overdue %}
     <div class="loan-action-bar">
         {% if is_overdue %}
         <div class="overdue-alert-enhanced">
@@ -85,23 +101,8 @@
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="loan-action-spacer"></div>
         {% endif %}
-        {% if not loan.auto_debit %}
-        <form method="post" action="{% url 'pay_emi' loan.pk %}" class="pay-emi-form">
-            {% csrf_token %}<input type="hidden" name="payment_number" value="{{ next_emi_num }}">
-            <button type="submit" class="btn btn-primary pay-emi-small">
-                <i class="fas fa-wallet"></i>
-                <div class="pay-text">
-                    <strong>Pay EMI</strong>
-                    <small>
-                        ₹{{ next_emi_total_debit|floatformat:0 }}
-                    </small>
-                </div>
-            </button>
-        </form>
-        {% endif %}
+
     </div>
 {% endif %}
 <div class="summary-grid">
@@ -166,7 +167,7 @@
         <span>₹{{ loan.remaining_balance|floatformat:0 }} remaining</span>
     </div>
     <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+    <div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                 Principal Paid
@@ -196,14 +197,14 @@
 
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
-        <div style="display: flex; gap: 660px;">
+        <div class="section-heading">
             <h3>Loan Disbursement Summary</h3>
             <a href="{% url 'create_disbursement' loan.id %}" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus"></i>Add
             </a>
         </div>
         <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+        <div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
                 <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                     Total Sanction
@@ -234,9 +235,9 @@
 
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div class="card-body">
-        <div style="display: flex; gap: 720px;">
+        <div class="section-heading section-heading-spaced">
             <h3>Recent Disbursements</h3>
-            <a href="{% url 'loan_disbursement_list' loan.id %}" class="btn btn-primary btn-sm" style="margin-bottom: 15px;">
+            <a href="{% url 'loan_disbursement_list' loan.id %}" class="btn btn-primary btn-sm">
                 View All
             </a>
         </div>
@@ -276,7 +277,7 @@
     <h3 style="margin-bottom:20px;">
         Loan Information
     </h3>
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+    <div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
         <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                 Loan Created
@@ -363,7 +364,7 @@
 
 <div class="glass-card" style="padding:24px;margin-bottom:24px;">
     <h3 style="margin-bottom:20px;">Loan Analytics</h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+    <div class="responsive-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
         <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                 Total Amount Paid
@@ -437,7 +438,7 @@
         <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">Confirm & Make Payment</h4>
         <form method="post" action="{% url 'make_prepayment' loan.pk %}" class="prepay-form" novalidate>
             {% csrf_token %}
-            <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 12px; align-items: flex-end;">
+            <div class="responsive-grid" style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 12px; align-items: flex-end;">
                 <div class="form-group" style="margin:0;">
                     <label>Actual Amount (₹)</label>
                     <input type="number" name="amount" id="actualPrepayAmount" class="form-input" placeholder="50000" min="1" step="0.01"
@@ -488,7 +489,7 @@
             </form>
             {% if simulation %}
             <hr style="border: 0; border-top: 1px dashed var(--border); margin: 24px 0 20px;">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;" class="mt-4">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;" class="responsive-grid mt-4">
                 <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
                     <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                         Months Saved
@@ -522,7 +523,7 @@
             <i class="fas fa-bullseye" style="color: var(--accent);"></i> Loan Goal Tracker
         </h3>
         <div class="card-body">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;" class="mt-4">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;" class="responsive-grid mt-4">
                 <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
                     <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                         Current Balance
@@ -569,7 +570,7 @@
         </h3>
         <div class="card-body">
             <form method="get" class="mt-4">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+                <div class="responsive-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
                     <div>
                         <label style="font-size:15px;font-weight:600;">Monthly Income</label>
                         <input
@@ -602,7 +603,7 @@
             </form>
             {% if affordability %}
             <hr style="border:0;border-top:1px dashed var(--border);margin:24px 0 20px;">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+            <div class="responsive-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
                 <div style="padding:18px;border:1px solid #e5e7eb;border-radius:12px;">
                     <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                         Disposable Income
@@ -645,7 +646,7 @@
     <h3 style="margin-bottom:20px;">
         <i class="fas fa-calendar-check" style="color:var(--primary);"></i> Estimated Loan Closure
     </h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+    <div class="responsive-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
         <div style="padding:18px;border:1px solid #e5e7eb;border-radius:14px;">
             <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
                 Estimated Closure
@@ -878,7 +879,7 @@
     </div>
     <form method="post" action="{% url 'upload_document' loan.pk %}" enctype="multipart/form-data" id="docForm">
         {% csrf_token %}
-        <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:20px;">
+        <div class="responsive-grid" style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:20px;">
             <div class="form-group" style="margin:0;">
                 <input type="text" name="title" class="form-input" placeholder="Document title (e.g. Loan Agreement)" required>
             </div>

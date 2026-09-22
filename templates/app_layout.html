@@ -23,7 +23,7 @@
 </style>
 <div class="app-layout">
     <header class="mobile-header">
-        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
             <i class="fas fa-bars"></i>
         </button>
         <span class="mobile-logo">NexusLoan</span>
@@ -31,9 +31,10 @@
             <i class="fas fa-moon"></i>
         </button>
     </header>
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
+            <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close menu"><i class="fas fa-xmark" aria-hidden="true"></i></button>
             <a href="{% url 'dashboard' %}" class="sidebar-logo">
                 <div class="logo-icon">
                     <i class="fas fa-landmark"></i>
@@ -63,7 +64,7 @@
                     <i class="fas fa-folder-open"></i>
                     <span>Documents</span>
                 </a>
-                <li>
+                <div>
                     <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
                         <i class="fas fa-bell"></i>
                         <span>Notifications</span>
@@ -71,7 +72,7 @@
                             <span class="notification-badge">{{ header_unread_notifications }}</span>
                         {% endif %}
                     </a>
-                </li>
+                </div>
                 <a href="{% url 'support_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'support_dashboard' %}active{% endif %}">
                     <i class="fas fa-headset"></i>
                     <span>Support</span>
@@ -101,7 +102,7 @@
                     <i class="fas fa-university"></i>
                     <span>Banks</span>
                 </a>
-                <li>
+                <div>
                     <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
                         <i class="fas fa-bell"></i>
                         <span>Notifications</span>
@@ -109,7 +110,7 @@
                             <span class="notification-badge">{{ header_unread_notifications }}</span>
                         {% endif %}
                     </a>
-                </li>
+                </div>
                 <a href="{% url 'admin_reports' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_reports' %}active{% endif %}">
                     <i class="fas fa-chart-column"></i>
                     <span>Reports</span>
@@ -145,7 +146,9 @@
                 <div class="user-details">
                     <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
                     <span class="user-role">
-                        {% if request.user.profile %}
+                        {% if request.user.is_staff %}
+                            Admin
+                        {% elif request.user.profile %}
                             {{ request.user.profile.get_role_display }}
                         {% else %}
                             User

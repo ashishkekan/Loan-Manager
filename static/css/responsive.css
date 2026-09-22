@@ -1,0 +1,191 @@
+/* Shared layout rules: keep desktop proportions while allowing content to reflow. */
+.app-layout .page-header > div,
+.app-layout .glass-card,
+.app-layout .responsive-grid > *,
+.app-layout .sc-info,
+.app-layout .user-details { min-width: 0; }
+.app-layout .page-title, .app-layout .user-name { overflow-wrap: anywhere; }
+.app-layout .page-actions, .app-layout .header-actions {
+    flex-wrap: wrap;
+    align-items: center;
+    max-width: 100%;
+    flex-shrink: 1;
+}
+.app-layout .page-actions form { margin: 0; display: flex; }
+.app-layout .btn { min-height: 42px; font-family: inherit; cursor: pointer; }
+.app-layout .btn::after { pointer-events: none; }
+.app-layout .btn-icon { width: 42px; padding: 10px; flex: 0 0 42px; }
+.app-layout .btn-danger-ghost { color: var(--danger); background: var(--danger-glow); }
+.app-layout :is(a, button, input, select, textarea):focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 3px;
+}
+.section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.section-heading h3 { margin: 0; }
+.section-heading .btn { flex-shrink: 0; margin-left: auto; }
+.section-heading-spaced { margin-bottom: 18px; }
+.loan-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.app-layout .loan-page-header { display: block; margin-bottom: 24px; }
+.app-layout .loan-toolbar {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    gap: 8px;
+}
+.app-layout .loan-toolbar > .btn, .app-layout .loan-toolbar form > .btn { height: 44px; }
+.app-layout .loan-toolbar .pay-emi-form { margin-left: auto; width: auto; }
+.app-layout .loan-toolbar .pay-emi-small { width: auto; min-width: 144px; padding: 6px 18px; border-radius: var(--radius-sm); }
+.app-layout .pay-text strong { font-size: 13px; }
+.app-layout .pay-text small { font-size: 11px; }
+.app-layout .loan-action-bar { margin-bottom: 20px; }
+.app-layout .breadcrumb { flex-wrap: wrap; overflow-wrap: anywhere; }
+.app-layout .table-responsive, .app-layout .admin-table-wrapper,
+.app-layout .table-wrapper { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.app-layout .table-responsive .data-table { min-width: 560px; }
+.app-layout .table-responsive th, .app-layout .table-responsive td { vertical-align: middle; }
+.app-layout input, .app-layout select, .app-layout textarea { max-width: 100%; }
+.app-layout .chart-card, .app-layout .chart-container { min-width: 0; max-width: 100%; }
+.app-layout .sidebar-header { position: relative; }
+.sidebar-close { display: none; }
+.app-layout .nav-logout { font-size: 10px; }
+.app-layout .custom-modal { padding: 16px; overflow-y: auto; }
+.app-layout .custom-modal-content { width: min(100%, 480px); max-height: calc(100dvh - 32px); overflow-y: auto; margin: auto; }
+.app-layout .custom-modal-footer { display: flex; flex-wrap: wrap; gap: 10px; }
+.app-layout .responsive-grid { min-width: 0; }
+
+@media (max-width: 1200px) {
+    .app-layout .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .app-layout .loan-toolbar .pay-emi-form { margin-left: 0; }
+}
+@media (max-width: 1024px) {
+    body.menu-open { overflow: hidden; }
+    .app-layout .sidebar { width: min(280px, 86vw); visibility: hidden; }
+    .app-layout .sidebar.open { visibility: visible; }
+    .app-layout .sidebar-header { padding-right: 44px; }
+    .sidebar-close {
+        display: inline-flex; position: absolute; right: 6px; top: 18px;
+        align-items: center; justify-content: center; width: 40px; height: 40px;
+        border: 0; background: transparent; color: var(--text); font-size: 20px; cursor: pointer;
+    }
+    .app-layout .nav-item { min-height: 44px; font-size: 13px; padding: 10px 12px; }
+    .app-layout .sidebar-toggle, .app-layout .theme-toggle-mobile { min-width: 44px; min-height: 44px; }
+    .app-layout .sidebar-nav { min-height: 0; }
+    .app-layout .sidebar-footer { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
+    .app-layout .main-content { width: 100%; }
+}
+@media (max-width: 768px) {
+    .app-layout .main-content { padding: calc(var(--header-h) + 20px) 16px 24px; }
+    .app-layout .page-header { align-items: stretch; }
+    .app-layout .page-title { font-size: 24px; line-height: 1.3; }
+    .app-layout .page-actions { width: 100%; }
+    .app-layout .page-actions > .btn:not(.btn-icon) { flex: 1 1 auto; }
+    .app-layout .summary-grid { gap: 12px; }
+    .app-layout .summary-card { padding: 18px; gap: 12px; }
+    .app-layout .sc-value { font-size: 22px; overflow-wrap: anywhere; }
+    .app-layout .loan-toolbar { display: flex; }
+    .app-layout .loan-toolbar .pay-emi-form { flex: 1 1 144px; }
+    .app-layout .loan-toolbar .pay-emi-small { width: 100%; }
+    .app-layout .overdue-alert-enhanced { padding: 16px; gap: 12px; }
+    .app-layout .oa-title { font-size: 15px; }
+    .app-layout .oa-meta { gap: 8px; }
+    .app-layout .header-actions { flex-wrap: wrap; }
+    .app-layout .custom-modal-footer .btn { flex: 1; }
+}
+@media (max-width: 640px) {
+    /* These marked grids have legacy inline desktop column counts. */
+    .app-layout .responsive-grid { grid-template-columns: minmax(0, 1fr) !important; }
+    .app-layout .responsive-grid > * { grid-column: auto !important; }
+    .app-layout .responsive-grid :is(input, select, textarea) { width: 100% !important; min-width: 0; }
+    .app-layout .responsive-grid > .btn { width: 100%; }
+    .app-layout .glass-card[style*="padding:"] { padding: 18px !important; }
+    .app-layout .summary-grid { grid-template-columns: minmax(0, 1fr); }
+    .app-layout .sc-value { font-size: 24px; }
+    .app-layout .page-actions .btn { padding: 10px 14px; }
+    .app-layout .loan-toolbar { gap: 8px; }
+    .app-layout .loan-toolbar > .btn:not(.btn-icon) { flex: 1 1 calc(50% - 8px); }
+    .app-layout .loan-title-row .page-title { flex: 1 1 calc(100% - 48px); }
+    .app-layout .loan-title-row .loan-status-badge { margin-left: 0; }
+    .app-layout .section-heading { gap: 12px; }
+    .app-layout .section-heading h3 { font-size: 16px; flex: 1 1 150px; }
+    .app-layout .section-heading .btn { min-width: 84px; }
+    .app-layout :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 16px; }
+    .app-layout .form-row { grid-template-columns: minmax(0, 1fr); }
+    .app-layout .pagination-wrapper { flex-wrap: wrap; gap: 8px; }
+    .messages-container { left: 12px; right: 12px; max-width: calc(100% - 24px); }
+}
+@media print {
+    .app-layout .loan-toolbar, .sidebar-close { display: none !important; }
+}
+.app-layout button.nav-logout {
+    display: flex; width: 100%; background: transparent; border: 0;
+    text-align: left; font-family: inherit; cursor: pointer;
+}
+.app-layout .data-table-wrap, .app-layout .users-table-wrapper {
+    min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain;
+}
+.app-layout .health-content { min-width: 0; }
+@media (max-width: 640px) {
+    .app-layout :is(.health-card, .stats-card, .tips-card) { padding: 18px; }
+    .app-layout .section-header, .app-layout .tips-header { flex-wrap: wrap; gap: 16px; }
+    .app-layout .overall-health { padding: 12px 18px; }
+    .app-layout .health-item { grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 10px; padding: 12px; }
+    .app-layout .health-icon { width: 36px; height: 36px; font-size: 16px; }
+    .app-layout .health-score { font-size: 20px; }
+    .app-layout .health-title { font-size: 13px; overflow-wrap: anywhere; }
+}
+
+/* Consistent section spacing, including optional dashboard cards. */
+.dashboard-stack { display: grid; gap: 24px; min-width: 0; }
+.dashboard-stack > * { margin-top: 0 !important; margin-bottom: 0 !important; min-width: 0; }
+.app-layout .charts-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+.app-layout .chart-header { flex-wrap: wrap; gap: 12px; }
+.app-layout .chart-header h3 { margin-bottom: 0; }
+.app-layout .chart-container-pie { min-width: 0; }
+.app-layout .chart-container-pie canvas { max-width: 100% !important; max-height: none !important; }
+.app-layout .pie-center-stat { transform: translate(-50%, -50%); overflow-wrap: anywhere; }
+.app-layout .loans-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+.app-layout .opportunities-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.app-layout :is(.filter-search, .filter-group, .filter-actions, .filter-input) { min-width: 0; max-width: 100%; }
+.app-layout :is(.filter-search input, .filter-search select) { width: 100%; min-width: 0; }
+.app-layout :is(.loans-mini-item, .rp-item) { gap: 12px; flex-wrap: wrap; }
+.app-layout :is(.lmi-left, .rp-left, .lmi-left > div, .rp-left > div) { min-width: 0; }
+.app-layout :is(.lmi-name, .lmi-meta, .rp-name, .rp-meta, .opp-title) { overflow-wrap: anywhere; }
+.app-layout .lmi-icon { flex-shrink: 0; }
+.app-layout .lmi-right { flex-wrap: wrap; gap: 10px; margin-left: auto; }
+.app-layout .form-actions { flex-wrap: wrap; gap: 12px; }
+.app-layout .opp-details { flex-wrap: wrap; gap: 12px; }
+@media (max-width: 768px) {
+    .app-layout .charts-grid { grid-template-columns: minmax(0, 1fr); }
+    .app-layout .chart-card { padding: 18px; }
+}
+/* Landing headers share a legacy class with app flex headers. Keep text stacked. */
+.section .section-header { display: block; }
+.section :is(.features-grid, .benefits-grid, .market-preview-grid) {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+.section :is(.section-header, .calculator-wrapper, .market-card) { min-width: 0; }
+.section :is(.section-title, .section-desc) { overflow-wrap: anywhere; }
+/* Fade dashboard sections without translating them into adjacent cards. */
+.dashboard-stack .reveal { transform: none; }
+@media (max-width: 640px) {
+    .auth-page :is(input, select, textarea) { font-size: 16px; }
+    .role-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 1024px) {
+    .landing-nav .nav-container { flex-wrap: wrap; }
+    .landing-nav .mobile-menu-btn { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+    .landing-nav .nav-links, .landing-nav .nav-actions { display: none; }
+    .landing-nav.menu-expanded { max-height: 100dvh; overflow-y: auto; }
+    .landing-nav.menu-expanded .nav-links { display: flex; flex-direction: column; align-items: stretch; gap: 8px; order: 3; width: 100%; }
+    .landing-nav.menu-expanded .nav-actions { display: flex; flex-wrap: wrap; order: 4; width: 100%; padding-bottom: 12px; }
+    .landing-nav .nav-links a { padding: 12px 0; }
+    .landing-nav .nav-actions .btn { min-height: 44px; }
+    .hero-visual { order: 0; }
+}

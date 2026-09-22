@@ -16,9 +16,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
     <!-- App Styles -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260922-ui3">
 
     {% block extra_head %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=20260922-ui3">
 </head>
 <body>
     <!-- Django Messages -->
@@ -35,7 +36,7 @@
 
     {% block content %}{% endblock %}
 
-    <script src="{% static 'js/main.js' %}"></script>
+    <script src="{% static 'js/main.js' %}?v=20260922-ui3"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

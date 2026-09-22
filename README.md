@@ -42,6 +42,8 @@ scratch was not part of verification.
 
 ## Documentation
 
+- [Responsive UI review and verification](docs/UI_REVIEW.md)
+
 - [User manual](docs/USER_MANUAL.md)
 - [Admin manual](docs/ADMIN_MANUAL.md)
 - [Review: root causes, fixes, test evidence and limits](docs/REVIEW.md)

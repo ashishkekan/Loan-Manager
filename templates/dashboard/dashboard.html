@@ -2,6 +2,7 @@
 {% load static %}
 {% block title %}Dashboard{% endblock %}
 {% block app_content %}
+<div class="dashboard-stack">
 {% if request.user.is_staff %}
     <div class="page-header">
         <div>
@@ -252,7 +253,7 @@
                 Welcome back, {{ request.user.first_name|default:request.user.username }} — here's your loan overview
             </p>
         </div>
-        <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" style="width: 40px; height: 40px;">
+        <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" aria-label="Create loan" style="width: 44px; height: 44px;">
             <i class="fas fa-plus"></i>
         </a>
     </div>
@@ -771,6 +772,7 @@
         </div>
     {% endif %}
 {% endif %}
+</div>
 {% endblock %}
 {% block extra_scripts %}
 {% if request.user.is_staff %}
@@ -935,6 +937,18 @@
         const hasData = data.principal > 0 || data.interest > 0;
 
         new Chart(ctx, {
+            // Anchor the label to the actual arc center, including wrapped legends.
+            plugins: [{
+                id: 'centerStat',
+                afterDraw(chart) {
+                    const label = canvas.parentElement.querySelector('.pie-center-stat');
+                    const arc = chart.getDatasetMeta(0).data[0];
+                    if (!label || !arc) return;
+                    label.style.left = `${canvas.offsetLeft + arc.x}px`;
+                    label.style.top = `${canvas.offsetTop + arc.y}px`;
+                    label.style.width = `${arc.innerRadius * 1.7}px`;
+                }
+            }],
             type: 'doughnut',
             data: {
                 labels: ['Principal Paid', 'Interest Paid'],
