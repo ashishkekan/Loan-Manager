@@ -117,6 +117,29 @@ class LoanForm(forms.ModelForm):
                     "first_emi_date",
                     "First EMI date cannot be before loan creation date.",
                 )
+        if self.instance.pk:
+            if (
+                cleaned_data.get("amount", self.instance.amount)
+                < self.instance.total_disbursed_amount
+            ):
+                self.add_error(
+                    "amount", "Sanction cannot be below released disbursements."
+                )
+            if self.instance.payments.exists() or self.instance.prepayments.exists():
+                for field in (
+                    "user",
+                    "amount",
+                    "interest_rate",
+                    "tenure_years",
+                    "start_date",
+                    "first_emi_date",
+                    "emi_frequency",
+                ):
+                    if field in self.changed_data:
+                        self.add_error(
+                            field,
+                            "Cannot change loan terms after a payment has been recorded.",
+                        )
         return cleaned_data
 
     def clean_amount(self):
@@ -208,12 +231,27 @@ class LoanDisbursementForm(forms.ModelForm):
         cleaned = super().clean()
         if not self.loan:
             return cleaned
+        if self.loan.status != "active":
+            raise ValidationError("Disbursements require an active loan.")
+        disbursement_date = cleaned.get("disbursement_date")
+        if not self.instance.pk and disbursement_date:
+            if (
+                self.loan.payments.filter(
+                    status="paid", due_date__gte=disbursement_date
+                ).exists()
+                or self.loan.prepayments.filter(
+                    status="paid", prepayment_date__gte=disbursement_date
+                ).exists()
+            ):
+                raise ValidationError(
+                    "A new release must be after recorded payment dates."
+                )
         amount = cleaned.get("amount")
         status = cleaned.get("status")
         if amount is None:
             return cleaned
         previous_total = self.loan.total_disbursed_amount
-        if self.instance.pk:
+        if self.instance.pk and self.instance.status == "released":
             previous_total -= self.instance.amount
         if status == "released":
             if previous_total + amount > self.loan.amount:

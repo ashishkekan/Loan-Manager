@@ -6,8 +6,8 @@ from django.db.models import Avg, Count, OuterRef, Q, Subquery, Sum
 from django.utils import timezone
 
 from loans.models import BankAccount, Loan
-from loans.utils import add_periods, get_period_details
-from payments.models import Payment
+from loans.utils import add_periods, get_period_details, generate_full_schedule
+from payments.models import Payment, Prepayment
 
 User = get_user_model()
 
@@ -113,6 +113,15 @@ def _apply_loan_filters(qs, f):
         qs = qs.filter(loan_type=f["loan_type"])
     if f["status"]:
         qs = qs.filter(status=f["status"])
+    if f["bank_name"]:
+        bank = (
+            BankAccount.objects.filter(user=OuterRef("user"))
+            .order_by("-is_default", "-created_at")
+            .values("bank_name")[:1]
+        )
+        qs = qs.annotate(_filter_bank=Subquery(bank)).filter(
+            _filter_bank=f["bank_name"]
+        )
     return qs
 
 
@@ -174,27 +183,14 @@ def get_reports_kpis(f):
     loan_qs = _apply_loan_filters(Loan.objects.all(), f)
 
     total_loans = loan_qs.count()
-    total_disbursed = loan_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
+    total_disbursed = sum(
+        (loan.total_disbursed_amount for loan in loan_qs), Decimal("0")
+    )
     total_outstanding = loan_qs.filter(status="active").aggregate(
         t=Sum("remaining_balance")
     )["t"] or Decimal("0")
 
-    overdue_qs = Payment.objects.filter(status="overdue")
-    if f["from_date_obj"]:
-        overdue_qs = overdue_qs.filter(due_date__gte=f["from_date_obj"])
-    if f["to_date_obj"]:
-        overdue_qs = overdue_qs.filter(due_date__lte=f["to_date_obj"])
-    if f["user_id"]:
-        try:
-            overdue_qs = overdue_qs.filter(loan__user_id=int(f["user_id"]))
-        except (ValueError, TypeError):
-            pass
-    if f["loan_type"]:
-        overdue_qs = overdue_qs.filter(loan__loan_type=f["loan_type"])
-
-    total_overdue = overdue_qs.aggregate(t=Sum("total_debit_amount"))["t"] or Decimal(
-        "0"
-    )
+    total_overdue = sum((p.total_debit_amount for p in get_overdue_qs(f)), Decimal("0"))
     return {
         "total_loans": total_loans,
         "total_disbursed": total_disbursed,
@@ -240,33 +236,67 @@ def get_payment_summary(f):
     }
 
 
+def scheduled_payments(loans=None):
+    """Unsaved presentation rows; reads never mark an installment as paid."""
+    rows = []
+    if loans is None:
+        loans = Loan.objects.select_related("user").filter(status="active")
+    for loan in loans:
+        for row in generate_full_schedule(loan):
+            if row["status"] == "paid":
+                continue
+            rows.append(
+                Payment(
+                    loan=loan,
+                    payment_number=row["period"],
+                    due_date=row["due_date"],
+                    amount=row["total_debit"],
+                    total_debit_amount=row["total_debit"],
+                    regular_emi_amount=row["regular_emi"],
+                    principal_component=row["principal"],
+                    interest_component=row["interest"],
+                    balance_after=row["balance"],
+                    status=row["status"],
+                    payment_mode=row["payment_mode"],
+                )
+            )
+    return sorted(rows, key=lambda row: (row.due_date, row.loan_id))
+
+
 def get_overdue_qs(f):
-    qs = Payment.objects.select_related("loan", "loan__user").filter(status="overdue")
-    return _apply_overdue_filters(qs, f).order_by("due_date")
+    loans = Loan.objects.select_related("user").filter(status="active")
+    # Date filters apply to due dates, not loan origination dates.
+    loan_filters = dict(f, from_date_obj=None, to_date_obj=None)
+    loans = _apply_loan_filters(loans, loan_filters)
+    rows = []
+    today = timezone.localdate()
+    bounds = {"1-30": (1, 30), "31-60": (31, 60), "61-90": (61, 90), "90+": (91, None)}
+    for payment in scheduled_payments(loans):
+        if payment.status != "overdue":
+            continue
+        if f["from_date_obj"] and payment.due_date < f["from_date_obj"]:
+            continue
+        if f["to_date_obj"] and payment.due_date > f["to_date_obj"]:
+            continue
+        days = (today - payment.due_date).days
+        minimum, maximum = bounds.get(f["overdue_bucket"], (1, None))
+        if days < minimum or (maximum is not None and days > maximum):
+            continue
+        rows.append(payment)
+    return rows
 
 
 def get_overdue_summary(f):
-    today = timezone.localdate()
-    base = Payment.objects.filter(status="overdue")
-    base = _apply_overdue_filters(base, f)
-
+    base = get_overdue_qs(f)
+    days = [(timezone.localdate() - p.due_date).days for p in base]
     return {
-        "total_overdue_loans": base.values("loan_id").distinct().count(),
-        "total_overdue_emis": base.count(),
-        "total_overdue_amount": base.aggregate(t=Sum("total_debit_amount"))["t"]
-        or Decimal("0"),
-        "bucket_1_30": base.filter(
-            due_date__gte=today - timedelta(days=30), due_date__lt=today
-        ).count(),
-        "bucket_31_60": base.filter(
-            due_date__gte=today - timedelta(days=60),
-            due_date__lt=today - timedelta(days=30),
-        ).count(),
-        "bucket_61_90": base.filter(
-            due_date__gte=today - timedelta(days=90),
-            due_date__lt=today - timedelta(days=60),
-        ).count(),
-        "bucket_90_plus": base.filter(due_date__lt=today - timedelta(days=90)).count(),
+        "total_overdue_loans": len({p.loan_id for p in base}),
+        "total_overdue_emis": len(base),
+        "total_overdue_amount": sum((p.total_debit_amount for p in base), Decimal("0")),
+        "bucket_1_30": sum(1 <= d <= 30 for d in days),
+        "bucket_31_60": sum(31 <= d <= 60 for d in days),
+        "bucket_61_90": sum(61 <= d <= 90 for d in days),
+        "bucket_90_plus": sum(d > 90 for d in days),
     }
 
 
@@ -347,74 +377,68 @@ def get_user_summary_qs(f):
     )
     qs = qs.filter(total_loans__gt=0)
     qs = qs.order_by("-total_borrowed")
-    return qs
+    overdue_by_user = {}
+    for payment in get_overdue_qs(f):
+        overdue_by_user[payment.loan.user_id] = (
+            overdue_by_user.get(payment.loan.user_id, Decimal("0")) + payment.amount
+        )
+    users = list(qs)
+    for user in users:
+        user.overdue_amount = overdue_by_user.get(user.pk, Decimal("0"))
+        prepaid = Prepayment.objects.filter(
+            loan__in=_apply_loan_filters(Loan.objects.filter(user=user), f),
+            status="paid",
+        ).aggregate(t=Sum("amount"))["t"] or Decimal("0")
+        user.total_repaid = (user.total_repaid or Decimal("0")) + prepaid
+    return users
 
 
 def get_performance_data(f):
     group_by = f["group_by"]
-    paid_sq = (
-        Payment.objects.filter(loan=OuterRef("pk"), status="paid")
-        .values("loan")
-        .annotate(t=Sum("principal_component"))
-        .values("t")[:1]
-    )
-    overdue_sq = (
-        Payment.objects.filter(loan=OuterRef("pk"), status="overdue")
-        .values("loan")
-        .annotate(t=Sum("total_debit_amount"))
-        .values("t")[:1]
-    )
-
-    qs = Loan.objects.annotate(
-        _repaid=Subquery(paid_sq), _overdue_amount=Subquery(overdue_sq)
-    )
-    qs = _apply_loan_filters(qs, f)
-    if group_by == "bank":
-        bank_sub = (
-            BankAccount.objects.filter(user=OuterRef("user"))
-            .order_by("-is_default", "-created_at")
-            .values("bank_name")[:1]
+    groups = {}
+    overdue_by_loan = {}
+    for p in get_overdue_qs(f):
+        overdue_by_loan[p.loan_id] = (
+            overdue_by_loan.get(p.loan_id, Decimal("0")) + p.amount
         )
-        qs = qs.annotate(_bank=Subquery(bank_sub))
-        if f["bank_name"]:
-            qs = qs.filter(_bank=f["bank_name"])
-        group_field = "_bank"
-        group_label = "Bank"
-    else:
-        group_field = "loan_type"
-        group_label = "Loan Type"
-
-    rows = (
-        qs.values(group_field)
-        .annotate(
-            total_loans=Count("id"),
-            total_disbursed=Sum("amount"),
-            total_repaid=Sum("_repaid"),
-            outstanding=Sum("remaining_balance", filter=Q(status="active")),
-            overdue=Sum("_overdue_amount"),
-            avg_loan=Avg("amount"),
-        )
-        .order_by("-total_disbursed")
-    )
-
-    results = []
-    for row in rows:
+    for loan in _apply_loan_filters(Loan.objects.select_related("user"), f):
         if group_by == "bank":
-            label = row[group_field] or "Unknown Bank"
+            bank = (
+                BankAccount.objects.filter(user=loan.user)
+                .order_by("-is_default", "-created_at")
+                .first()
+            )
+            label = bank.bank_name if bank else "Unknown Bank"
         else:
-            label = dict(Loan.LOAN_TYPE_CHOICES).get(row[group_field], row[group_field])
-        results.append(
+            label = loan.get_loan_type_display()
+        row = groups.setdefault(
+            label,
             {
                 "label": label,
-                "total_loans": row["total_loans"],
-                "total_disbursed": row["total_disbursed"] or Decimal("0"),
-                "total_repaid": row["total_repaid"] or Decimal("0"),
-                "outstanding": row["outstanding"] or Decimal("0"),
-                "overdue": row["overdue"] or Decimal("0"),
-                "avg_loan": row["avg_loan"] or Decimal("0"),
-            }
+                "total_loans": 0,
+                "total_disbursed": Decimal("0"),
+                "total_repaid": Decimal("0"),
+                "outstanding": Decimal("0"),
+                "overdue": Decimal("0"),
+                "avg_loan": Decimal("0"),
+                "sanction": Decimal("0"),
+            },
         )
-    return results, group_label
+        row["total_loans"] += 1
+        row["total_disbursed"] += loan.total_disbursed_amount
+        principal = loan.payments.filter(status="paid").aggregate(
+            t=Sum("principal_component")
+        )["t"] or Decimal("0")
+        row["total_repaid"] += principal + loan.total_prepayment_amount
+        row["outstanding"] += (
+            loan.remaining_balance if loan.status == "active" else Decimal("0")
+        )
+        row["overdue"] += overdue_by_loan.get(loan.pk, Decimal("0"))
+        row["sanction"] += loan.amount
+        row["avg_loan"] = row["sanction"] / row["total_loans"]
+    return sorted(
+        groups.values(), key=lambda row: row["total_disbursed"], reverse=True
+    ), ("User default bank" if group_by == "bank" else "Loan Type")
 
 
 def get_available_users():

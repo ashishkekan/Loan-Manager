@@ -3938,3 +3938,13 @@ FORECLOSURE CALCULATOR STYLES
 .filter-search input::placeholder{
     color:var(--text-muted);
 }
+
+/* Logout is a CSRF-protected form button with the existing navigation appearance. */
+button.nav-logout {
+    background: transparent;
+    border: 0;
+    width: 100%;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}

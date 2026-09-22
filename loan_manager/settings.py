@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / ".env")
+if os.environ.get("LOAN_LOCAL_ONLY") != "1":
+    load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -89,6 +90,11 @@ WSGI_APPLICATION = "loan_manager.wsgi.application"
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        env=(
+            "LOAN_UNUSED_LOCAL_DATABASE_URL"
+            if os.environ.get("LOAN_LOCAL_ONLY") == "1"
+            else "DATABASE_URL"
+        ),
         conn_max_age=600,
     )
 }

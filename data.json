@@ -1,0 +1,992 @@
+[
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$CHKydcNktntYtXk5OXxd28$nxAn9FvKQMG+ndYsZHpOk4ZILSx+yJ9ISXlrOHGVtD4=",
+    "last_login": "2026-08-26T07:49:20.099Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "admin@gmail.com",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-08-05T07:12:28.474Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$1RxnbZ8uqGJ3NZEHX11JYm$KD16vETWNi35lzYZpnM97HT/ZhKEA4Z8vpNvTRO0CY0=",
+    "last_login": "2026-09-07T05:23:25.952Z",
+    "is_superuser": false,
+    "username": "ashish",
+    "first_name": "Ashish",
+    "last_name": "Kekaan",
+    "email": "ashh@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-08-05T09:32:02.644Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$bnfIQWq2PtqRsbAyKML2l8$DtC/lbYkWZSBEB20bP99n4ytgn6ruEM7DKUvEgb5Bw0=",
+    "last_login": "2026-08-19T09:02:06.774Z",
+    "is_superuser": false,
+    "username": "yash",
+    "first_name": "Yash",
+    "last_name": "Dharam",
+    "email": "yash.dharam@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-08-19T09:02:05.525Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.profile",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "role": "guest",
+    "phone": null,
+    "available_funds": "0.00",
+    "kyc_verified": false,
+    "pan_number": null,
+    "credit_score": 750,
+    "annual_income": "0.00",
+    "created_at": "2026-08-05T07:12:29.044Z"
+  }
+},
+{
+  "model": "accounts.profile",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "role": "guest",
+    "phone": null,
+    "available_funds": "0.00",
+    "kyc_verified": false,
+    "pan_number": null,
+    "credit_score": 750,
+    "annual_income": "0.00",
+    "created_at": "2026-08-05T09:32:03.241Z"
+  }
+},
+{
+  "model": "accounts.profile",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "yash"
+    ],
+    "role": "guest",
+    "phone": null,
+    "available_funds": "0.00",
+    "kyc_verified": false,
+    "pan_number": null,
+    "credit_score": 750,
+    "annual_income": "0.00",
+    "created_at": "2026-08-19T09:02:06.148Z"
+  }
+},
+{
+  "model": "loans.loan",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "loan_name": "Baroda Home Loan",
+    "loan_type": "home",
+    "amount": "2000000.00",
+    "interest_rate": "7.30",
+    "tenure_years": 20,
+    "emi": "15868.17",
+    "start_date": "2026-01-01",
+    "first_emi_date": "2026-01-30",
+    "emi_frequency": "monthly",
+    "auto_debit": true,
+    "status": "active",
+    "closed_date": null,
+    "remaining_balance": "1959688.91",
+    "total_interest_paid": "96634.27",
+    "is_public": false,
+    "funded_amount": "0.00",
+    "created_at": "2026-08-05T07:30:36.500Z",
+    "updated_at": "2026-08-05T07:32:06.917Z"
+  }
+},
+{
+  "model": "loans.loan",
+  "pk": 7,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "loan_name": "Surat Home Loan",
+    "loan_type": "home",
+    "amount": "2000000.00",
+    "interest_rate": "7.30",
+    "tenure_years": 20,
+    "emi": "15868.17",
+    "start_date": "2026-07-18",
+    "first_emi_date": "2026-09-10",
+    "emi_frequency": "monthly",
+    "auto_debit": true,
+    "status": "active",
+    "closed_date": null,
+    "remaining_balance": "2000000.00",
+    "total_interest_paid": "0.00",
+    "is_public": false,
+    "funded_amount": "0.00",
+    "created_at": "2026-09-07T05:42:50.180Z",
+    "updated_at": "2026-09-07T05:42:50.180Z"
+  }
+},
+{
+  "model": "loans.loannote",
+  "pk": 1,
+  "fields": {
+    "loan": 2,
+    "content": "TEst",
+    "created_at": "2026-08-05T17:16:36.357Z"
+  }
+},
+{
+  "model": "loans.loannote",
+  "pk": 2,
+  "fields": {
+    "loan": 2,
+    "content": "daede",
+    "created_at": "2026-08-05T17:23:23.263Z"
+  }
+},
+{
+  "model": "loans.loandisbursement",
+  "pk": 1,
+  "fields": {
+    "loan": 2,
+    "disbursement_number": 1,
+    "disbursement_date": "2026-08-05",
+    "amount": "56540.00",
+    "purpose": "builder",
+    "remarks": "",
+    "status": "released",
+    "is_interest_processed": false,
+    "created_at": "2026-08-05T07:40:12.743Z",
+    "updated_at": "2026-08-05T07:40:12.743Z"
+  }
+},
+{
+  "model": "loans.loandisbursement",
+  "pk": 2,
+  "fields": {
+    "loan": 2,
+    "disbursement_number": 2,
+    "disbursement_date": "2026-07-30",
+    "amount": "135742.00",
+    "purpose": "builder",
+    "remarks": "",
+    "status": "released",
+    "is_interest_processed": true,
+    "created_at": "2026-08-05T07:54:35.208Z",
+    "updated_at": "2026-08-05T07:54:35.208Z"
+  }
+},
+{
+  "model": "loans.loandisbursement",
+  "pk": 9,
+  "fields": {
+    "loan": 7,
+    "disbursement_number": 1,
+    "disbursement_date": "2026-07-30",
+    "amount": "29000.00",
+    "purpose": "insurance",
+    "remarks": "",
+    "status": "released",
+    "is_interest_processed": true,
+    "created_at": "2026-09-07T05:43:13.119Z",
+    "updated_at": "2026-09-07T05:43:13.119Z"
+  }
+},
+{
+  "model": "loans.loandisbursement",
+  "pk": 10,
+  "fields": {
+    "loan": 7,
+    "disbursement_number": 2,
+    "disbursement_date": "2026-07-30",
+    "amount": "135742.00",
+    "purpose": "builder",
+    "remarks": "",
+    "status": "released",
+    "is_interest_processed": true,
+    "created_at": "2026-09-07T05:43:24.825Z",
+    "updated_at": "2026-09-07T05:43:24.825Z"
+  }
+},
+{
+  "model": "loans.loandisbursement",
+  "pk": 11,
+  "fields": {
+    "loan": 7,
+    "disbursement_number": 3,
+    "disbursement_date": "2026-08-31",
+    "amount": "359842.00",
+    "purpose": "builder",
+    "remarks": "",
+    "status": "released",
+    "is_interest_processed": true,
+    "created_at": "2026-09-07T05:43:32.648Z",
+    "updated_at": "2026-09-07T05:43:32.648Z"
+  }
+},
+{
+  "model": "loans.loanaccruedinterest",
+  "pk": 1,
+  "fields": {
+    "loan": 2,
+    "disbursement": 2,
+    "emi_payment": null,
+    "from_date": "2026-07-30",
+    "to_date": "2026-08-27",
+    "emi_date": "2026-08-28",
+    "days": 29,
+    "annual_interest_rate": "7.3000",
+    "disbursed_amount": "135742.00",
+    "interest_amount": "787.30",
+    "recovered_amount": "0.00",
+    "status": "pending",
+    "recovered_on": null,
+    "created_at": "2026-08-05T07:54:35.225Z",
+    "updated_at": "2026-08-05T07:54:35.225Z"
+  }
+},
+{
+  "model": "loans.loanaccruedinterest",
+  "pk": 8,
+  "fields": {
+    "loan": 7,
+    "disbursement": 9,
+    "emi_payment": null,
+    "from_date": "2026-07-30",
+    "to_date": "2026-09-09",
+    "emi_date": "2026-09-10",
+    "days": 42,
+    "annual_interest_rate": "7.3000",
+    "disbursed_amount": "29000.00",
+    "interest_amount": "243.60",
+    "recovered_amount": "0.00",
+    "status": "pending",
+    "recovered_on": null,
+    "created_at": "2026-09-07T05:43:13.123Z",
+    "updated_at": "2026-09-07T05:43:13.123Z"
+  }
+},
+{
+  "model": "loans.loanaccruedinterest",
+  "pk": 9,
+  "fields": {
+    "loan": 7,
+    "disbursement": 10,
+    "emi_payment": null,
+    "from_date": "2026-07-30",
+    "to_date": "2026-09-09",
+    "emi_date": "2026-09-10",
+    "days": 42,
+    "annual_interest_rate": "7.3000",
+    "disbursed_amount": "135742.00",
+    "interest_amount": "1140.23",
+    "recovered_amount": "0.00",
+    "status": "pending",
+    "recovered_on": null,
+    "created_at": "2026-09-07T05:43:24.833Z",
+    "updated_at": "2026-09-07T05:43:24.833Z"
+  }
+},
+{
+  "model": "loans.loanaccruedinterest",
+  "pk": 10,
+  "fields": {
+    "loan": 7,
+    "disbursement": 11,
+    "emi_payment": null,
+    "from_date": "2026-08-31",
+    "to_date": "2026-09-09",
+    "emi_date": "2026-09-10",
+    "days": 10,
+    "annual_interest_rate": "7.3000",
+    "disbursed_amount": "359842.00",
+    "interest_amount": "719.68",
+    "recovered_amount": "0.00",
+    "status": "pending",
+    "recovered_on": null,
+    "created_at": "2026-09-07T05:43:32.652Z",
+    "updated_at": "2026-09-07T05:43:32.652Z"
+  }
+},
+{
+  "model": "loans.notification",
+  "pk": 12,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "loan": 7,
+    "title": "Loan Created",
+    "message": "Your loan 'Surat Home Loan' has been created successfully.",
+    "notification_type": "loan",
+    "is_read": false,
+    "created_at": "2026-09-07T05:42:50.194Z"
+  }
+},
+{
+  "model": "loans.notification",
+  "pk": 13,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "loan": 2,
+    "title": "Loan Fully Repaid",
+    "message": "Baroda Home Loan has been fully repaid and is now closed.",
+    "notification_type": "loan",
+    "is_read": false,
+    "created_at": "2026-09-07T06:14:28.208Z"
+  }
+},
+{
+  "model": "loans.supportticket",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "loan": null,
+    "ticket_number": "TKT-0001",
+    "category": "payment",
+    "subject": "Delay Payments due to some reason",
+    "message": "Hi, Bank Manager,\r\n\r\nI want to pay the payment in the next month due to some issues.\r\nThank you!\r\n\r\nBest Regards,\r\nAshish Kekaan",
+    "attachment": "",
+    "status": "open",
+    "priority": "medium",
+    "created_at": "2026-08-09T06:48:54.506Z",
+    "updated_at": "2026-08-09T06:48:54.506Z",
+    "resolved_at": null,
+    "last_response_at": null
+  }
+},
+{
+  "model": "loans.supportticket",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "loan": null,
+    "ticket_number": "TKT-0002",
+    "category": "payment",
+    "subject": "Delay Payments due to some reason",
+    "message": "Hi, Bank Manager,\r\n\r\nI want to pay the payment in the next month due to some issues.\r\nThank you!\r\n\r\nBest Regards,\r\nAshish Kekaan",
+    "attachment": "",
+    "status": "open",
+    "priority": "medium",
+    "created_at": "2026-08-09T06:49:35.638Z",
+    "updated_at": "2026-08-09T06:50:55.945Z",
+    "resolved_at": null,
+    "last_response_at": "2026-08-09T06:50:55.945Z"
+  }
+},
+{
+  "model": "loans.supportmessage",
+  "pk": 1,
+  "fields": {
+    "ticket": 2,
+    "user": [
+      "ashish"
+    ],
+    "message": "Hi, Bank Manager,\r\n\r\nI want to pay the payment in the next month due to some issues.\r\nThank you!\r\n\r\nBest Regards,\r\nAshish Kekaan",
+    "attachment": "",
+    "is_staff_reply": false,
+    "created_at": "2026-08-09T06:49:35.665Z"
+  }
+},
+{
+  "model": "loans.supportmessage",
+  "pk": 2,
+  "fields": {
+    "ticket": 2,
+    "user": [
+      "ashish"
+    ],
+    "message": "klkj",
+    "attachment": "",
+    "is_staff_reply": false,
+    "created_at": "2026-08-09T06:50:49.293Z"
+  }
+},
+{
+  "model": "loans.supportmessage",
+  "pk": 3,
+  "fields": {
+    "ticket": 2,
+    "user": [
+      "ashish"
+    ],
+    "message": "OK",
+    "attachment": "",
+    "is_staff_reply": false,
+    "created_at": "2026-08-09T06:50:55.931Z"
+  }
+},
+{
+  "model": "loans.userprofile",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "phone": "07049950623",
+    "photo": "profile_photos/profile_tlcZ8qN.png",
+    "dob": "1999-12-20",
+    "address": "Surat",
+    "city": "Surat",
+    "state": "Gujarat",
+    "pincode": "395004",
+    "occupation": "Developer",
+    "annual_income": "1000000.00",
+    "updated_at": "2026-08-08T12:35:04.131Z"
+  }
+},
+{
+  "model": "loans.userprofile",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "phone": "",
+    "photo": "",
+    "dob": null,
+    "address": "ghfh",
+    "city": "",
+    "state": "",
+    "pincode": "",
+    "occupation": "",
+    "annual_income": null,
+    "updated_at": "2026-08-19T09:50:03.823Z"
+  }
+},
+{
+  "model": "loans.userprofile",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "yash"
+    ],
+    "phone": "",
+    "photo": "",
+    "dob": null,
+    "address": "",
+    "city": "",
+    "state": "",
+    "pincode": "",
+    "occupation": "",
+    "annual_income": null,
+    "updated_at": "2026-08-19T09:49:55.064Z"
+  }
+},
+{
+  "model": "loans.notificationpreference",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "email_emi": true,
+    "email_payment": true,
+    "email_updates": true,
+    "email_promotional": false,
+    "inapp_emi": true,
+    "inapp_support": true,
+    "inapp_documents": true,
+    "inapp_loan_updates": true,
+    "sms_emi": true,
+    "sms_otp": true,
+    "sms_payment": true,
+    "updated_at": "2026-08-07T10:10:46.548Z"
+  }
+},
+{
+  "model": "loans.notificationpreference",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "email_emi": true,
+    "email_payment": true,
+    "email_updates": true,
+    "email_promotional": false,
+    "inapp_emi": true,
+    "inapp_support": true,
+    "inapp_documents": true,
+    "inapp_loan_updates": true,
+    "sms_emi": true,
+    "sms_otp": true,
+    "sms_payment": true,
+    "updated_at": "2026-08-19T09:30:19.415Z"
+  }
+},
+{
+  "model": "loans.notificationpreference",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "yash"
+    ],
+    "email_emi": true,
+    "email_payment": true,
+    "email_updates": true,
+    "email_promotional": false,
+    "inapp_emi": true,
+    "inapp_support": true,
+    "inapp_documents": true,
+    "inapp_loan_updates": true,
+    "sms_emi": true,
+    "sms_otp": true,
+    "sms_payment": true,
+    "updated_at": "2026-08-19T09:49:55.068Z"
+  }
+},
+{
+  "model": "loans.appearancepreference",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "theme": "dark",
+    "language": "en",
+    "currency": "INR",
+    "date_format": "DD MMM YYYY",
+    "updated_at": "2026-08-09T06:52:37.433Z"
+  }
+},
+{
+  "model": "loans.appearancepreference",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "theme": "system",
+    "language": "en",
+    "currency": "INR",
+    "date_format": "DD MMM YYYY",
+    "updated_at": "2026-08-19T09:30:19.419Z"
+  }
+},
+{
+  "model": "loans.appearancepreference",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "yash"
+    ],
+    "theme": "system",
+    "language": "en",
+    "currency": "INR",
+    "date_format": "DD MMM YYYY",
+    "updated_at": "2026-08-19T09:49:55.072Z"
+  }
+},
+{
+  "model": "loans.privacysetting",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "hide_balance": false,
+    "hide_loan_amount": false,
+    "hide_emi_values": false,
+    "analytics": true,
+    "marketing": false,
+    "updated_at": "2026-08-07T10:10:46.557Z"
+  }
+},
+{
+  "model": "loans.privacysetting",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "hide_balance": false,
+    "hide_loan_amount": false,
+    "hide_emi_values": false,
+    "analytics": true,
+    "marketing": false,
+    "updated_at": "2026-08-19T09:30:19.422Z"
+  }
+},
+{
+  "model": "loans.privacysetting",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "yash"
+    ],
+    "hide_balance": false,
+    "hide_loan_amount": false,
+    "hide_emi_values": false,
+    "analytics": true,
+    "marketing": false,
+    "updated_at": "2026-08-19T09:49:55.075Z"
+  }
+},
+{
+  "model": "loans.securitysetting",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "two_factor": false,
+    "last_password_change": null,
+    "updated_at": "2026-08-07T10:10:46.562Z"
+  }
+},
+{
+  "model": "loans.securitysetting",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "two_factor": false,
+    "last_password_change": null,
+    "updated_at": "2026-08-19T09:30:19.426Z"
+  }
+},
+{
+  "model": "loans.securitysetting",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "yash"
+    ],
+    "two_factor": false,
+    "last_password_change": null,
+    "updated_at": "2026-08-19T09:49:55.079Z"
+  }
+},
+{
+  "model": "loans.bankaccount",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "bank_name": "Bank of Maharashtra",
+    "account_holder": "Ashish Kekaan",
+    "account_number": "60092425021",
+    "ifsc": "MAHB0000945",
+    "is_default": true,
+    "created_at": "2026-08-08T12:36:20.299Z",
+    "updated_at": "2026-08-09T06:51:42.634Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 1,
+  "fields": {
+    "loan": 2,
+    "payment_number": 1,
+    "amount": "15868.17",
+    "principal_component": "3701.50",
+    "interest_component": "12166.67",
+    "balance_after": "1996298.50",
+    "due_date": "2026-01-30",
+    "payment_date": "2026-08-05",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-08-05T07:31:08.264Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 2,
+  "fields": {
+    "loan": 2,
+    "payment_number": 2,
+    "amount": "15868.17",
+    "principal_component": "3724.02",
+    "interest_component": "12144.15",
+    "balance_after": "1992574.48",
+    "due_date": "2026-02-28",
+    "payment_date": "2026-08-05",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-08-05T07:31:08.273Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 3,
+  "fields": {
+    "loan": 2,
+    "payment_number": 3,
+    "amount": "15868.17",
+    "principal_component": "3746.68",
+    "interest_component": "12121.49",
+    "balance_after": "1988827.80",
+    "due_date": "2026-03-30",
+    "payment_date": "2026-08-05",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-08-05T07:31:08.280Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 4,
+  "fields": {
+    "loan": 2,
+    "payment_number": 4,
+    "amount": "15868.17",
+    "principal_component": "3769.47",
+    "interest_component": "12098.70",
+    "balance_after": "1985058.33",
+    "due_date": "2026-04-30",
+    "payment_date": "2026-08-05",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-08-05T07:31:08.288Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 5,
+  "fields": {
+    "loan": 2,
+    "payment_number": 5,
+    "amount": "15868.17",
+    "principal_component": "3792.40",
+    "interest_component": "12075.77",
+    "balance_after": "1981265.93",
+    "due_date": "2026-05-30",
+    "payment_date": "2026-08-05",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-08-05T07:31:08.296Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 6,
+  "fields": {
+    "loan": 2,
+    "payment_number": 6,
+    "amount": "15868.17",
+    "principal_component": "3815.47",
+    "interest_component": "12052.70",
+    "balance_after": "1977450.46",
+    "due_date": "2026-06-30",
+    "payment_date": "2026-08-05",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-08-05T07:31:08.304Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 7,
+  "fields": {
+    "loan": 2,
+    "payment_number": 7,
+    "amount": "15868.17",
+    "principal_component": "3838.68",
+    "interest_component": "12029.49",
+    "balance_after": "1973611.78",
+    "due_date": "2026-07-30",
+    "payment_date": "2026-08-05",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-08-05T07:31:08.312Z"
+  }
+},
+{
+  "model": "payments.payment",
+  "pk": 12,
+  "fields": {
+    "loan": 2,
+    "payment_number": 8,
+    "amount": "15868.17",
+    "principal_component": "3922.87",
+    "interest_component": "11945.30",
+    "balance_after": "1959688.91",
+    "due_date": "2026-08-30",
+    "payment_date": "2026-09-07",
+    "status": "paid",
+    "payment_mode": "auto_debit",
+    "payment_type": "emi",
+    "additional_interest": "0.00",
+    "regular_emi_amount": "15868.17",
+    "total_debit_amount": "15868.17",
+    "created_at": "2026-09-07T06:14:28.205Z"
+  }
+},
+{
+  "model": "payments.prepayment",
+  "pk": 1,
+  "fields": {
+    "loan": 2,
+    "amount": "10000.00",
+    "prepayment_date": "2026-08-05",
+    "months_reduced": 2,
+    "interest_saved": "23951.44",
+    "payment_mode": "manual",
+    "payment_type": "prepayment",
+    "status": "paid",
+    "created_at": "2026-08-05T07:32:06.910Z"
+  }
+},
+{
+  "model": "dashboard.activitylog",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "loan": 2,
+    "action": "loan_created",
+    "title": "Baroda Home Loan created",
+    "description": "Loan of ₹2,000,000 added.",
+    "created_at": "2026-08-05T07:30:36.511Z"
+  }
+},
+{
+  "model": "dashboard.activitylog",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "loan": 2,
+    "action": "prepayment",
+    "title": "Prepayment Done",
+    "description": "₹10,000 prepaid.",
+    "created_at": "2026-08-05T07:32:06.921Z"
+  }
+},
+{
+  "model": "dashboard.activitylog",
+  "pk": 11,
+  "fields": {
+    "user": [
+      "ashish"
+    ],
+    "loan": 7,
+    "action": "loan_created",
+    "title": "Surat Home Loan created",
+    "description": "Loan of ₹2,000,000 added.",
+    "created_at": "2026-09-07T05:42:50.189Z"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 1,
+  "fields": {
+    "action_time": "2026-08-05T07:40:12.745Z",
+    "user": [
+      "admin"
+    ],
+    "content_type": [
+      "loans",
+      "loandisbursement"
+    ],
+    "object_id": "1",
+    "object_repr": "Baroda Home Loan - Disbursement #1",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 2,
+  "fields": {
+    "action_time": "2026-08-05T09:58:48.037Z",
+    "user": [
+      "admin"
+    ],
+    "content_type": [
+      "loans",
+      "loanaccruedinterest"
+    ],
+    "object_id": "3",
+    "object_repr": "Baroda Home Loan - ₹1140.23",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Status\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 3,
+  "fields": {
+    "action_time": "2026-08-05T09:58:53.478Z",
+    "user": [
+      "admin"
+    ],
+    "content_type": [
+      "loans",
+      "loanaccruedinterest"
+    ],
+    "object_id": "2",
+    "object_repr": "Baroda Home Loan - ₹313.20",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Status\"]}}]"
+  }
+}
+]

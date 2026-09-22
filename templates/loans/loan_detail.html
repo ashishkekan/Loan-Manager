@@ -90,13 +90,13 @@
         {% endif %}
         {% if not loan.auto_debit %}
         <form method="post" action="{% url 'pay_emi' loan.pk %}" class="pay-emi-form">
-            {% csrf_token %}
+            {% csrf_token %}<input type="hidden" name="payment_number" value="{{ next_emi_num }}">
             <button type="submit" class="btn btn-primary pay-emi-small">
                 <i class="fas fa-wallet"></i>
                 <div class="pay-text">
                     <strong>Pay EMI</strong>
                     <small>
-                        ₹{{ loan.emi|floatformat:0 }}
+                        ₹{{ next_emi_total_debit|floatformat:0 }}
                     </small>
                 </div>
             </button>
@@ -222,10 +222,10 @@
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
                 <div style="font-size:13px;color:#64748b;margin-bottom:6px;">
-                    Pending Accrued Interest
+                    Total Released
                 </div>
                 <div style="font-size:16px;font-weight:600;">
-                    ₹{{ pending_interest|floatformat:0|default:"0" }}
+                    ₹{{ total_disbursed_amount|floatformat:0 }}
                 </div>
             </div>
         </div>
@@ -265,51 +265,6 @@
                     <tr>
                         <td colspan="5" class="text-center">
                             No disbursement added.
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-<div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
-    <div class="card-body">
-        <div style="display:flex;gap:12px;">
-            <h3>Pending Additional Interest</h3>
-        </div>
-    </div>
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Disbursement</th>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Days</th>
-                    <th>Interest</th>
-                    <th>EMI Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in pending_accrued_interest %}
-                    <tr>
-                        <td>
-                            #{{ item.disbursement.disbursement_number }}
-                        </td>
-                        <td>{{ item.from_date }}</td>
-                        <td>{{ item.to_date }}</td>
-                        <td>{{ item.days }}</td>
-                        <td>
-                            ₹{{ item.interest_amount }}
-                        </td>
-                        <td>
-                            {{ item.emi_date }}
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="6">
-                            No pending accrued interest.
                         </td>
                     </tr>
                 {% endfor %}
@@ -941,7 +896,7 @@
         <div style="margin-top:16px;">
             {% for doc in documents %}
             <div class="doc-item">
-                <a href="{{ doc.file.url }}" target="_blank"><i class="fas fa-file-pdf"></i> {{ doc.title }} <small style="color:var(--text-muted);">({{ doc.get_doc_type_display }})</small></a>
+                <a href="{% url 'view_document' doc.pk %}" target="_blank"><i class="fas fa-file-pdf"></i> {{ doc.title }} <small style="color:var(--text-muted);">({{ doc.get_doc_type_display }})</small></a>
                 <form method="post" action="{% url 'delete_document' loan.pk doc.pk %}" style="display:inline;">
                     {% csrf_token %}
                     <button type="submit" class="doc-delete"><i class="fas fa-trash"></i></button>

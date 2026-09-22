@@ -74,6 +74,23 @@ def add_periods(source_date, period_number, frequency):
     return add_months(source_date, months_per_period * period_number)
 
 
+def next_emi_number(loan):
+    last = loan.payments.filter(status="paid").order_by("-payment_number").first()
+    number = last.payment_number + 1 if last else 1
+    first_release = (
+        loan.disbursements.filter(status="released")
+        .order_by("disbursement_date")
+        .first()
+    )
+    if first_release:
+        while (
+            add_periods(loan.schedule_start_date, number - 1, loan.emi_frequency)
+            < first_release.disbursement_date
+        ):
+            number += 1
+    return number
+
+
 def build_paid_schedule(loan):
     paid_rows = {}
     payments = (
@@ -123,25 +140,38 @@ def build_projected_schedule(loan):
         / Decimal("100")
     )
     emi = Decimal(str(loan.emi))
-    balance = Decimal(str(loan.amount))
-    today = date.today()
-    prepayments = list(loan.prepayments.order_by("prepayment_date"))
-    prepayment_index = 0
+    if loan.status != "active":
+        return {}
+    paid = loan.payments.filter(status="paid")
+    last = paid.order_by("-payment_number").first()
+    first_period = last.payment_number + 1 if last else 1
+    principal_paid = paid.aggregate(total=Sum("principal_component"))[
+        "total"
+    ] or Decimal("0")
+    prepaid = loan.prepayments.filter(status="paid").aggregate(total=Sum("amount"))[
+        "total"
+    ] or Decimal("0")
+    released = list(
+        loan.disbursements.filter(status="released").order_by("disbursement_date")
+    )
+    today = timezone.localdate()
+    projected_principal = Decimal("0")
     rows = {}
-    total_periods = (loan.tenure_years * periods_per_year) + 20
-    for period in range(1, total_periods + 1):
-        if balance <= Decimal("0.01"):
-            break
+    total_periods = max(first_period, loan.tenure_years * periods_per_year) + 20
+    for period in range(first_period, total_periods + 1):
         due_date = add_periods(loan.schedule_start_date, period - 1, frequency)
-        while (
-            prepayment_index < len(prepayments)
-            and prepayments[prepayment_index].prepayment_date <= due_date
-        ):
-            balance = max(
-                Decimal("0.00"),
-                balance - Decimal(str(prepayments[prepayment_index].amount)),
-            )
-            prepayment_index += 1
+        available = sum(
+            (d.amount for d in released if d.disbursement_date <= due_date),
+            Decimal("0"),
+        )
+        balance = max(
+            Decimal("0"), available - principal_paid - prepaid - projected_principal
+        )
+        if balance <= 0:
+            if not any(d.disbursement_date > due_date for d in released):
+                break
+            # No EMI can be collected until a release exists for this date.
+            continue
         interest = (balance * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         principal = (emi - interest).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         current_emi = emi
@@ -172,7 +202,7 @@ def build_projected_schedule(loan):
             "is_overdue": status == "overdue",
             "is_projected": True,
         }
-        balance = projected_balance
+        projected_principal += principal
     return rows
 
 
@@ -385,7 +415,11 @@ def create_notification(user, title, message, notification_type="system", loan=N
 def get_support_ticket_summary(user):
     from loans.models import SupportTicket
 
-    tickets = SupportTicket.objects.filter(user=user)
+    tickets = (
+        SupportTicket.objects.all()
+        if user.is_staff
+        else SupportTicket.objects.filter(user=user)
+    )
     total = tickets.count()
     open_count = tickets.filter(status__in=["open", "in_progress"]).count()
     resolved_count = tickets.filter(status__in=["resolved", "closed"]).count()
@@ -454,7 +488,11 @@ def get_account_statistics(user):
         "total"
     ] or Decimal("0.00")
     try:
-        total_support_tickets = SupportTicket.objects.filter(user=user).count()
+        total_support_tickets = (
+            SupportTicket.objects.all()
+            if user.is_staff
+            else SupportTicket.objects.filter(user=user).count()
+        )
     except Exception:
         total_support_tickets = 0
     return {

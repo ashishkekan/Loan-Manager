@@ -78,7 +78,9 @@ def admin_reports(request):
         for loan in page_obj.object_list:
             _, ppy = get_period_details(loan.emi_frequency)
             loan.computed_end_date = add_periods(
-                loan.schedule_start_date, loan.tenure_years * ppy, loan.emi_frequency
+                loan.schedule_start_date,
+                loan.tenure_years * ppy - 1,
+                loan.emi_frequency,
             )
         context["page_obj"] = page_obj
 

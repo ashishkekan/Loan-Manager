@@ -1,3 +1,6 @@
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import DecimalField, Sum
@@ -25,6 +28,8 @@ class SetupProfileView(LoginRequiredMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if "pan_number" in form.changed_data:
+            form.instance.kyc_verified = False
         messages.success(
             self.request, "Profile updated! You can now access the marketplace."
         )
@@ -55,30 +60,44 @@ class MarketplaceView(LoginRequiredMixin, ListView):
         return context
 
 
+@login_required
+@require_POST
+@transaction.atomic
 def invest_in_loan(request, loan_id):
-    if request.method == "POST":
-        loan = get_object_or_404(Loan, pk=loan_id, is_public=True)
-        profile = request.user.profile
-
-        if profile.role != "lender" or not profile.kyc_verified:
-            messages.error(request, "Complete lender KYC to invest.")
-            return redirect("marketplace")
-
-        amount = float(request.POST.get("amount", 0))
-        remaining_to_fund = float(loan.amount) - float(loan.funded_amount)
-
-        if amount <= 0 or amount > remaining_to_fund:
-            messages.error(
-                request, f"Invalid amount. Max investable: ₹{remaining_to_fund:,.0f}"
-            )
-            return redirect("loan_detail", pk=loan_id)
-
-        Investment.objects.create(loan=loan, lender=request.user, amount=amount)
-        loan.funded_amount += amount
-        if loan.funded_amount >= loan.amount:
-            loan.status = "active"
-        loan.save()
-        messages.success(
-            request, f"Successfully invested ₹{amount:,.0f} in {loan.loan_name}!"
+    loan = get_object_or_404(
+        Loan.objects.select_for_update(), pk=loan_id, is_public=True, status="active"
+    )
+    profile = Profile.objects.select_for_update().get(user=request.user)
+    if profile.role != "lender" or not profile.kyc_verified:
+        messages.error(request, "Complete lender KYC to invest.")
+        return redirect("marketplace")
+    if loan.user_id == request.user.id:
+        messages.error(request, "You cannot invest in your own loan.")
+        return redirect("marketplace")
+    form = InvestForm(request.POST)
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Enter a valid positive investment amount with at most two decimal places.",
         )
-    return redirect("loan_detail", pk=loan_id)
+        return redirect("marketplace")
+    amount = form.cleaned_data["amount"]
+    if (
+        amount <= 0
+        or amount > loan.amount - loan.funded_amount
+        or amount > profile.available_funds
+    ):
+        messages.error(
+            request,
+            "Investment exceeds available funds or remaining funding, or is not positive.",
+        )
+        return redirect("marketplace")
+    Investment.objects.create(loan=loan, lender=request.user, amount=amount)
+    loan.funded_amount += amount
+    loan.save(update_fields=["funded_amount"])
+    profile.available_funds -= amount
+    profile.save(update_fields=["available_funds"])
+    messages.success(
+        request, f"Recorded investment of ₹{amount:,.2f} in {loan.loan_name}."
+    )
+    return redirect("marketplace")

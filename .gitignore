@@ -10,3 +10,7 @@ media/
 .DS_Store
 .idea/
 .vscode/
+local.sqlite3*
+local_media/
+logs/*.log
+.local-demo-credentials.txt

@@ -160,7 +160,7 @@
                     {% csrf_token %}
                     <div class="settings-avatar">
                         {% if profile.photo %}
-                            <img src="{{ profile.photo.url }}" alt="Profile Photo">
+                            <img src="{% url 'profile_photo' target_user.pk %}" alt="Profile Photo">
                         {% else %}
                             <div class="settings-avatar-placeholder"><i class="fas fa-user"></i></div>
                         {% endif %}

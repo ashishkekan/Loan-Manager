@@ -50,6 +50,9 @@ class LoanAdmin(admin.ModelAdmin):
                     "emi",
                     "start_date",
                     "first_emi_date",
+                    "emi_frequency",
+                    "auto_debit",
+                    "is_public",
                     "status",
                 )
             },
@@ -62,7 +65,24 @@ class LoanAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
 
     actions = ["export_to_csv"]
-    inlines = [LoanDisbursementInline]
+    readonly_fields = (
+        "user",
+        "loan_name",
+        "loan_type",
+        "amount",
+        "interest_rate",
+        "tenure_years",
+        "emi",
+        "start_date",
+        "first_emi_date",
+        "emi_frequency",
+        "remaining_balance",
+        "total_interest_paid",
+        "status",
+    )
+
+    def has_add_permission(self, request):
+        return False
 
     def export_to_csv(self, request, queryset):
         response = HttpResponse(content_type="text/csv")
@@ -107,6 +127,22 @@ class LoanNoteAdmin(admin.ModelAdmin):
 
 @admin.register(LoanDisbursement)
 class LoanDisbursementAdmin(admin.ModelAdmin):
+    readonly_fields = (
+        "loan",
+        "disbursement_number",
+        "disbursement_date",
+        "amount",
+        "purpose",
+        "remarks",
+        "status",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = (
         "loan",
         "disbursement_number",

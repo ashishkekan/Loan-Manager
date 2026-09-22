@@ -7,6 +7,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
+from django.db import transaction
+from django.views.decorators.http import require_POST
 from django.db.models import Avg, Count, Max, Q, Sum
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -20,6 +22,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from dashboard.utils import add_activity
 from loans.models import Loan
+from loans.reports import scheduled_payments
 from loans.utils import (
     add_months,
     add_periods,
@@ -35,9 +38,20 @@ from payments.services import process_emi_payment
 
 
 @login_required
+@require_POST
 def pay_emi(request, loan_id):
     loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    payment = process_emi_payment(loan, payment_mode="manual", payment_type="emi")
+    try:
+        expected_number = int(request.POST.get("payment_number", ""))
+        payment = process_emi_payment(
+            loan,
+            payment_mode="manual",
+            payment_type="emi",
+            expected_payment_number=expected_number,
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("loan_detail", pk=loan.pk)
     if payment is None:
         if loan.status == "closed":
             messages.warning(request, "Loan is already closed.")
@@ -65,10 +79,15 @@ def pay_emi(request, loan_id):
     return redirect("loan_detail", pk=loan.id)
 
 
+@login_required
+@require_POST
+@transaction.atomic
 def make_prepayment(request, loan_id):
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    if loan.status == "closed":
-        messages.warning(request, "Cannot make prepayment on a closed loan.")
+    loan = get_object_or_404(
+        Loan.objects.select_for_update(), pk=loan_id, user=request.user
+    )
+    if loan.status != "active":
+        messages.warning(request, "Prepayment requires an active loan.")
         return redirect("loan_detail", pk=loan_id)
 
     if request.method == "POST":
@@ -99,7 +118,7 @@ def make_prepayment(request, loan_id):
             avg_period_interest = (old_balance + new_balance) / 2 * R
             months_per_period, _ = get_period_details(frequency)
             months_reduced = periods_reduced * months_per_period
-            interest_saved = avg_period_interest * months_reduced
+            interest_saved = avg_period_interest * periods_reduced
             prepayment = Prepayment.objects.create(
                 loan=loan,
                 amount=amount,
@@ -123,11 +142,9 @@ def make_prepayment(request, loan_id):
             )
             loan.remaining_balance = max(new_balance, Decimal("0.00"))
             loan.save(update_fields=["remaining_balance", "status"])
-            if (
-                loan.remaining_balance == Decimal("0.00")
-                and not loan.has_pending_accrued_interest
-            ):
+            if loan.remaining_balance == Decimal("0.00"):
                 loan.status = "closed"
+                loan.closed_date = prepayment_date
                 loan.remaining_balance = Decimal("0.00")
                 messages.success(
                     request, f"Prepayment of ₹{amount:,.2f} applied. Loan fully repaid!"
@@ -146,13 +163,14 @@ def make_prepayment(request, loan_id):
                 loan,
                 f"₹{prepayment.amount:,.0f} prepaid.",
             )
-            create_notification(
-                user=loan.user,
-                title="Loan Fully Repaid",
-                message=f"{loan.loan_name} has been fully repaid and is now closed.",
-                notification_type="loan",
-                loan=loan,
-            )
+            if loan.status == "closed":
+                create_notification(
+                    user=loan.user,
+                    title="Loan Fully Repaid",
+                    message=f"{loan.loan_name} has been fully repaid and is now closed.",
+                    notification_type="loan",
+                    loan=loan,
+                )
         else:
             for errors in form.errors.values():
                 for error in errors:
@@ -377,6 +395,48 @@ def payment_dashboard(request):
         )[
             :50
         ]
+        schedule_rows = scheduled_payments()
+        projected_pending = [p for p in schedule_rows if p.status == "pending"]
+        projected_overdue = [p for p in schedule_rows if p.status == "overdue"]
+        pending_amount = sum((p.amount for p in projected_pending), Decimal("0"))
+        overdue_amount = sum((p.amount for p in projected_overdue), Decimal("0"))
+        overdue_rows = [
+            {"payment": p, "days_late": (today - p.due_date).days}
+            for p in projected_overdue[:20]
+        ]
+        risk_users = {}
+        for p in projected_overdue:
+            entry = risk_users.setdefault(
+                p.loan.user_id,
+                {
+                    "loan__user__first_name": p.loan.user.first_name,
+                    "loan__user__last_name": p.loan.user.last_name,
+                    "loan__user__username": p.loan.user.username,
+                    "total_overdue": 0,
+                    "overdue_amount": Decimal("0"),
+                },
+            )
+            entry["total_overdue"] += 1
+            entry["overdue_amount"] += p.amount
+        high_risk_users = sorted(
+            risk_users.values(), key=lambda item: item["overdue_amount"], reverse=True
+        )[:10]
+        loan_stats = []
+        for loan in Loan.objects.select_related("user").all()[:50]:
+            summary = get_schedule_summary(loan)
+            loan_stats.append(
+                {
+                    "loan__loan_name": loan.loan_name,
+                    "loan__user__username": loan.user.username,
+                    "total": summary["paid"] + summary["pending"] + summary["overdue"],
+                    "paid": summary["paid"],
+                    "pending": summary["pending"],
+                    "overdue": summary["overdue"],
+                    "collected": summary["paid_amount"],
+                    "outstanding": summary["pending_amount"]
+                    + summary["overdue_amount"],
+                }
+            )
         context = {
             "page_title": "Payments",
             "admin_view": True,
@@ -384,10 +444,10 @@ def payment_dashboard(request):
             "total_paid": total_paid,
             "paid_count": paid_payments.count(),
             "paid_emis": paid_payments.count(),
-            "pending_count": pending_payments.count(),
-            "pending_emis": pending_payments.count(),
-            "overdue_count": overdue_payments.count(),
-            "overdue_emis": overdue_payments.count(),
+            "pending_count": len(projected_pending),
+            "pending_emis": len(projected_pending),
+            "overdue_count": len(projected_overdue),
+            "overdue_emis": len(projected_overdue),
             "pending_amount": pending_amount,
             "overdue_amount": overdue_amount,
             "today_collection": today_collection,
@@ -396,7 +456,7 @@ def payment_dashboard(request):
             "today": today,
             "principal_collected": principal_collected,
             "interest_collected": interest_collected,
-            "late_interest_collected": late_interest_collected,
+            "late_interest_collected": Decimal("0.00"),
             "auto_debit_total": auto_debit_total,
             "auto_debit_success": auto_debit_success,
             "auto_debit_rate": auto_debit_rate,
@@ -404,9 +464,7 @@ def payment_dashboard(request):
             "overdue_rows": overdue_rows,
             "high_risk_users": high_risk_users,
             "auto_debit_list": auto_debit_payments.order_by("due_date")[:10],
-            "upcoming_payments": pending_payments.filter(due_date__gte=today).order_by(
-                "due_date"
-            )[:10],
+            "upcoming_payments": projected_pending[:10],
             "loan_stats": loan_stats,
         }
         return render(request, "payments/payment_dashboard.html", context)
@@ -533,7 +591,7 @@ def payment_dashboard(request):
             "upcoming_emi": upcoming_emi,
             "overdue_emi": overdue_emi,
             "overdue_days": overdue_days,
-            "late_interest": late_interest,
+            "late_interest": Decimal("0.00"),
             "total_payable": total_payable,
             "recent_payments": recent_payments,
             "loan_payment_summary": loan_payment_summary,

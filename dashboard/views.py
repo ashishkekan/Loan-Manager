@@ -7,7 +7,7 @@ from django.views.generic import ListView, TemplateView
 
 from dashboard.models import ActivityLog
 from loans.models import Loan
-from loans.utils import add_periods, generate_projected_schedule
+from loans.utils import add_periods, generate_projected_schedule, get_period_details
 from payments.models import Payment, Prepayment
 
 User = get_user_model()
@@ -32,7 +32,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         active_loans = all_loans.filter(status="active")
         closed_loans = all_loans.filter(status="closed")
         all_payments = Payment.objects.filter(status="paid")
-        all_prepayments = Prepayment.objects.all()
+        all_prepayments = Prepayment.objects.filter(status="paid")
         loan_stats = all_loans.aggregate(
             total_amount=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
             outstanding=Coalesce(
@@ -119,9 +119,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
         active_loans = loans.filter(status="active")
         closed_loans = loans.filter(status="closed")
-        monthly_emi = active_loans.aggregate(
-            total=Coalesce(Sum("emi"), 0, output_field=DecimalField())
-        )["total"]
+        monthly_emi = sum(
+            loan.emi / get_period_details(loan.emi_frequency)[0]
+            for loan in active_loans
+        )
         context["total_loans"] = loans.count()
         context["active_loans"] = active_loans.count()
         context["closed_loans"] = closed_loans.count()
@@ -136,10 +137,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["avg_interest_rate"] = (
             loans.aggregate(avg=Avg("interest_rate"))["avg"] or 0
         )
-        total_payable = sum((loan.emi * loan.tenure_years * 12) for loan in loans)
+        total_payable = sum(loan.total_payable for loan in loans)
         context["total_payable"] = total_payable
         context["projected_interest"] = total_payable - aggregates["total_amount"]
-        prepay_stats = Prepayment.objects.filter(loan__user=user).aggregate(
+        prepay_stats = Prepayment.objects.filter(
+            loan__user=user, status="paid"
+        ).aggregate(
             total_prepaid=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
             total_saved=Coalesce(Sum("interest_saved"), 0, output_field=DecimalField()),
             total_months_saved=Coalesce(
@@ -174,7 +177,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
         principal_paid = sum(loan.amount - loan.remaining_balance for loan in loans)
         total_prepayments = prepay_stats["total_prepaid"]
-        total_paid = principal_paid + aggregates["total_interest"] + total_prepayments
+        total_paid = principal_paid + aggregates["total_interest"]
         context["principal_paid"] = principal_paid
         context["total_prepayments"] = total_prepayments
         context["interest_saved"] = prepay_stats["total_saved"]
@@ -259,6 +262,8 @@ class AdminUsersView(LoginRequiredMixin, ListView):
     paginate_by = 15
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         if not request.user.is_staff:
             from django.shortcuts import redirect
 

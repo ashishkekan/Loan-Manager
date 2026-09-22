@@ -4,8 +4,10 @@ from django.contrib.messages import success
 from django.shortcuts import redirect, render
 
 from accounts.forms import RegistrationForm
+from django.views.decorators.http import require_POST
 
 
+@require_POST
 def custom_logout(request):
     if request.method in ("GET", "POST"):
         logout(request)

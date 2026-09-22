@@ -5,7 +5,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Marketplace</h1>
-        <p class="page-subtitle">Discover high-yield loan opportunities</p>
+        <p class="page-subtitle">Browse public loans; investments are internal records, not bank transfers</p>
     </div>
     {% if not profile_complete %}
     <a href="{% url 'setup_profile' %}" class="btn btn-primary"><i class="fas fa-user-check"></i> Complete Profile</a>
@@ -31,7 +31,7 @@
         <h3 class="opp-title">{{ loan.loan_name }}</h3>
         <div class="opp-rate">
             <span class="opp-rate-val">{{ loan.interest_rate }}%</span>
-            <span class="opp-rate-label">Annual Returns</span>
+            <span class="opp-rate-label">Annual Loan Rate</span>
         </div>
         <div class="opp-details">
             <div><span>Seeking:</span> <strong>₹{{ loan.amount|floatformat:0 }}</strong></div>
@@ -45,11 +45,11 @@
             <span>{% widthratio loan.funded_amount loan.amount 100 %}% Funded</span>
         </div>
         <div class="opp-actions">
-            <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline btn-block">View Details</a>
+            {% if loan.user_id == request.user.id or request.user.is_staff %}<a href="{% url 'loan_detail' loan.pk %}" class="btn btn-outline btn-block">View Details</a>{% endif %}
             {% if is_lender %}
                 <form method="post" action="{% url 'invest_in_loan' loan.pk %}" style="flex:1;" onsubmit="return confirm('Invest in this loan?')">
                     {% csrf_token %}
-                    <input type="number" name="amount" class="form-input" placeholder="Amount" required style="margin-bottom:0; height: 44px;">
+                    <input type="number" name="amount" min="0.01" step="0.01" class="form-input" placeholder="Amount" required style="margin-bottom:0; height: 44px;">
                     <button type="submit" class="btn btn-primary" style="height: 44px; border-radius: 0 10px 10px 0;">Invest</button>
                 </form>
             {% endif %}

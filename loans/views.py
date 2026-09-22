@@ -17,6 +17,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -60,6 +62,7 @@ from loans.models import (
 from loans.services import AccruedInterestService
 from loans.utils import (
     add_periods,
+    next_emi_number,
     calculate_emi,
     calculate_foreclosure,
     compare_loans,
@@ -188,7 +191,7 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         context["last_payment"] = last_transaction
         context["last_payment_type"] = last_transaction_type
         if loan.status == "active":
-            next_num = loan.payments.filter(status="paid").count() + 1
+            next_num = next_emi_number(loan)
             context["next_emi_num"] = next_num
             context["next_emi_date"] = add_periods(
                 loan.schedule_start_date, next_num - 1, loan.emi_frequency
@@ -264,12 +267,10 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
             }
         )
         if loan.status == "active" and loan.remaining_balance > 0:
-            period_rate = (
-                Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
-            )
-            next_interest = loan.remaining_balance * period_rate
-            next_principal = Decimal(str(loan.emi)) - next_interest
-            total_debit = Decimal(str(loan.emi)).quantize(Decimal("0.01"))
+            debit = AccruedInterestService.calculate_total_debit(loan, next_emi_date)
+            next_interest = debit["regular_interest"]
+            next_principal = max(Decimal("0"), debit["total_debit"] - next_interest)
+            total_debit = debit["total_debit"]
             context.update(
                 {
                     "total_debit": total_debit,
@@ -664,6 +665,8 @@ class LoanDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 
+@login_required
+@require_POST
 def add_note(request, loan_id):
     if request.user.is_staff:
         loan = get_object_or_404(Loan, pk=loan_id)
@@ -679,6 +682,8 @@ def add_note(request, loan_id):
     return redirect("loan_detail", pk=loan_id)
 
 
+@login_required
+@require_POST
 def delete_note(request, loan_id, note_id):
     if request.user.is_staff:
         loan = get_object_or_404(Loan, pk=loan_id)
@@ -702,7 +707,11 @@ class LoanCompareView(LoginRequiredMixin, TemplateView):
 
 
 @login_required
-def upload_document(request, loan_id):
+@require_POST
+def upload_document(request, loan_id=None):
+    loan_id = loan_id or request.POST.get("loan")
+    if not str(loan_id).isdigit():
+        raise Http404("Select a valid loan.")
     if request.user.is_staff:
         loan = get_object_or_404(Loan, pk=loan_id)
     else:
@@ -722,7 +731,7 @@ def upload_document(request, loan_id):
 
 
 @login_required
-def delete_document(request, document_id):
+def delete_document(request, document_id, loan_id=None):
     if request.user.is_staff:
         document = get_object_or_404(LoanDocument, pk=document_id)
     else:
@@ -745,14 +754,15 @@ def close_loan(request, pk):
     else:
         loan = get_object_or_404(Loan, pk=pk, user=request.user)
     if request.method == "POST":
-        pending_interest = loan.total_pending_accrued_interest
-        if pending_interest > 0:
+        if loan.remaining_balance > 0:
             messages.error(
-                request, "Loan cannot be closed while accrued interest is pending."
+                request, "Loan cannot be closed while principal remains unpaid."
             )
             return redirect("loan_detail", pk=loan.pk)
         loan.status = "closed"
-        loan.closed_date = parse_date(request.POST.get("closing_date"))
+        loan.closed_date = (
+            parse_date(request.POST.get("closing_date") or "") or timezone.localdate()
+        )
         loan.save()
         add_activity(
             loan.user,
@@ -783,6 +793,12 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
             return queryset
         return queryset.filter(user=self.request.user)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    @transaction.atomic
     def form_valid(self, form):
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
@@ -793,10 +809,12 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
         messages.success(self.request, "Loan updated successfully.")
-        for disbursement in form.instance.disbursements.filter(status="released"):
-            disbursement.is_interest_processed = False
-            disbursement.save(update_fields=["is_interest_processed"])
-            AccruedInterestService.generate_for_disbursement(disbursement)
+        paid_principal = form.instance.payments.filter(status="paid").aggregate(
+            total=Sum("principal_component")
+        )["total"] or Decimal("0")
+        form.instance.remaining_balance = (
+            amount - paid_principal - form.instance.total_prepayment_amount
+        )
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -809,6 +827,8 @@ class LoanDisbursementListView(LoginRequiredMixin, ListView):
     context_object_name = "disbursements"
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         if request.user.is_staff:
             self.loan = get_object_or_404(Loan, pk=self.kwargs["loan_id"])
         else:
@@ -827,8 +847,6 @@ class LoanDisbursementListView(LoginRequiredMixin, ListView):
         context["loan"] = self.loan
         context["total_disbursed"] = self.loan.total_disbursed_amount
         context["remaining_sanction"] = self.loan.remaining_sanction_amount
-        context["pending_interest"] = self.loan.total_pending_accrued_interest
-        context["recovered_interest"] = self.loan.total_recovered_accrued_interest
         return context
 
 
@@ -845,13 +863,6 @@ class LoanDisbursementDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["interest_entries"] = self.object.interest_entries.order_by("emi_date")
-        context["total_interest"] = self.object.interest_entries.filter(
-            status="recovered"
-        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
-        context["pending_interest"] = self.object.interest_entries.filter(
-            status="pending"
-        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
         return context
 
 
@@ -861,6 +872,8 @@ class LoanDisbursementCreateView(LoginRequiredMixin, CreateView):
     template_name = "loans/create_disbursement.html"
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         if request.user.is_staff:
             self.loan = get_object_or_404(Loan, pk=self.kwargs["loan_id"])
         else:
@@ -881,10 +894,13 @@ class LoanDisbursementCreateView(LoginRequiredMixin, CreateView):
 
     @transaction.atomic
     def form_valid(self, form):
+        self.loan = Loan.objects.select_for_update().get(pk=self.loan.pk)
+        form.loan = self.loan
+        form.full_clean()
+        if not form.is_valid():
+            return self.form_invalid(form)
         form.instance.loan = self.loan
         response = super().form_valid(form)
-        if self.object.status == "released":
-            AccruedInterestService.generate_for_disbursement(self.object)
         messages.success(self.request, "Loan disbursement created successfully.")
         return response
 
@@ -915,11 +931,18 @@ class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
 
     @transaction.atomic
     def form_valid(self, form):
+        loan = Loan.objects.select_for_update().get(pk=self.object.loan_id)
+        if loan.payments.exists() or loan.prepayments.exists():
+            form.add_error(
+                None, "Cannot edit disbursements after a payment has been recorded."
+            )
+            return self.form_invalid(form)
+        form.loan = loan
+        form.instance = LoanDisbursement.objects.get(pk=self.object.pk)
+        form.full_clean()
+        if not form.is_valid():
+            return self.form_invalid(form)
         response = super().form_valid(form)
-        self.object.is_interest_processed = False
-        self.object.save(update_fields=["is_interest_processed"])
-        if self.object.status == "released":
-            AccruedInterestService.generate_for_disbursement(self.object)
         messages.success(self.request, "Disbursement updated successfully.")
         return response
 
@@ -939,19 +962,24 @@ class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
         return queryset.filter(loan__user=self.request.user)
 
     @transaction.atomic
-    def delete(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        loan_id = self.object.loan.pk
-        self.object.delete()
-        messages.success(request, "Disbursement deleted successfully.")
-        return redirect("loan_disbursement_list", loan_id=loan_id)
+    def form_valid(self, form):
+        loan = Loan.objects.select_for_update().get(pk=self.object.loan_id)
+        if loan.payments.exists() or loan.prepayments.exists():
+            messages.error(
+                self.request,
+                "Cannot delete disbursements after a payment has been recorded.",
+            )
+        else:
+            self.object.delete()
+            messages.success(self.request, "Disbursement deleted successfully.")
+        return redirect("loan_disbursement_list", loan_id=loan.pk)
 
 
 @login_required
 def documents_dashboard(request):
-    loans = Loan.objects.filter(user=request.user).order_by("loan_name")
+    loans = get_user_loans(request.user).order_by("loan_name")
     documents = (
-        LoanDocument.objects.filter(loan__user=request.user)
+        LoanDocument.objects.filter(loan__in=get_user_loans(request.user))
         .select_related("loan")
         .order_by("-uploaded_at")
     )
@@ -962,13 +990,13 @@ def documents_dashboard(request):
         )
     loan_id = request.GET.get("loan")
     if loan_id:
-        documents = documents.filter(loan_id=loan_id, loan__user=request.user)
+        documents = documents.filter(loan_id=loan_id)
 
     doc_type = request.GET.get("doc_type")
     if doc_type:
         documents = documents.filter(doc_type=doc_type)
 
-    all_documents = LoanDocument.objects.filter(loan__user=request.user)
+    all_documents = LoanDocument.objects.filter(loan__in=get_user_loans(request.user))
     total_documents = all_documents.count()
     loan_agreements = all_documents.filter(doc_type="agreement").count()
     pending_uploads = loans.filter(documents__isnull=True).count()
@@ -1000,7 +1028,7 @@ def download_document(request, document_id):
     document = get_object_or_404(
         LoanDocument.objects.select_related("loan"),
         pk=document_id,
-        loan__user=request.user,
+        loan__in=get_user_loans(request.user),
     )
     if not document.file:
         raise Http404("Document file not found.")
@@ -1017,7 +1045,7 @@ def view_document(request, document_id):
     document = get_object_or_404(
         LoanDocument.objects.select_related("loan"),
         pk=document_id,
-        loan__user=request.user,
+        loan__in=get_user_loans(request.user),
     )
     if not document.file:
         raise Http404("Document file not found.")
@@ -1104,7 +1132,9 @@ def mark_notification_read(request, notification_id):
         notification.is_read = True
         notification.save(update_fields=["is_read"])
     next_url = request.POST.get("next")
-    if next_url:
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
         return redirect(next_url)
     return redirect("notifications_dashboard")
 
@@ -1120,11 +1150,11 @@ def mark_all_notifications_read(request):
 
 @login_required
 def support_dashboard(request):
-    tickets = (
-        SupportTicket.objects.filter(user=request.user)
-        .select_related("loan")
-        .order_by("-created_at")
+    tickets = SupportTicket.objects.select_related("loan", "user").order_by(
+        "-created_at"
     )
+    if not request.user.is_staff:
+        tickets = tickets.filter(user=request.user)
     search = request.GET.get("search", "").strip()
     status = request.GET.get("status", "").strip()
     category = request.GET.get("category", "").strip()
@@ -1189,9 +1219,10 @@ def create_support_ticket(request):
 
 @login_required
 def support_ticket_detail(request, ticket_id):
-    ticket = get_object_or_404(
-        SupportTicket.objects.select_related("loan"), id=ticket_id, user=request.user
-    )
+    tickets = SupportTicket.objects.select_related("loan")
+    if not request.user.is_staff:
+        tickets = tickets.filter(user=request.user)
+    ticket = get_object_or_404(tickets, id=ticket_id)
     if request.method == "POST":
         if ticket.status in ["resolved", "closed"]:
             return redirect("support_ticket_detail", ticket_id=ticket.id)
@@ -1200,10 +1231,11 @@ def support_ticket_detail(request, ticket_id):
             reply = form.save(commit=False)
             reply.ticket = ticket
             reply.user = request.user
-            reply.is_staff_reply = False
+            reply.is_staff_reply = request.user.is_staff
             reply.save()
-            ticket.status = "open"
-            ticket.last_response_at = timezone.now()
+            ticket.status = "in_progress" if request.user.is_staff else "open"
+            if request.user.is_staff:
+                ticket.last_response_at = timezone.now()
             ticket.save(update_fields=["status", "last_response_at", "updated_at"])
             return redirect("support_ticket_detail", ticket_id=ticket.id)
     else:
@@ -1426,11 +1458,15 @@ def logout_all_devices(request, user_id=None):
         return redirect("settings_dashboard")
 
     current_session_key = request.session.session_key
-    Session.objects.filter(
-        expire_date__gte=timezone.now(),
-    ).exclude(
-        session_key=current_session_key,
-    ).delete()
+    sessions = Session.objects.filter(expire_date__gte=timezone.now()).exclude(
+        session_key=current_session_key
+    )
+    target_sessions = [
+        session.session_key
+        for session in sessions.iterator()
+        if str(session.get_decoded().get("_auth_user_id")) == str(target_user.pk)
+    ]
+    Session.objects.filter(session_key__in=target_sessions).delete()
 
     messages.success(request, "All other devices have been logged out.")
     return (
@@ -1649,3 +1685,16 @@ def set_default_bank_account(request, user_id=None, pk=None):
         if user_id
         else redirect("settings_dashboard")
     )
+
+
+@login_required
+def profile_photo(request, user_id):
+    from loans.models import UserProfile
+
+    target, error = _resolve_target_user(request, user_id)
+    if error:
+        raise Http404("Profile not found.")
+    profile = get_object_or_404(UserProfile, user=target)
+    if not profile.photo:
+        raise Http404("Photo not found.")
+    return FileResponse(profile.photo.open("rb"))

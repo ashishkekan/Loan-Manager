@@ -8,7 +8,12 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
-from loans.utils import add_periods, calculate_remaining_periods, get_period_details
+from loans.utils import (
+    add_periods,
+    calculate_remaining_periods,
+    get_period_details,
+    next_emi_number,
+)
 
 
 class Loan(models.Model):
@@ -90,7 +95,8 @@ class Loan(models.Model):
 
     @property
     def total_payable(self):
-        return self.emi * self.tenure_years * 12
+        _, periods_per_year = get_period_details(self.emi_frequency)
+        return self.emi * self.tenure_years * periods_per_year
 
     @property
     def total_interest_projected(self):
@@ -102,7 +108,12 @@ class Loan(models.Model):
 
     @property
     def total_prepayment_amount(self):
-        return self.prepayments.aggregate(total=Sum("amount"))["total"] or 0
+        return (
+            self.prepayments.filter(status="paid").aggregate(total=Sum("amount"))[
+                "total"
+            ]
+            or 0
+        )
 
     @property
     def progress_percent(self):
@@ -128,7 +139,7 @@ class Loan(models.Model):
     def is_overdue(self):
         if self.status != "active":
             return False
-        next_num = self.months_elapsed + 1
+        next_num = next_emi_number(self)
         next_due = add_periods(
             self.schedule_start_date,
             next_num - 1,
@@ -140,7 +151,7 @@ class Loan(models.Model):
     def overdue_days(self):
         if not self.is_overdue:
             return 0
-        next_num = self.months_elapsed + 1
+        next_num = next_emi_number(self)
         next_due = add_periods(
             self.schedule_start_date,
             next_num - 1,
@@ -269,18 +280,6 @@ class Loan(models.Model):
         return self.amount - self.total_disbursed_amount
 
     @property
-    def total_pending_accrued_interest(self):
-        return self.accrued_interests.filter(status="pending").aggregate(
-            total=Sum("interest_amount")
-        )["total"] or Decimal("0.00")
-
-    @property
-    def total_recovered_accrued_interest(self):
-        return self.accrued_interests.filter(status="recovered").aggregate(
-            total=Sum("interest_amount")
-        )["total"] or Decimal("0.00")
-
-    @property
     def disbursement_percentage(self):
         if self.amount <= 0:
             return Decimal("0")
@@ -291,18 +290,6 @@ class Loan(models.Model):
     @property
     def total_disbursement_count(self):
         return self.disbursements.filter(status="released").count()
-
-    @property
-    def pending_accrued_interest_count(self):
-        return self.accrued_interests.filter(status="pending").count()
-
-    @property
-    def recovered_accrued_interest_count(self):
-        return self.accrued_interests.filter(status="recovered").count()
-
-    @property
-    def has_pending_accrued_interest(self):
-        return self.accrued_interests.filter(status="pending").exists()
 
 
 class LoanNote(models.Model):

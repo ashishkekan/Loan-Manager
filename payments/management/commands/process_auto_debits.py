@@ -1,8 +1,8 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from loans.models import Loan
-from loans.utils import add_periods
+from loans.utils import add_periods, next_emi_number
 from payments.services import process_emi_payment
 
 
@@ -23,7 +23,7 @@ class Command(BaseCommand):
         loans = Loan.objects.filter(status="active", auto_debit=True).order_by("id")
         for loan in loans:
             try:
-                emi_start_date = loan.first_emi_date
+                emi_start_date = loan.schedule_start_date
                 if not emi_start_date:
                     skipped += 1
                     self.stdout.write(
@@ -37,7 +37,7 @@ class Command(BaseCommand):
                     skipped += 1
                     continue
 
-                paid_count = loan.payments.filter(status="paid").count()
+                paid_count = next_emi_number(loan) - 1
                 next_due_date = add_periods(
                     emi_start_date, paid_count, loan.emi_frequency
                 )
@@ -47,7 +47,7 @@ class Command(BaseCommand):
                     continue
 
                 while True:
-                    paid_count = loan.payments.filter(status="paid").count()
+                    paid_count = next_emi_number(loan) - 1
                     next_due_date = add_periods(
                         emi_start_date, paid_count, loan.emi_frequency
                     )
@@ -81,3 +81,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING(f"Skipped   : {skipped}"))
         self.stdout.write(self.style.ERROR(f"Failed    : {failed}"))
         self.stdout.write("=" * 70)
+
+        if failed:
+            raise CommandError(
+                f"{failed} loan(s) failed; review errors before retrying."
+            )

@@ -21,15 +21,21 @@ class AccruedInterestService:
         paid_prepayment = loan.prepayments.filter(status="paid").aggregate(
             total=Sum("amount")
         )["total"] or Decimal("0.00")
-        outstanding_disbursed = (
-            loan.total_disbursed_amount - paid_principal - paid_prepayment
+        disbursements = loan.disbursements.filter(status="released")
+        if emi_date is not None:
+            disbursements = disbursements.filter(disbursement_date__lte=emi_date)
+        released = disbursements.aggregate(total=Sum("amount"))["total"] or Decimal(
+            "0.00"
         )
+        outstanding_disbursed = released - paid_principal - paid_prepayment
         outstanding_disbursed = max(outstanding_disbursed, Decimal("0.00"))
         regular_interest = (outstanding_disbursed * period_rate).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
         regular_emi = loan.emi
-        total_debit = regular_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_debit = min(
+            regular_emi, outstanding_disbursed + regular_interest
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return {
             "regular_emi": regular_emi,
             "regular_interest": regular_interest,
