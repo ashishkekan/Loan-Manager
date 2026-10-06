@@ -27,12 +27,12 @@
             <a href="{% url 'settings_dashboard' %}" class="nav-item"><i class="fas fa-sliders"></i> Settings</a>
         </nav>
         <div class="sidebar-footer">
-            <button id="themeToggle" class="theme-toggle"><i id="themeIcon" class="fas fa-moon"></i><span id="themeLabel">Dark mode</span></button>
+            <button id="themeToggle" class="theme-toggle"><i id="themeIcon" class="fas fa-moon"></i><span id="themeLabel">Appearance</span></button>
             <div class="profile-strip"><span class="user-avatar">{{ request.user.username.0|upper }}</span><div><strong>{{ request.user.get_short_name|default:request.user.username }}</strong><small>{% if request.user.is_staff %}Administrator{% else %}Personal account{% endif %}</small></div><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-arrow-right-from-bracket"></i></button></form></div>
         </div>
     </aside>
     <main id="workspace" class="main-content" tabindex="-1">
-        <div class="workspace-topbar"><span>WORKSPACE <span class="topbar-separator">/</span> {% if request.user.is_staff %}Administration{% else %}Loan management{% endif %}</span><a href="{% url 'create_loan' %}" class="topbar-action"><i class="fas fa-plus"></i> New loan</a></div>
+        <div class="workspace-topbar"><span>WORKSPACE <span class="topbar-separator">/</span> {% if request.user.is_staff %}Administration{% else %}Loan management{% endif %}</span><button type="button" class="topbar-action" data-theme-open><i class="fas fa-palette"></i> Appearance</button><a href="{% url 'create_loan' %}" class="topbar-action"><i class="fas fa-plus"></i> New loan</a></div>
         <div class="workspace-body">{% block app_content %}{% endblock %}</div>
         <footer class="workspace-footer"><span>NexusLoan · Financial workspace</span><span>Clarity in every transaction.</span></footer>
     </main>

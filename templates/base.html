@@ -1,7 +1,7 @@
 {% load static %}
 
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="{{ appearance.theme }}" data-palette="{{ appearance.palette }}" data-font="{{ appearance.font }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +9,8 @@
     <link rel="icon" type="image/svg+xml" href="{% static 'img/brand.svg' %}">
     <title>{% block title %}NexusLoan{% endblock %}</title>
 
+    {{ appearance|json_script:"appearance-config" }}
+    <script src="{% static 'js/theme-bootstrap.js' %}"></script>
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -22,6 +24,7 @@
 
     {% block extra_head %}{% endblock %}
     <link rel="stylesheet" href="{% static 'css/workspace.css' %}">
+    <link rel="stylesheet" href="{% static 'css/themes.css' %}">
 </head>
 <body>
     <!-- Django Messages -->
@@ -38,6 +41,8 @@
 
     {% block content %}{% endblock %}
 
+    {% if request.user.is_authenticated %}{% include "includes/theme_studio.html" %}{% endif %}
+    <script src="{% static 'js/themes.js' %}"></script>
     <script src="{% static 'js/main.js' %}"></script>
     {% block extra_scripts %}{% endblock %}
 </body>

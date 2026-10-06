@@ -44,6 +44,20 @@ class LoanRegressionTests(TestCase):
     def pay(self, key="one", period=1):
         return process_emi_payment(self.loan, request_key=key, expected_period=period)
 
+    def test_dashboard_trend_scopes_settled_dated_payments(self):
+        payment = self.pay()
+        Prepayment.objects.create(loan=self.loan, amount=25, prepayment_date=self.today)
+        Prepayment.objects.create(loan=self.loan, amount=75, prepayment_date=self.today, status="pending")
+        response = self.client.get(reverse("dashboard"))
+        trend = response.context["repayment_trend"]
+        self.assertEqual(len(trend), 12)
+        self.assertEqual(Decimal(trend[-1]["amount"]), payment.amount + 25)
+        self.client.force_login(self.other)
+        self.assertEqual(sum(Decimal(row["amount"]) for row in self.client.get(reverse("dashboard")).context["repayment_trend"]), 0)
+        self.client.force_login(self.user)
+        Payment.objects.filter(pk=payment.pk).update(payment_date=None)
+        self.assertEqual(Decimal(self.client.get(reverse("dashboard")).context["repayment_trend"][-1]["amount"]), 25)
+
     def test_final_payment_matches_ledger(self):
         self.pay()
         final = self.pay("two", 2)

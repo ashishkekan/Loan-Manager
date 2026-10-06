@@ -392,6 +392,7 @@
                     <div>
                         <h3>Appearance</h3>
                         <p>Customize the way NexusLoan looks.</p>
+                        <button type="button" class="btn btn-secondary" data-theme-open>Open my appearance studio</button>
                     </div>
                 </div>
                 <form method="post" action="{% if is_admin_editing %}{% url 'update_appearance_preferences_user' target_user.id %}{% else %}{% url 'update_appearance_preferences' %}{% endif %}">

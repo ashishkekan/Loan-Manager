@@ -636,6 +636,7 @@ class AppearancePreference(models.Model):
         ("light", "Light"),
         ("dark", "Dark"),
         ("system", "System"),
+        ("palette", "Match color palette"),
     ]
     LANGUAGE_CHOICES = [
         ("en", "English"),
@@ -652,6 +653,8 @@ class AppearancePreference(models.Model):
         related_name="appearance_preferences",
     )
     theme = models.CharField(max_length=20, choices=THEME_CHOICES, default="system")
+    color_palette = models.CharField(max_length=20, default="inherit")
+    font_style = models.CharField(max_length=20, default="auto")
     language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")
     currency = models.CharField(max_length=10, default="INR")
     date_format = models.CharField(
@@ -714,3 +717,10 @@ class BankAccount(models.Model):
 
     def __str__(self):
         return f"{self.bank_name} - {self.masked_account_number}"
+
+
+class SiteAppearance(models.Model):
+    """Single workspace default. Personal preferences remain separate."""
+    default_palette = models.CharField(max_length=20, default="green")
+    default_font = models.CharField(max_length=20, default="auto")
+    allow_personal_themes = models.BooleanField(default=True)

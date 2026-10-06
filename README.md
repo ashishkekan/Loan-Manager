@@ -48,6 +48,16 @@ Loan documents are served through owner/staff-authorized download and view endpo
 
 The public landing page, app shell, overview, loan details and payments page use the new navy/teal visual system. Other screens share the same navigation, typography, cards, forms, table styling and theme tokens in `static/css/workspace.css`. The shared script implements responsive navigation, Escape/focus handling, theme switching, duplicate-submit feedback and horizontally scrollable tables. Mobile settings navigation scrolls horizontally instead of pushing its content below a long menu.
 
+### Appearance studio
+
+Open **Appearance** from the top bar, sidebar footer, or mobile header. Choose green, pink, black, white, red, orange, blue, or purple to apply a coordinated palette and typography across the app. Black automatically uses dark surfaces; display mode and typography can also be selected independently. Preferences are saved to the signed-in account and survive navigation and sign-in on another device. **Use workspace default** restores inheritance.
+
+Staff accounts can expand **Admin · Workspace defaults** to set the default palette/font and allow or disable personal choices. When personal choices are disabled, ordinary users see the workspace theme; their saved preferences return if customization is re-enabled. Staff retain personal controls. Anonymous pages use the workspace default. No navigation menu names were changed.
+
+The overview includes a keyboard-accessible monthly repayment chart with 3/6/12-month ranges and search within the eight recent loans shown. The chart uses settled installments and prepayments dated in the selected period; undated and future transactions are excluded. Use View all for the complete portfolio.
+
+Migration `loans.0010` adds appearance preference fields and the workspace configuration table. It was applied only to the isolated local database. Apply it before starting the updated app in another environment, then collect static files and restart as described below.
+
 ## Verification
 
 ```bash
@@ -60,6 +70,6 @@ Tests use an in-memory database and temporary upload storage. They cover populat
 
 ## Deployment handoff
 
-New schema migrations: `loans.0008`, `loans.0009`, and `payments.0003`. These add nullable unique request keys and change the default/help text for the reminder preference; they do not correct or delete historical financial records.
+New schema migrations: `loans.0008`, `loans.0009`, `loans.0010`, and `payments.0003`. These add nullable unique request keys and change the default/help text for the reminder preference; they do not correct or delete historical financial records.
 
 Before deployment, take a database backup, review `python manage.py migrate --plan`, apply the schema migrations against the explicitly selected environment, run `collectstatic`, and restart the application. Verify that media requests reach Django. Review any pre-existing balance discrepancies against actual receipts before making separately authorized financial corrections. No production migrations or data repairs are performed by the local preview workflow.

@@ -1040,6 +1040,11 @@ def _resolve_target_user(request, user_id):
 
 @login_required
 def update_settings_theme(request, user_id=None):
+    from loans.models import SiteAppearance
+    from django.http import HttpResponseForbidden
+    site = SiteAppearance.objects.filter(pk=1).first()
+    if site and not site.allow_personal_themes and not request.user.is_staff:
+        return HttpResponseForbidden("Your admin manages workspace appearance.")
     target_user, error_redirect = _resolve_target_user(request, user_id)
     if error_redirect:
         return error_redirect
@@ -1056,7 +1061,9 @@ def update_settings_theme(request, user_id=None):
     settings_data = ensure_user_settings(target_user)
     appearance = settings_data["appearance_preferences"]
     appearance.theme = theme
-    appearance.save(update_fields=["theme"])
+    if appearance.color_palette == "inherit":
+        appearance.color_palette = site.default_palette if site else "green"
+    appearance.save(update_fields=["theme", "color_palette"])
     messages.success(request, "Theme preference updated.")
     return (
         redirect("settings_dashboard_user", user_id=target_user.id)
@@ -1204,6 +1211,11 @@ def update_notification_preferences(request, user_id=None):
 
 @login_required
 def update_appearance_preferences(request, user_id=None):
+    from loans.models import SiteAppearance
+    from django.http import HttpResponseForbidden
+    site = SiteAppearance.objects.filter(pk=1).first()
+    if site and not site.allow_personal_themes and not request.user.is_staff:
+        return HttpResponseForbidden("Your admin manages workspace appearance.")
     target_user, error_redirect = _resolve_target_user(request, user_id)
     if error_redirect:
         return error_redirect
@@ -1213,6 +1225,8 @@ def update_appearance_preferences(request, user_id=None):
     if request.method == "POST":
         form = AppearancePreferenceForm(request.POST, instance=preferences)
         if form.is_valid():
+            if preferences.color_palette == "inherit":
+                preferences.color_palette = site.default_palette if site else "green"
             form.save()
             messages.success(request, "Appearance preferences updated successfully.")
     return (

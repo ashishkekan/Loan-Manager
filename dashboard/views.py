@@ -34,6 +34,20 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         due.sort(key=lambda row: row["due_date"])
         for loan in loans:
             loan.display_balance = outstanding(loan)
+        # Calendar buckets retain empty months and include only settled transactions.
+        from datetime import date
+        today = timezone.localdate()
+        month_index = today.year * 12 + today.month - 1
+        months = [date((month_index - offset) // 12, (month_index - offset) % 12 + 1, 1)
+                  for offset in reversed(range(12))]
+        monthly = {month.strftime("%Y-%m"): ZERO for month in months}
+        for paid_on, amount in list(payments.values_list("payment_date", "amount")) + list(prepays.values_list("prepayment_date", "amount")):
+            if paid_on is None:
+                continue
+            key = paid_on.strftime("%Y-%m")
+            if key in monthly and paid_on <= today:
+                monthly[key] += amount
+        context["repayment_trend"] = [{"label": month.strftime("%b %Y"), "amount": str(monthly[month.strftime("%Y-%m")])} for month in months]
         context.update(
             loans=loans[:8],
             total_loans=len(loans),

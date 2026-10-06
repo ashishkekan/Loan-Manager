@@ -1,16 +1,5 @@
 /* Shared interactions. Native forms remain usable without JavaScript. */
 (() => {
-    const html = document.documentElement;
-    function setTheme(theme) {
-        html.dataset.theme = theme === 'dark' ? 'dark' : 'light';
-        const dark = html.dataset.theme === 'dark';
-        document.querySelectorAll('#themeIcon, #themeIconNav, #themeToggleMobile i').forEach(icon => icon.className = dark ? 'fas fa-sun' : 'fas fa-moon');
-        const label = document.getElementById('themeLabel');
-        if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
-        try { localStorage.setItem('lm-theme', html.dataset.theme); } catch (_) {}
-    }
-    try { setTheme(localStorage.getItem('lm-theme') || 'light'); } catch (_) { setTheme('light'); }
-    document.querySelectorAll('#themeToggle, #themeToggleMobile, #themeToggleNav').forEach(button => button.addEventListener('click', () => setTheme(html.dataset.theme === 'dark' ? 'light' : 'dark')));
     const sidebar = document.getElementById('sidebar');
     const toggle = document.getElementById('sidebarToggle');
     const overlay = document.getElementById('sidebarOverlay');
@@ -30,7 +19,7 @@
     overlay?.addEventListener('click', () => menu(false));
     smallScreen.addEventListener('change', () => menu(false, false));
     document.addEventListener('keydown', event => {
-        if (!sidebar?.classList.contains('open')) return;
+        if (!sidebar?.classList.contains('open') || document.querySelector('dialog[open]')) return;
         if (event.key === 'Escape') menu(false);
         if (event.key === 'Tab') {
             const items = [...sidebar.querySelectorAll('a,button,input')].filter(el => !el.disabled && el.offsetParent !== null);
