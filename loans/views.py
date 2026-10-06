@@ -1,4 +1,5 @@
 import csv
+import uuid
 from datetime import timedelta
 from decimal import Decimal
 
@@ -8,6 +9,7 @@ from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.sessions.models import Session
+from django.core import signing
 from django.core.files.storage import default_storage
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -17,6 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.views.decorators.http import require_POST
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -32,6 +35,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from dashboard.models import ActivityLog
 from dashboard.utils import add_activity
+from loans.accounting import last_transaction_date, outstanding, refresh_balance
 from loans.forms import (
     AppearancePreferenceForm,
     BankAccountForm,
@@ -69,6 +73,7 @@ from loans.utils import (
     generate_projected_schedule,
     get_account_statistics,
     get_admin_statistics,
+    get_period_details,
     get_support_ticket_summary,
     get_user_loans,
     simulate_extra_emi,
@@ -113,7 +118,7 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
         form.instance.emi = calculate_emi(
             amount, rate, tenure, form.cleaned_data["emi_frequency"]
         )
-        form.instance.remaining_balance = amount
+        form.instance.remaining_balance = Decimal("0.00")
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
         response = super().form_valid(form)
@@ -151,505 +156,57 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan = self.object
-        context["paid_payments"] = loan.payments.filter(status="paid").order_by(
-            "-payment_number"
-        )[:20]
-        context["prepayments"] = loan.prepayments.all().order_by("-prepayment_date")
-        context["notes"] = loan.notes.all()[:10]
-        context["note_form"] = LoanNoteForm()
-
-        total_principal_paid = loan.amount - loan.remaining_balance
-        context["total_principal_paid"] = total_principal_paid
-        context["total_paid"] = total_principal_paid + loan.total_interest_paid
-        context["progress"] = loan.progress_percent
-        context["health_score"] = loan.health_score
-        context["health_label"] = loan.health_label
-        context["is_overdue"] = loan.is_overdue
-        context["overdue_days"] = loan.overdue_days
-        last_payment = (
-            loan.payments.filter(status="paid").order_by("-payment_date").first()
-        )
-        last_prepayment = loan.prepayments.order_by("-prepayment_date").first()
-        last_transaction = None
-        last_transaction_type = None
-        if last_payment and last_prepayment:
-            if last_payment.payment_date >= last_prepayment.prepayment_date:
-                last_transaction = last_payment
-                last_transaction_type = "payment"
-            else:
-                last_transaction = last_prepayment
-                last_transaction_type = "prepayment"
-        elif last_payment:
-            last_transaction = last_payment
-            last_transaction_type = "payment"
-        elif last_prepayment:
-            last_transaction = last_prepayment
-            last_transaction_type = "prepayment"
-        context["last_payment"] = last_transaction
-        context["last_payment_type"] = last_transaction_type
-        if loan.status == "active":
-            next_num = loan.payments.filter(status="paid").count() + 1
-            context["next_emi_num"] = next_num
-            context["next_emi_date"] = add_periods(
-                loan.schedule_start_date, next_num - 1, loan.emi_frequency
-            )
-            next_emi_date = add_periods(
-                loan.schedule_start_date, next_num - 1, loan.emi_frequency
-            )
-        else:
-            next_emi_date = None
-        projected = generate_projected_schedule(loan)
-        context["projected_schedule_json"] = {
-            "labels": [f"M{r['period']}" for r in projected[:60]],
-            "balances": [float(r["balance"]) for r in projected[:60]],
-        }
-        context["pie_data_json"] = {
-            "principal": round(float(total_principal_paid), 2),
-            "interest": round(float(loan.total_interest_paid), 2),
-        }
-        if loan.status == "active":
-            context["foreclosure"] = calculate_foreclosure(loan)
-        total_prepayment_amount = loan.prepayments.aggregate(total=Sum("amount"))[
-            "total"
-        ] or Decimal("0")
-        total_paid = (
-            total_principal_paid + loan.total_interest_paid + total_prepayment_amount
-        )
-        original_closure_date = add_periods(
-            loan.schedule_start_date, loan.tenure_years * 12, loan.emi_frequency
-        )
-        if loan.status == "active" and next_emi_date:
-            estimated_closure_date = add_periods(
-                next_emi_date, loan.months_remaining - 1, loan.emi_frequency
-            )
-            delta = relativedelta(original_closure_date, estimated_closure_date)
-            years_saved = delta.years
-            remaining_months_saved = delta.months
-            months_saved = years_saved * 12 + remaining_months_saved
-            years_saved = months_saved // 12
-            remaining_months_saved = months_saved % 12
-        else:
-            estimated_closure_date = None
-            months_saved = 0
-            years_saved = 0
-            remaining_months_saved = 0
-        context["total_prepayment_amount"] = total_prepayment_amount
-        context["total_paid"] = total_paid
-        context["estimated_closure_date"] = estimated_closure_date
+        rows = generate_full_schedule(loan)
+        due = [r for r in rows if not r["is_paid"]]
+        next_row = due[0] if due else None
+        balance = outstanding(loan)
         context.update(
+            page_title=loan.loan_name,
+            display_balance=balance,
+            total_released=loan.total_disbursed_amount,
+            notes=loan.notes.all(),
+            documents=loan.documents.all(),
+            disbursements=loan.disbursements.order_by("disbursement_date"),
+            note_form=LoanNoteForm(),
+            document_form=LoanDocumentForm(),
+            next_installment=next_row,
+            schedule_preview=rows[:6],
+            total_paid=(
+                loan.payments.filter(status="paid").aggregate(t=Sum("amount"))["t"]
+                or Decimal("0")
+            )
+            + loan.total_prepayment_amount,
+            can_record_payment=bool(
+                next_row
+                and next_row["due_date"] <= timezone.localdate()
+                and self.request.user.pk == loan.user_id
+            ),
+            today=timezone.localdate(),
+        )
+        context["payment_confirmation"] = signing.dumps(
             {
-                "estimated_closure_date": estimated_closure_date,
-                "original_closure_date": original_closure_date,
-                "months_saved": months_saved,
-                "years_saved": years_saved,
-                "remaining_months_saved": remaining_months_saved,
-            }
+                "loan": loan.pk,
+                "user": self.request.user.pk,
+                "kind": "emi",
+                "period": next_row["period"] if next_row else 0,
+                "amount": str(next_row["total_debit"]) if next_row else "0",
+            },
+            salt="repayment",
         )
-        lifetime_interest_saved = loan.prepayments.aggregate(
-            total=Sum("interest_saved")
-        )["total"] or Decimal("0")
-        lifetime_months_saved = (
-            loan.prepayments.aggregate(total=Sum("months_reduced"))["total"] or 0
-        )
-        roi_percentage = Decimal("0")
-        if total_prepayment_amount > 0:
-            roi_percentage = (
-                lifetime_interest_saved / total_prepayment_amount
-            ) * Decimal("100")
-        context.update(
+        context["prepayment_confirmation"] = signing.dumps(
             {
-                "lifetime_interest_saved": lifetime_interest_saved,
-                "lifetime_months_saved": lifetime_months_saved,
-                "roi_percentage": round(roi_percentage, 1),
-            }
+                "loan": loan.pk,
+                "user": self.request.user.pk,
+                "kind": "prepayment",
+                "nonce": uuid.uuid4().hex,
+            },
+            salt="repayment",
         )
-        if loan.status == "active" and loan.remaining_balance > 0:
-            period_rate = (
-                Decimal(str(loan.interest_rate)) / Decimal("12") / Decimal("100")
-            )
-            next_interest = loan.remaining_balance * period_rate
-            next_principal = Decimal(str(loan.emi)) - next_interest
-            total_debit = Decimal(str(loan.emi)).quantize(Decimal("0.01"))
-            context.update(
-                {
-                    "total_debit": total_debit,
-                }
-            )
-            next_interest = next_interest.quantize(Decimal("0.01"))
-            next_principal = next_principal.quantize(Decimal("0.01"))
-            if next_principal > loan.remaining_balance:
-                next_principal = loan.remaining_balance
-            balance_after_next = loan.remaining_balance - next_principal
-            balance_after_next = balance_after_next.quantize(Decimal("0.01"))
-            context.update(
-                {
-                    "next_interest": next_interest,
-                    "next_principal": next_principal,
-                    "balance_after_next": balance_after_next,
-                }
-            )
-        health_factors = []
-        if loan.is_overdue:
-            payment_score = max(0, 100 - (loan.overdue_days * 2))
-            payment_status = "Overdue"
-        else:
-            payment_score = 100
-            payment_status = "Excellent"
-        health_factors.append(
-            {
-                "title": "Payment Discipline",
-                "score": payment_score,
-                "status": payment_status,
-                "icon": "fa-calendar-check",
-            }
-        )
-        interest_ratio = (
-            (loan.total_interest_projected / loan.amount) * 100
-            if loan.amount
-            else Decimal("0")
-        )
-        if interest_ratio < 40:
-            interest_status = "Low"
-            interest_score = 100
-        elif interest_ratio < 70:
-            interest_status = "Medium"
-            interest_score = 80
-        else:
-            interest_status = "High"
-            interest_score = 60
-        health_factors.append(
-            {
-                "title": "Interest Burden",
-                "score": interest_score,
-                "status": interest_status,
-                "icon": "fa-percent",
-            }
-        )
-        if total_prepayment_amount == 0:
-            prepayment_score = 70
-            prepayment_status = "Basic"
-        elif total_prepayment_amount < loan.amount * Decimal("0.10"):
-            prepayment_score = 90
-            prepayment_status = "Good"
-        else:
-            prepayment_score = 100
-            prepayment_status = "Excellent"
-        health_factors.append(
-            {
-                "title": "Prepayment Habit",
-                "score": prepayment_score,
-                "status": prepayment_status,
-                "icon": "fa-bolt",
-            }
-        )
-        progress_score = min(100, int(loan.progress_percent))
-        health_factors.append(
-            {
-                "title": "Repayment Progress",
-                "score": progress_score,
-                "status": f"{progress_score}%",
-                "icon": "fa-chart-line",
-            }
-        )
-        context["health_factors"] = health_factors
-        financial_tips = []
-        if loan.interest_rate >= 10:
-            financial_tips.append(
-                {
-                    "icon": "fa-percent",
-                    "title": "Consider Refinancing",
-                    "message": "Your interest rate is relatively high. Refinancing could reduce your monthly EMI and total interest.",
-                    "type": "warning",
-                }
-            )
-        if total_prepayment_amount == 0:
-            financial_tips.append(
-                {
-                    "icon": "fa-bolt",
-                    "title": "Start Making Prepayments",
-                    "message": "Even one extra EMI every year can significantly reduce your loan tenure and interest cost.",
-                    "type": "success",
-                }
-            )
-        if loan.progress_percent >= 80:
-            financial_tips.append(
-                {
-                    "icon": "fa-flag-checkered",
-                    "title": "Almost There!",
-                    "message": "You're close to becoming debt-free. Continue paying EMIs on time to avoid unnecessary penalties.",
-                    "type": "primary",
-                }
-            )
-        if loan.is_overdue:
-            financial_tips.append(
-                {
-                    "icon": "fa-triangle-exclamation",
-                    "title": "Pay Overdue EMI",
-                    "message": f"Your EMI is overdue by {loan.overdue_days} day(s). Paying it now will prevent additional charges.",
-                    "type": "danger",
-                }
-            )
-        if (
-            not loan.is_overdue
-            and total_prepayment_amount > 0
-            and loan.progress_percent >= 20
-        ):
-            financial_tips.append(
-                {
-                    "icon": "fa-heart",
-                    "title": "Excellent Financial Discipline",
-                    "message": "You're managing this loan efficiently. Keep making occasional prepayments whenever possible.",
-                    "type": "success",
-                }
-            )
-        if not financial_tips:
-            financial_tips.append(
-                {
-                    "icon": "fa-lightbulb",
-                    "title": "Stay Consistent",
-                    "message": "Pay every EMI on time. Consistency is the easiest way to save money and improve your financial health.",
-                    "type": "primary",
-                }
-            )
-        context["financial_tips"] = financial_tips
-        achievement_badges = []
-        paid_emis = loan.payments.filter(status="paid").count()
-        if paid_emis >= 1:
-            achievement_badges.append(
-                {
-                    "title": "First EMI",
-                    "description": "Successfully paid your first EMI.",
-                    "icon": "fa-seedling",
-                    "color": "success",
-                    "earned": True,
-                }
-            )
-        if paid_emis >= 6:
-            achievement_badges.append(
-                {
-                    "title": "Consistent Payer",
-                    "description": "Completed 6 EMIs without stopping.",
-                    "icon": "fa-calendar-check",
-                    "color": "primary",
-                    "earned": True,
-                }
-            )
-        if paid_emis >= 12:
-            achievement_badges.append(
-                {
-                    "title": "One Year Strong",
-                    "description": "Completed one full year of repayments.",
-                    "icon": "fa-medal",
-                    "color": "warning",
-                    "earned": True,
-                }
-            )
-        if loan.prepayments.exists():
-            achievement_badges.append(
-                {
-                    "title": "Smart Saver",
-                    "description": "Made your first prepayment.",
-                    "icon": "fa-bolt",
-                    "color": "success",
-                    "earned": True,
-                }
-            )
-        lifetime_interest_saved = loan.prepayments.aggregate(
-            total=Sum("interest_saved")
-        )["total"] or Decimal("0")
-        if lifetime_interest_saved >= Decimal("100000"):
-            achievement_badges.append(
-                {
-                    "title": "Interest Slayer",
-                    "description": "Saved ₹1 Lakh+ in interest.",
-                    "icon": "fa-fire",
-                    "color": "danger",
-                    "earned": True,
-                }
-            )
-        if loan.progress_percent >= 50:
-            achievement_badges.append(
-                {
-                    "title": "Halfway There",
-                    "description": "Completed 50% of your loan.",
-                    "icon": "fa-flag",
-                    "color": "primary",
-                    "earned": True,
-                }
-            )
-        if loan.status == "closed":
-            achievement_badges.append(
-                {
-                    "title": "Debt Free",
-                    "description": "Congratulations! Loan fully repaid.",
-                    "icon": "fa-trophy",
-                    "color": "gold",
-                    "earned": True,
-                }
-            )
-        if not loan.is_overdue and paid_emis >= 12:
-            achievement_badges.append(
-                {
-                    "title": "Perfect Payer",
-                    "description": "Completed 12+ EMIs without any overdue payment.",
-                    "icon": "fa-star",
-                    "color": "warning",
-                    "earned": True,
-                }
-            )
-        if total_principal_paid >= loan.amount * Decimal("0.25"):
-            achievement_badges.append(
-                {
-                    "title": "Principal Crusher",
-                    "description": "Repaid 25% of your principal amount.",
-                    "icon": "fa-hammer",
-                    "color": "primary",
-                    "earned": True,
-                }
-            )
-        if months_saved >= 12:
-            achievement_badges.append(
-                {
-                    "title": "Fast Tracker",
-                    "description": "Reduced your loan tenure by one year or more.",
-                    "icon": "fa-rocket",
-                    "color": "success",
-                    "earned": True,
-                }
-            )
-        if lifetime_interest_saved >= Decimal("50000"):
-            achievement_badges.append(
-                {
-                    "title": "Interest Saver",
-                    "description": "Saved ₹50,000+ in interest payments.",
-                    "icon": "fa-gem",
-                    "color": "success",
-                    "earned": True,
-                }
-            )
-        if loan.progress_percent >= 25:
-            achievement_badges.append(
-                {
-                    "title": "Quarter Paid",
-                    "description": "Completed 25% of your loan journey.",
-                    "icon": "fa-chart-pie",
-                    "color": "primary",
-                    "earned": True,
-                }
-            )
-        if loan.progress_percent >= 50:
-            achievement_badges.append(
-                {
-                    "title": "Halfway Hero",
-                    "description": "You've crossed the halfway mark.",
-                    "icon": "fa-mountain",
-                    "color": "warning",
-                    "earned": True,
-                }
-            )
-        if loan.progress_percent >= 90:
-            achievement_badges.append(
-                {
-                    "title": "Loan Master",
-                    "description": "Less than 10% of your loan remains.",
-                    "icon": "fa-crown",
-                    "color": "gold",
-                    "earned": True,
-                }
-            )
-        if loan.status == "closed":
-            achievement_badges.append(
-                {
-                    "title": "Debt Free",
-                    "description": "Congratulations! You have completely repaid your loan.",
-                    "icon": "fa-trophy",
-                    "color": "gold",
-                    "earned": True,
-                }
-            )
-        context["achievement_badges"] = achievement_badges
-        timeline = []
-        for prepayment in loan.prepayments.order_by("-prepayment_date")[:3]:
-            timeline.append(
-                {
-                    "date": prepayment.prepayment_date,
-                    "amount": prepayment.amount,
-                    "interest_saved": prepayment.interest_saved,
-                    "months_saved": prepayment.months_reduced,
-                    "payment_mode": prepayment.get_payment_mode_display(),
-                    "payment_type": prepayment.get_payment_type_display(),
-                }
-            )
-        context["prepayment_timeline"] = timeline
-        extra = self.request.GET.get("extra_emi")
-        if extra:
-            try:
-                context["simulation"] = simulate_extra_emi(
-                    self.object,
-                    Decimal(extra),
-                )
-                context["extra_emi"] = extra
-            except Exception:
-                pass
-        context["goal_tracker"] = self.object.goal_tracker
-        context["disbursements"] = loan.disbursements.order_by("disbursement_number")
-        context["total_disbursed_amount"] = loan.total_disbursed_amount
-        context["remaining_sanction_amount"] = loan.remaining_sanction_amount
-        if loan.status == "active" and next_emi_date:
-
-            summary = AccruedInterestService.calculate_total_debit(loan, next_emi_date)
-            context["regular_emi"] = summary["regular_emi"]
-            context["next_emi_total_debit"] = summary["total_debit"]
-            context["regular_interest"] = summary["regular_interest"]
-        affordability = {}
-        monthly_income = self.request.GET.get("income")
-        monthly_expenses = self.request.GET.get("expenses")
-
-        if monthly_income and monthly_expenses:
-            try:
-                monthly_income = Decimal(monthly_income)
-                monthly_expenses = Decimal(monthly_expenses)
-                disposable_income = max(monthly_income - monthly_expenses, Decimal("0"))
-
-                effective_emi = Decimal(str(loan.emi))
-                if disposable_income > 0:
-                    emi_ratio = (effective_emi / disposable_income) * Decimal("100")
-                else:
-                    emi_ratio = Decimal("100")
-
-                emi_ratio = emi_ratio.quantize(Decimal("0.1"))
-                if emi_ratio <= 35:
-                    status = "Excellent"
-                    color = "success"
-                elif emi_ratio <= 50:
-                    status = "Good"
-                    color = "primary"
-                elif emi_ratio <= 70:
-                    status = "Risky"
-                    color = "warning"
-                else:
-                    status = "Not Affordable"
-                    color = "danger"
-                balance_after_emi = max(
-                    disposable_income - effective_emi,
-                    Decimal("0"),
-                )
-                affordability = {
-                    "income": monthly_income,
-                    "expenses": monthly_expenses,
-                    "disposable": disposable_income,
-                    "emi_ratio": emi_ratio,
-                    "balance_after_emi": balance_after_emi,
-                    "status": status,
-                    "color": color,
-                }
-            except Exception:
-                pass
-        context["affordability"] = affordability
         return context
 
 
 class LoanDeleteView(LoginRequiredMixin, DeleteView):
+    template_name = "loans/confirm_delete.html"
     model = Loan
     success_url = reverse_lazy("loan_list")
 
@@ -659,11 +216,23 @@ class LoanDeleteView(LoginRequiredMixin, DeleteView):
             return queryset
         return queryset.filter(user=self.request.user)
 
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, "Loan deleted.")
-        return super().delete(request, *args, **kwargs)
+    @transaction.atomic
+    def form_valid(self, form):
+        loan = Loan.objects.select_for_update().get(pk=self.object.pk)
+        if (
+            loan.payments.exists()
+            or loan.prepayments.exists()
+            or loan.investments.exists()
+        ):
+            messages.error(
+                self.request, "Loans with financial history cannot be deleted."
+            )
+            return redirect("loan_detail", pk=loan.pk)
+        return super().form_valid(form)
 
 
+@login_required
+@require_POST
 def add_note(request, loan_id):
     if request.user.is_staff:
         loan = get_object_or_404(Loan, pk=loan_id)
@@ -679,6 +248,8 @@ def add_note(request, loan_id):
     return redirect("loan_detail", pk=loan_id)
 
 
+@login_required
+@require_POST
 def delete_note(request, loan_id, note_id):
     if request.user.is_staff:
         loan = get_object_or_404(Loan, pk=loan_id)
@@ -702,7 +273,11 @@ class LoanCompareView(LoginRequiredMixin, TemplateView):
 
 
 @login_required
-def upload_document(request, loan_id):
+@require_POST
+def upload_document(request, loan_id=None):
+    loan_id = loan_id or request.POST.get("loan")
+    if not loan_id or not str(loan_id).isdigit():
+        raise Http404("Select a loan.")
     if request.user.is_staff:
         loan = get_object_or_404(Loan, pk=loan_id)
     else:
@@ -722,7 +297,8 @@ def upload_document(request, loan_id):
 
 
 @login_required
-def delete_document(request, document_id):
+@require_POST
+def delete_document(request, document_id, loan_id=None):
     if request.user.is_staff:
         document = get_object_or_404(LoanDocument, pk=document_id)
     else:
@@ -739,20 +315,34 @@ def delete_document(request, document_id):
 
 
 @login_required
+@require_POST
+@transaction.atomic
 def close_loan(request, pk):
     if request.user.is_staff:
-        loan = get_object_or_404(Loan, pk=pk)
+        loan = get_object_or_404(Loan.objects.select_for_update(), pk=pk)
     else:
-        loan = get_object_or_404(Loan, pk=pk, user=request.user)
+        loan = get_object_or_404(
+            Loan.objects.select_for_update(), pk=pk, user=request.user
+        )
     if request.method == "POST":
-        pending_interest = loan.total_pending_accrued_interest
-        if pending_interest > 0:
+        if outstanding(loan) > 0:
             messages.error(
-                request, "Loan cannot be closed while accrued interest is pending."
+                request, "Record the outstanding repayment before closing this loan."
+            )
+            return redirect("loan_detail", pk=loan.pk)
+        closing_date = parse_date(request.POST.get("closing_date", ""))
+        if (
+            not closing_date
+            or closing_date < last_transaction_date(loan)
+            or closing_date > timezone.localdate()
+        ):
+            messages.error(
+                request,
+                "Enter a valid closing date after the last transaction and no later than today.",
             )
             return redirect("loan_detail", pk=loan.pk)
         loan.status = "closed"
-        loan.closed_date = parse_date(request.POST.get("closing_date"))
+        loan.closed_date = closing_date
         loan.save()
         add_activity(
             loan.user,
@@ -783,7 +373,38 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
             return queryset
         return queryset.filter(user=self.request.user)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    @transaction.atomic
     def form_valid(self, form):
+        locked = Loan.objects.select_for_update().get(pk=self.object.pk)
+        if (locked.payments.exists() or locked.prepayments.exists()) and any(
+            field in form.changed_data
+            for field in (
+                "amount",
+                "interest_rate",
+                "tenure_years",
+                "emi_frequency",
+                "start_date",
+                "first_emi_date",
+                "user",
+            )
+        ):
+            form.add_error(
+                None, "Financial terms cannot change after transactions are recorded."
+            )
+            return self.form_invalid(form)
+        if form.cleaned_data["amount"] < locked.total_disbursed_amount:
+            form.add_error("amount", "Sanction cannot be less than released funds.")
+            return self.form_invalid(form)
+        # Do not overwrite balances changed by a concurrent repayment.
+        form.instance.remaining_balance = locked.remaining_balance
+        form.instance.total_interest_paid = locked.total_interest_paid
+        form.instance.status = locked.status
+        form.instance.closed_date = locked.closed_date
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
@@ -793,10 +414,6 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
         if not form.instance.first_emi_date:
             form.instance.first_emi_date = form.instance.start_date
         messages.success(self.request, "Loan updated successfully.")
-        for disbursement in form.instance.disbursements.filter(status="released"):
-            disbursement.is_interest_processed = False
-            disbursement.save(update_fields=["is_interest_processed"])
-            AccruedInterestService.generate_for_disbursement(disbursement)
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -809,6 +426,8 @@ class LoanDisbursementListView(LoginRequiredMixin, ListView):
     context_object_name = "disbursements"
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         if request.user.is_staff:
             self.loan = get_object_or_404(Loan, pk=self.kwargs["loan_id"])
         else:
@@ -827,8 +446,6 @@ class LoanDisbursementListView(LoginRequiredMixin, ListView):
         context["loan"] = self.loan
         context["total_disbursed"] = self.loan.total_disbursed_amount
         context["remaining_sanction"] = self.loan.remaining_sanction_amount
-        context["pending_interest"] = self.loan.total_pending_accrued_interest
-        context["recovered_interest"] = self.loan.total_recovered_accrued_interest
         return context
 
 
@@ -845,13 +462,6 @@ class LoanDisbursementDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["interest_entries"] = self.object.interest_entries.order_by("emi_date")
-        context["total_interest"] = self.object.interest_entries.filter(
-            status="recovered"
-        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
-        context["pending_interest"] = self.object.interest_entries.filter(
-            status="pending"
-        ).aggregate(total=Sum("interest_amount"))["total"] or Decimal("0.00")
         return context
 
 
@@ -861,6 +471,8 @@ class LoanDisbursementCreateView(LoginRequiredMixin, CreateView):
     template_name = "loans/create_disbursement.html"
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         if request.user.is_staff:
             self.loan = get_object_or_404(Loan, pk=self.kwargs["loan_id"])
         else:
@@ -881,10 +493,22 @@ class LoanDisbursementCreateView(LoginRequiredMixin, CreateView):
 
     @transaction.atomic
     def form_valid(self, form):
+        self.loan = Loan.objects.select_for_update().get(pk=self.loan.pk)
         form.instance.loan = self.loan
+        if (
+            form.cleaned_data["status"] == "released"
+            and self.loan.total_disbursed_amount + form.cleaned_data["amount"]
+            > self.loan.amount
+        ):
+            form.add_error("amount", "Release exceeds the remaining sanction.")
+            return self.form_invalid(form)
+        if form.cleaned_data["disbursement_date"] < last_transaction_date(self.loan):
+            form.add_error(
+                "disbursement_date", "Release cannot precede the last repayment."
+            )
+            return self.form_invalid(form)
         response = super().form_valid(form)
-        if self.object.status == "released":
-            AccruedInterestService.generate_for_disbursement(self.object)
+        refresh_balance(self.object.loan)
         messages.success(self.request, "Loan disbursement created successfully.")
         return response
 
@@ -915,12 +539,26 @@ class LoanDisbursementUpdateView(LoginRequiredMixin, UpdateView):
 
     @transaction.atomic
     def form_valid(self, form):
+        loan = Loan.objects.select_for_update().get(pk=self.object.loan_id)
+        if loan.payments.exists() or loan.prepayments.exists():
+            form.add_error(
+                None,
+                "Disbursements with repayment history cannot be changed. Add a new release instead.",
+            )
+            return self.form_invalid(form)
+        original = LoanDisbursement.objects.get(pk=self.object.pk)
+        released = loan.total_disbursed_amount - (
+            original.amount if original.status == "released" else 0
+        )
+        if (
+            form.cleaned_data["status"] == "released"
+            and released + form.cleaned_data["amount"] > loan.amount
+        ):
+            form.add_error("amount", "Release exceeds the remaining sanction.")
+            return self.form_invalid(form)
         response = super().form_valid(form)
-        self.object.is_interest_processed = False
-        self.object.save(update_fields=["is_interest_processed"])
-        if self.object.status == "released":
-            AccruedInterestService.generate_for_disbursement(self.object)
-        messages.success(self.request, "Disbursement updated successfully.")
+        refresh_balance(loan)
+        messages.success(self.request, "Disbursement updated.")
         return response
 
     def get_success_url(self):
@@ -938,20 +576,29 @@ class LoanDisbursementDeleteView(LoginRequiredMixin, DeleteView):
             return queryset
         return queryset.filter(loan__user=self.request.user)
 
+    template_name = "loans/confirm_delete.html"
+
     @transaction.atomic
-    def delete(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        loan_id = self.object.loan.pk
-        self.object.delete()
-        messages.success(request, "Disbursement deleted successfully.")
-        return redirect("loan_disbursement_list", loan_id=loan_id)
+    def form_valid(self, form):
+        loan = Loan.objects.select_for_update().get(pk=self.object.loan_id)
+        if loan.payments.exists() or loan.prepayments.exists():
+            messages.error(
+                self.request, "Disbursements with repayment history cannot be deleted."
+            )
+        else:
+            self.object.delete()
+            refresh_balance(loan)
+            messages.success(self.request, "Disbursement deleted.")
+        return redirect("loan_disbursement_list", loan_id=loan.pk)
 
 
 @login_required
 def documents_dashboard(request):
-    loans = Loan.objects.filter(user=request.user).order_by("loan_name")
+    loans = get_user_loans(request.user).order_by("loan_name")
     documents = (
-        LoanDocument.objects.filter(loan__user=request.user)
+        LoanDocument.objects.filter(
+            **({} if request.user.is_staff else {"loan__user": request.user})
+        )
         .select_related("loan")
         .order_by("-uploaded_at")
     )
@@ -961,14 +608,16 @@ def documents_dashboard(request):
             Q(title__icontains=search) | Q(loan__loan_name__icontains=search)
         )
     loan_id = request.GET.get("loan")
-    if loan_id:
-        documents = documents.filter(loan_id=loan_id, loan__user=request.user)
+    if loan_id and str(loan_id).isdigit():
+        documents = documents.filter(loan_id=loan_id)
 
     doc_type = request.GET.get("doc_type")
     if doc_type:
         documents = documents.filter(doc_type=doc_type)
 
-    all_documents = LoanDocument.objects.filter(loan__user=request.user)
+    all_documents = LoanDocument.objects.filter(
+        **({} if request.user.is_staff else {"loan__user": request.user})
+    )
     total_documents = all_documents.count()
     loan_agreements = all_documents.filter(doc_type="agreement").count()
     pending_uploads = loans.filter(documents__isnull=True).count()
@@ -1000,7 +649,7 @@ def download_document(request, document_id):
     document = get_object_or_404(
         LoanDocument.objects.select_related("loan"),
         pk=document_id,
-        loan__user=request.user,
+        **({} if request.user.is_staff else {"loan__user": request.user}),
     )
     if not document.file:
         raise Http404("Document file not found.")
@@ -1017,7 +666,7 @@ def view_document(request, document_id):
     document = get_object_or_404(
         LoanDocument.objects.select_related("loan"),
         pk=document_id,
-        loan__user=request.user,
+        **({} if request.user.is_staff else {"loan__user": request.user}),
     )
     if not document.file:
         raise Http404("Document file not found.")
@@ -1426,11 +1075,15 @@ def logout_all_devices(request, user_id=None):
         return redirect("settings_dashboard")
 
     current_session_key = request.session.session_key
-    Session.objects.filter(
-        expire_date__gte=timezone.now(),
-    ).exclude(
-        session_key=current_session_key,
-    ).delete()
+    sessions = Session.objects.filter(expire_date__gte=timezone.now()).exclude(
+        session_key=current_session_key
+    )
+    keys = [
+        session.session_key
+        for session in sessions
+        if session.get_decoded().get("_auth_user_id") == str(target_user.pk)
+    ]
+    Session.objects.filter(session_key__in=keys).delete()
 
     messages.success(request, "All other devices have been logged out.")
     return (
@@ -1649,3 +1302,32 @@ def set_default_bank_account(request, user_id=None, pk=None):
         if user_id
         else redirect("settings_dashboard")
     )
+
+
+@login_required
+def protected_media(request, path):
+    from loans.models import UserProfile
+    from django.db.models import Q
+
+    candidates = [
+        LoanDocument.objects.filter(file=path),
+        SupportTicket.objects.filter(attachment=path),
+        SupportMessage.objects.filter(attachment=path),
+        UserProfile.objects.filter(photo=path),
+    ]
+    ownership = ["loan__user", "user", "ticket__user", "user"]
+    fields = ["file", "attachment", "attachment", "photo"]
+    for records, owner, field in zip(candidates, ownership, fields):
+        if not request.user.is_staff:
+            records = records.filter(**{owner: request.user})
+        record = records.first()
+        if record:
+            asset = getattr(record, field)
+            try:
+                response = FileResponse(asset.open("rb"))
+            except FileNotFoundError:
+                raise Http404("File not found.")
+            response["X-Content-Type-Options"] = "nosniff"
+            response["Cache-Control"] = "private, no-store"
+            return response
+    raise Http404("File not found.")

@@ -75,118 +75,21 @@ def add_periods(source_date, period_number, frequency):
 
 
 def build_paid_schedule(loan):
-    paid_rows = {}
-    payments = (
-        loan.payments.select_related("loan")
-        .filter(status="paid")
-        .order_by("payment_number")
-    )
-    for payment in payments:
-        paid_rows[payment.payment_number] = {
-            "period": payment.payment_number,
-            "loan": loan,
-            "payment": payment,
-            "due_date": payment.due_date,
-            "payment_date": payment.payment_date,
-            "status": "paid",
-            "regular_emi": Decimal(str(payment.regular_emi_amount)).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            ),
-            "principal": Decimal(str(payment.principal_component)).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            ),
-            "interest": Decimal(str(payment.interest_component)).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            ),
-            "total_debit": Decimal(str(payment.total_debit_amount)).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            ),
-            "balance": Decimal(str(payment.balance_after)).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            ),
-            "payment_mode": payment.payment_mode,
-            "payment_type": payment.payment_type,
-            "is_paid": True,
-            "is_pending": False,
-            "is_overdue": False,
-            "is_projected": False,
-        }
-    return paid_rows
+    return {r["period"]: r for r in generate_full_schedule(loan) if r["is_paid"]}
 
 
 def build_projected_schedule(loan):
-    frequency = getattr(loan, "emi_frequency", "monthly")
-    _, periods_per_year = get_period_details(frequency)
-    rate = (
-        Decimal(str(loan.interest_rate))
-        / Decimal(str(periods_per_year))
-        / Decimal("100")
-    )
-    emi = Decimal(str(loan.emi))
-    balance = Decimal(str(loan.amount))
-    today = date.today()
-    prepayments = list(loan.prepayments.order_by("prepayment_date"))
-    prepayment_index = 0
-    rows = {}
-    total_periods = (loan.tenure_years * periods_per_year) + 20
-    for period in range(1, total_periods + 1):
-        if balance <= Decimal("0.01"):
-            break
-        due_date = add_periods(loan.schedule_start_date, period - 1, frequency)
-        while (
-            prepayment_index < len(prepayments)
-            and prepayments[prepayment_index].prepayment_date <= due_date
-        ):
-            balance = max(
-                Decimal("0.00"),
-                balance - Decimal(str(prepayments[prepayment_index].amount)),
-            )
-            prepayment_index += 1
-        interest = (balance * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        principal = (emi - interest).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        current_emi = emi
-        if principal >= balance:
-            principal = balance
-            current_emi = (principal + interest).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-        projected_balance = max(Decimal("0.00"), balance - principal)
-        total_debit = current_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        status = "pending" if due_date >= today else "overdue"
-        rows[period] = {
-            "period": period,
-            "loan": loan,
-            "payment": None,
-            "due_date": due_date,
-            "payment_date": None,
-            "status": status,
-            "regular_emi": current_emi,
-            "principal": principal,
-            "interest": interest,
-            "total_debit": total_debit,
-            "balance": projected_balance,
-            "payment_mode": ("auto_debit" if loan.auto_debit else "manual"),
-            "payment_type": "emi",
-            "is_paid": False,
-            "is_pending": status == "pending",
-            "is_overdue": status == "overdue",
-            "is_projected": True,
-        }
-        balance = projected_balance
-    return rows
+    return {r["period"]: r for r in generate_full_schedule(loan) if r["is_projected"]}
 
 
 def merge_schedule(loan):
-    projected = build_projected_schedule(loan)
-    paid = build_paid_schedule(loan)
-    projected.update(paid)
-    schedule = list(projected.values())
-    schedule.sort(key=lambda row: (row["period"], row["due_date"]))
-    return schedule
+    return generate_full_schedule(loan)
 
 
 def generate_full_schedule(loan):
-    return merge_schedule(loan)
+    from loans.accounting import schedule
+
+    return schedule(loan)
 
 
 def generate_projected_schedule(loan):

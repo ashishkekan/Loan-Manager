@@ -4,7 +4,7 @@
 {% block app_content %}
 <div class="page-header">
     <div>
-        <h1 class="page-title">Create New Loan</h1>
+        <h1 class="page-title">{% if object %}Edit loan{% else %}Create loan{% endif %}</h1>
         <p class="page-subtitle">Enter your loan details — EMI will be calculated automatically</p>
     </div>
 </div>
@@ -14,7 +14,7 @@
         <span class="emi-preview-value" id="emiPreviewValue">₹0</span>
     </div>
     <form method="post" class="loan-form" novalidate>
-        {% csrf_token %}
+        {% csrf_token %}{{ form.non_field_errors }}
         {% for field in form %}
             <div class="form-group {% if field.errors %}has-error{% endif %}">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -55,12 +55,13 @@
             const P = parseFloat(amountInput?.value);
             const annualRate = parseFloat(rateInput?.value);
             const years = parseInt(tenureInput?.value);
-            if (!P || !annualRate || !years || P <= 0 || years <= 0) {
+            if (!P || !Number.isFinite(annualRate) || !years || P <= 0 || years <= 0) {
                 preview.style.display = "none";
                 return;
             }
-            const R = annualRate / 12 / 100;
-            const N = years * 12;
+            const ppy = {monthly:12, quarterly:4, half_yearly:2, yearly:1}[frequency.value] || 12;
+            const R = annualRate / ppy / 100;
+            const N = years * ppy;
             let emi;
             if (R === 0) {
                 emi = P / N;
@@ -90,7 +91,7 @@
             }
         }
         if (amountInput && rateInput && tenureInput) {
-            [amountInput, rateInput, tenureInput].forEach(function (el) {
+            [amountInput, rateInput, tenureInput, frequency].forEach(function (el) {
                 el.addEventListener("input", calcEMI);
             });
             calcEMI();
@@ -104,16 +105,16 @@
                 let text = "";
                 switch (frequency.value) {
                     case "monthly":
-                        text = "📅 EMI will be deducted every month (12 EMI per year).";
+                        text = "📅 EMI is due every month (12 EMI per year).";
                         break;
                     case "quarterly":
-                        text = "📅 EMI will be deducted every 3 months (4 EMI per year).";
+                        text = "📅 EMI is due every 3 months (4 EMI per year).";
                         break;
                     case "half_yearly":
-                        text = "📅 EMI will be deducted every 6 months (2 EMI per year).";
+                        text = "📅 EMI is due every 6 months (2 EMI per year).";
                         break;
                     case "yearly":
-                        text = "📅 EMI will be deducted once every year.";
+                        text = "📅 EMI is due once every year.";
                         break;
                     default:
                         text = "";

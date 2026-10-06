@@ -1,83 +1,30 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from loans.models import Loan
-from loans.utils import add_periods
-from payments.services import process_emi_payment
+from loans.accounting import schedule
+from loans.models import Loan, Notification
 
 
 class Command(BaseCommand):
-    help = "Automatically process due EMI payments."
+    help = (
+        "Create due-payment reminders. Never marks money collected or contacts a bank."
+    )
 
     def handle(self, *args, **options):
-        today = timezone.now().date()
-
-        self.stdout.write("")
-        self.stdout.write("=" * 70)
-        self.stdout.write(f"Auto Debit Started : {today}")
-        self.stdout.write("=" * 70)
-
-        processed = 0
-        skipped = 0
-        failed = 0
-        loans = Loan.objects.filter(status="active", auto_debit=True).order_by("id")
-        for loan in loans:
-            try:
-                emi_start_date = loan.first_emi_date
-                if not emi_start_date:
-                    skipped += 1
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f"[SKIPPED] {loan.loan_name} | " f"First EMI date missing"
-                        )
+        count = 0
+        for loan in Loan.objects.filter(status="active", auto_debit=True):
+            for row in schedule(loan):
+                if not row["is_paid"] and row["due_date"] <= timezone.localdate():
+                    _, created = Notification.objects.get_or_create(
+                        user=loan.user,
+                        loan=loan,
+                        title=f"Installment {row['period']} due",
+                        notification_type="payment",
+                        defaults={
+                            "message": f"₹{row['total_debit']:,.2f} is due for {loan.loan_name}. Record payment only after confirming receipt. No automatic debit has been made."
+                        },
                     )
-                    continue
-
-                if emi_start_date > today:
-                    skipped += 1
-                    continue
-
-                paid_count = loan.payments.filter(status="paid").count()
-                next_due_date = add_periods(
-                    emi_start_date, paid_count, loan.emi_frequency
-                )
-
-                if next_due_date > today:
-                    skipped += 1
-                    continue
-
-                while True:
-                    paid_count = loan.payments.filter(status="paid").count()
-                    next_due_date = add_periods(
-                        emi_start_date, paid_count, loan.emi_frequency
-                    )
-                    if next_due_date > today:
-                        break
-                    payment = process_emi_payment(
-                        loan, payment_mode="auto_debit", payment_type="emi"
-                    )
-                    if payment is None:
-                        break
-                    processed += 1
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"[PAID] "
-                            f"{loan.loan_name} | "
-                            f"EMI #{payment.payment_number} | "
-                            f"₹{payment.amount}"
-                        )
-                    )
-            except Exception as exc:
-                failed += 1
-                self.stderr.write(
-                    self.style.ERROR(
-                        f"[FAILED] Loan #{loan.id} " f"({loan.loan_name}) {exc}"
-                    )
-                )
-
-        self.stdout.write("")
-        self.stdout.write("=" * 70)
-        self.stdout.write(self.style.SUCCESS(f"Processed : {processed}"))
-        self.stdout.write(self.style.WARNING(f"Skipped   : {skipped}"))
-        self.stdout.write(self.style.ERROR(f"Failed    : {failed}"))
-        self.stdout.write("=" * 70)
+                    count += created
+        self.stdout.write(
+            f"Created {count} reminders. No payments recorded; no money debited."
+        )

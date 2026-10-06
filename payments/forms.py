@@ -31,8 +31,10 @@ class PrepaymentForm(forms.ModelForm):
 
     def clean_amount(self):
         amount = self.cleaned_data.get("amount")
-        if self.loan and amount:
-            if amount > self.loan.remaining_balance:
+        if amount is not None:
+            from loans.accounting import outstanding
+
+            if self.loan and amount > outstanding(self.loan):
                 raise forms.ValidationError(
                     f"Prepayment cannot exceed remaining balance of ₹{self.loan.remaining_balance:,.2f}"
                 )
@@ -47,4 +49,8 @@ class PrepaymentForm(forms.ModelForm):
                 raise forms.ValidationError(
                     "Prepayment date cannot be greater than today's date."
                 )
+        if self.loan and prepayment_date and prepayment_date < self.loan.start_date:
+            raise forms.ValidationError(
+                "Prepayment cannot precede the loan start date."
+            )
         return prepayment_date

@@ -1,73 +1,7 @@
 {% extends 'app_layout.html' %}
-{% load %}
-{% load static %}
-{% block title %}Support — NexusLoan{% endblock %}
+{% block title %}{{ ticket.ticket_number }} — NexusLoan{% endblock %}
 {% block app_content %}
-<div class="page-header">
-    <div>
-        <h1>Create Support Ticket</h1>
-        <p class="text-muted">Tell us about your issue and our support team will help you.</p>
-    </div>
-    <a href="{% url 'support_dashboard' %}" class="btn btn-outline">
-        <i class="fas fa-arrow-left"></i> Back to Support
-    </a>
-</div>
-<div class="glass-card" style="padding:28px;max-width:900px;margin:0 auto;">
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {% if form.non_field_errors %}
-            <div style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:8px;margin-bottom:18px;">
-                {{ form.non_field_errors }}
-            </div>
-        {% endif %}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-            <div>
-                <label class="form-label">Category</label>
-                {{ form.category }}
-                {% if form.category.errors %}
-                    <small style="color:#dc2626;">{{ form.category.errors|striptags }}</small>
-                {% endif %}
-            </div>
-            <div>
-                <label class="form-label">Related Loan</label>
-                {{ form.loan }}
-                {% if form.loan.errors %}
-                    <small style="color:#dc2626;">{{ form.loan.errors|striptags }}</small>
-                {% endif %}
-            </div>
-        </div>
-        <div style="margin-top:20px;">
-            <label class="form-label">Subject</label>
-            {{ form.subject }}
-            {% if form.subject.errors %}
-                <small style="color:#dc2626;">{{ form.subject.errors|striptags }}</small>
-            {% endif %}
-        </div>
-        <div style="margin-top:20px;">
-            <label class="form-label">Message</label>
-            {{ form.message }}
-            {% if form.message.errors %}
-                <small style="color:#dc2626;">{{ form.message.errors|striptags }}</small>
-            {% endif %}
-        </div>
-        <div style="margin-top:20px;">
-            <label class="form-label">
-                Attachment <span class="text-muted">(Optional)</span>
-            </label>
-            {{ form.attachment }}
-            <small class="text-muted">PDF, JPG, PNG, DOC or DOCX · Maximum 10 MB</small>
-            {% if form.attachment.errors %}
-                <small style="display:block;color:#dc2626;">
-                    {{ form.attachment.errors|striptags }}
-                </small>
-            {% endif %}
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:25px;">
-            <a href="{% url 'support_dashboard' %}" class="btn btn-outline">Cancel</a>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-paper-plane"></i> Submit Ticket
-            </button>
-        </div>
-    </form>
-</div>
+<div class="page-header"><div><div class="breadcrumb"><a href="{% url 'support_dashboard' %}">Support</a> / {{ ticket.ticket_number }}</div><h1 class="page-title">{{ ticket.subject }}</h1><p class="page-subtitle">{{ ticket.get_category_display }} · {{ ticket.get_status_display }}</p></div><a class="btn btn-outline" href="{% url 'support_dashboard' %}">All tickets</a></div>
+<section class="panel"><header class="panel-heading"><h2>Conversation</h2><span class="eyebrow">{{ ticket.ticket_number }}</span></header><div class="panel-pad">{% for reply in ticket_messages %}<article class="note-item"><strong>{{ reply.user.get_full_name|default:reply.user.username }}{% if reply.is_staff_reply %} · Support{% endif %}</strong><small class="cell-subtitle">{{ reply.created_at|date:'d M Y, H:i' }}</small><p>{{ reply.message|linebreaksbr }}</p>{% if reply.attachment %}<a href="{{ reply.attachment.url }}" target="_blank" rel="noopener">View attachment ↗</a>{% endif %}</article>{% empty %}<p>{{ ticket.message|linebreaksbr }}</p>{% endfor %}</div></section>
+{% if ticket.status != 'closed' and ticket.status != 'resolved' %}<section class="panel panel-pad"><h2>Add a reply</h2><form method="post" enctype="multipart/form-data" class="stack-form">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">Send reply</button></form></section>{% endif %}
 {% endblock %}
