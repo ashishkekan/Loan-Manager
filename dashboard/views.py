@@ -17,238 +17,49 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/dashboard.html"
 
     def get_context_data(self, **kwargs):
+        from loans.accounting import outstanding, schedule, ZERO
+
         context = super().get_context_data(**kwargs)
-        user = self.request.user
-        loans = Loan.objects.filter(user=user)
-        if user.is_staff:
-            self._build_admin_context(context)
-        else:
-            self._build_user_context(context, loans, user)
-        return context
-
-    def _build_admin_context(self, context):
-        today = timezone.now().date()
-        all_loans = Loan.objects.select_related("user").all()
-        active_loans = all_loans.filter(status="active")
-        closed_loans = all_loans.filter(status="closed")
-        all_payments = Payment.objects.filter(status="paid")
-        all_prepayments = Prepayment.objects.all()
-        loan_stats = all_loans.aggregate(
-            total_amount=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
-            outstanding=Coalesce(
-                Sum("remaining_balance"), 0, output_field=DecimalField()
-            ),
-            interest_paid=Coalesce(
-                Sum("total_interest_paid"), 0, output_field=DecimalField()
-            ),
-            average_rate=Coalesce(Avg("interest_rate"), 0, output_field=DecimalField()),
-        )
-        payment_stats = all_payments.aggregate(
-            total_collected=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
-            principal_collected=Coalesce(
-                Sum("principal_component"), 0, output_field=DecimalField()
-            ),
-            interest_collected=Coalesce(
-                Sum("interest_component"), 0, output_field=DecimalField()
-            ),
-        )
-        prepayment_stats = all_prepayments.aggregate(
-            total_prepaid=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
-            interest_saved=Coalesce(
-                Sum("interest_saved"), 0, output_field=DecimalField()
-            ),
-            months_saved=Coalesce(
-                Sum("months_reduced"), 0, output_field=DecimalField()
-            ),
-        )
-        total_principal = loan_stats["total_amount"] or 0
-        outstanding = loan_stats["outstanding"] or 0
-        principal_collected = payment_stats["principal_collected"] or 0
-        total_collected = payment_stats["total_collected"] or 0
-        context["admin_dashboard"] = True
-        context["admin_total_users"] = User.objects.count()
-        context["admin_active_users"] = User.objects.filter(is_active=True).count()
-        context["admin_total_loans"] = all_loans.count()
-        context["admin_active_loans"] = active_loans.count()
-        context["admin_closed_loans"] = closed_loans.count()
-        context["admin_total_amount"] = total_principal
-        context["admin_outstanding"] = outstanding
-        context["admin_principal_collected"] = principal_collected
-        context["admin_total_collected"] = total_collected
-        context["admin_interest_paid"] = loan_stats["interest_paid"] or 0
-        context["admin_interest_collected"] = payment_stats["interest_collected"] or 0
-        context["admin_average_rate"] = loan_stats["average_rate"] or 0
-        context["admin_total_prepayments"] = prepayment_stats["total_prepaid"] or 0
-        context["admin_interest_saved"] = prepayment_stats["interest_saved"] or 0
-        context["admin_months_saved"] = prepayment_stats["months_saved"] or 0
-        context["admin_auto_debit_loans"] = all_loans.filter(auto_debit=True).count()
-        context["admin_manual_loans"] = all_loans.filter(auto_debit=False).count()
-        context["admin_total_payments"] = all_payments.count()
-        context["admin_loan_status_chart"] = {
-            "labels": ["Active", "Closed"],
-            "values": [active_loans.count(), closed_loans.count()],
-        }
-        context["admin_collection_chart"] = {
-            "labels": ["Principal", "Interest"],
-            "values": [
-                float(payment_stats["principal_collected"] or 0),
-                float(payment_stats["interest_collected"] or 0),
-            ],
-        }
-        context["admin_recent_loans"] = all_loans.order_by("-created_at")[:8]
-        context["admin_recent_payments"] = all_payments.select_related(
-            "loan", "loan__user"
-        ).order_by("-payment_date")[:8]
-        context["admin_recent_prepayments"] = all_prepayments.select_related(
-            "loan", "loan__user"
-        ).order_by("-created_at")[:6]
-        context["admin_recent_users"] = User.objects.order_by("-date_joined")[:6]
-        context["activities"] = ActivityLog.objects.select_related(
-            "user", "loan"
-        ).order_by("-created_at")[:20]
-
-    def _build_user_context(self, context, loans, user):
-        aggregates = loans.aggregate(
-            total_amount=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
-            total_remaining=Coalesce(
-                Sum("remaining_balance"), 0, output_field=DecimalField()
-            ),
-            total_interest=Coalesce(
-                Sum("total_interest_paid"), 0, output_field=DecimalField()
-            ),
-        )
-        active_loans = loans.filter(status="active")
-        closed_loans = loans.filter(status="closed")
-        monthly_emi = active_loans.aggregate(
-            total=Coalesce(Sum("emi"), 0, output_field=DecimalField())
-        )["total"]
-        context["total_loans"] = loans.count()
-        context["active_loans"] = active_loans.count()
-        context["closed_loans"] = closed_loans.count()
-        context["auto_debit_loans"] = loans.filter(auto_debit=True).count()
-        context["manual_loans"] = loans.filter(auto_debit=False).count()
-        context["total_amount"] = aggregates["total_amount"]
-        context["total_remaining"] = aggregates["total_remaining"]
-        context["monthly_emi"] = monthly_emi
-        context["total_interest_paid"] = aggregates["total_interest"]
-        context["outstanding"] = aggregates["total_remaining"]
-        context["interest_paid"] = aggregates["total_interest"]
-        context["avg_interest_rate"] = (
-            loans.aggregate(avg=Avg("interest_rate"))["avg"] or 0
-        )
-        total_payable = sum((loan.emi * loan.tenure_years * 12) for loan in loans)
-        context["total_payable"] = total_payable
-        context["projected_interest"] = total_payable - aggregates["total_amount"]
-        prepay_stats = Prepayment.objects.filter(loan__user=user).aggregate(
-            total_prepaid=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
-            total_saved=Coalesce(Sum("interest_saved"), 0, output_field=DecimalField()),
-            total_months_saved=Coalesce(
-                Sum("months_reduced"), 0, output_field=DecimalField()
-            ),
-        )
-        context["total_prepaid"] = prepay_stats["total_prepaid"]
-        context["total_interest_saved"] = prepay_stats["total_saved"]
-        context["total_months_saved"] = prepay_stats["total_months_saved"]
-        context["loans"] = loans.order_by("-created_at")
-        active_loan = active_loans.first()
-        if active_loan:
-            projected = generate_projected_schedule(active_loan)
-            context["balance_chart_json"] = {
-                "labels": [f"M{row['period']}" for row in projected[:48]],
-                "balances": [float(row["balance"]) for row in projected[:48]],
-                "loan_name": active_loan.loan_name,
-            }
-        else:
-            context["balance_chart_json"] = None
-        total_principal_paid = (
-            aggregates["total_amount"] - aggregates["total_remaining"]
-        )
-        context["pie_chart_json"] = {
-            "principal": round(float(total_principal_paid), 2),
-            "interest": round(float(aggregates["total_interest"]), 2),
-        }
-        context["recent_payments"] = (
-            Payment.objects.filter(loan__user=user, status="paid")
+        loans = Loan.objects.select_related("user").all()
+        if not self.request.user.is_staff:
+            loans = loans.filter(user=self.request.user)
+        loans = list(loans)
+        payments = (
+            Payment.objects.filter(loan__in=loans, status="paid")
             .select_related("loan")
-            .order_by("-payment_date")[:8]
+            .order_by("-payment_date", "-pk")
         )
-        principal_paid = sum(loan.amount - loan.remaining_balance for loan in loans)
-        total_prepayments = prepay_stats["total_prepaid"]
-        total_paid = principal_paid + aggregates["total_interest"] + total_prepayments
-        context["principal_paid"] = principal_paid
-        context["total_prepayments"] = total_prepayments
-        context["interest_saved"] = prepay_stats["total_saved"]
-        context["total_paid"] = total_paid
-        upcoming = []
-        for loan in active_loans:
-            paid_count = loan.payments.filter(status="paid").count()
-            due_date = add_periods(
-                loan.schedule_start_date, paid_count, loan.emi_frequency
-            )
-            upcoming.append(
-                {
-                    "loan": loan,
-                    "due_date": due_date,
-                    "emi": loan.emi,
-                    "payment_number": paid_count + 1,
-                    "auto_debit": loan.auto_debit,
-                }
-            )
-        upcoming.sort(key=lambda item: item["due_date"])
-        context["upcoming_emis"] = upcoming
-        if upcoming:
-            next_emi = upcoming[0]
-            context["upcoming_emi"] = (next_emi["due_date"], next_emi["loan"])
-            context["next_emi_date"] = next_emi["due_date"]
-            context["next_emi_loan"] = next_emi["loan"]
-            context["next_emi_amount"] = next_emi["emi"]
-            context["next_emi_payment_number"] = next_emi["payment_number"]
-            context["next_emi_auto_debit"] = next_emi["auto_debit"]
-            today = timezone.now().date()
-            context["next_emi_days"] = max((next_emi["due_date"] - today).days, 0)
-        else:
-            context["upcoming_emi"] = None
-            context["next_emi_date"] = None
-            context["next_emi_loan"] = None
-            context["next_emi_amount"] = 0
-            context["next_emi_payment_number"] = None
-            context["next_emi_auto_debit"] = False
-            context["next_emi_days"] = None
-        today = timezone.now().date()
-        month_start = today.replace(day=1)
-        month_payments = Payment.objects.filter(
-            loan__user=user,
-            status="paid",
-            payment_date__gte=month_start,
-            payment_date__lte=today,
-        )
-        month_payment_stats = month_payments.aggregate(
-            total=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
-            principal=Coalesce(
-                Sum("principal_component"), 0, output_field=DecimalField()
-            ),
-            interest=Coalesce(
-                Sum("interest_component"), 0, output_field=DecimalField()
-            ),
-        )
-        month_prepayment_stats = Prepayment.objects.filter(
-            loan__user=user,
-            created_at__date__gte=month_start,
-            created_at__date__lte=today,
-        ).aggregate(
-            total=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
-        )
-        context["this_month_emi_paid"] = month_payment_stats["total"]
-        context["this_month_principal"] = month_payment_stats["principal"]
-        context["this_month_interest"] = month_payment_stats["interest"]
-        context["this_month_prepayment"] = month_prepayment_stats["total"]
-        context["total_payments"] = Payment.objects.filter(
-            loan__user=user, status="paid"
-        ).count()
-        context["activities"] = (
-            ActivityLog.objects.filter(user=user)
-            .select_related("loan")
-            .order_by("-created_at")[:10]
+        prepays = Prepayment.objects.filter(loan__in=loans, status="paid")
+        due = [row for loan in loans for row in schedule(loan) if not row["is_paid"]]
+        due.sort(key=lambda row: row["due_date"])
+        for loan in loans:
+            loan.display_balance = outstanding(loan)
+        # Calendar buckets retain empty months and include only settled transactions.
+        from datetime import date
+        today = timezone.localdate()
+        month_index = today.year * 12 + today.month - 1
+        months = [date((month_index - offset) // 12, (month_index - offset) % 12 + 1, 1)
+                  for offset in reversed(range(12))]
+        monthly = {month.strftime("%Y-%m"): ZERO for month in months}
+        for paid_on, amount in list(payments.values_list("payment_date", "amount")) + list(prepays.values_list("prepayment_date", "amount")):
+            if paid_on is None:
+                continue
+            key = paid_on.strftime("%Y-%m")
+            if key in monthly and paid_on <= today:
+                monthly[key] += amount
+        context["repayment_trend"] = [{"label": month.strftime("%b %Y"), "amount": str(monthly[month.strftime("%Y-%m")])} for month in months]
+        context.update(
+            loans=loans[:8],
+            total_loans=len(loans),
+            active_loans=sum(l.status == "active" for l in loans),
+            total_remaining=sum((l.display_balance for l in loans), ZERO),
+            total_released=sum((l.total_disbursed_amount for l in loans), ZERO),
+            total_collected=(payments.aggregate(t=Sum("amount"))["t"] or ZERO)
+            + (prepays.aggregate(t=Sum("amount"))["t"] or ZERO),
+            total_overdue=sum((r["total_debit"] for r in due if r["is_overdue"]), ZERO),
+            due_installments=due[:5],
+            recent_payments=payments[:6],
+            page_title="Overview",
         )
         return context
 

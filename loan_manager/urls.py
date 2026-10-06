@@ -22,8 +22,10 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 from accounts.views import custom_logout
+from loans.views import protected_media
 
 urlpatterns = [
+    path("media/<path:path>", protected_media, name="protected_media"),
     path("admin/", admin.site.urls),
     path("", TemplateView.as_view(template_name="index.html"), name="home"),
     path("accounts/logout/", custom_logout, name="logout"),
@@ -33,6 +35,3 @@ urlpatterns = [
     path("", include("dashboard.urls")),
     path("", include("marketplace.urls")),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

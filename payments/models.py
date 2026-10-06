@@ -5,6 +5,9 @@ from django.db import models
 
 
 class Payment(models.Model):
+    request_key = models.CharField(
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
     STATUS_CHOICES = [
         ("paid", "Paid"),
         ("pending", "Pending"),
@@ -71,6 +74,9 @@ class Payment(models.Model):
 
 
 class Prepayment(models.Model):
+    request_key = models.CharField(
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
     STATUS_CHOICES = [("paid", "Paid"), ("pending", "Pending")]
 
     PAYMENT_MODE_CHOICES = [("manual", "Manual"), ("auto_debit", "Auto Debit")]

@@ -221,7 +221,7 @@
                 </form>
             </div>
         </section>
-        
+
         <section id="security" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -266,7 +266,7 @@
                 </form>
             </div>
         </section>
-        
+
         <section id="notifications" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -296,7 +296,7 @@
                 </form>
             </div>
         </section>
-        
+
         <section id="banks" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -349,7 +349,7 @@
                 </form>
             </div>
         </section>
-        
+
         <section id="payments" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -365,7 +365,7 @@
                 </div>
             </div>
         </section>
-        
+
         <section id="kyc" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -385,13 +385,14 @@
                 </div>
             </div>
         </section>
-        
+
         <section id="appearance" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
                     <div>
                         <h3>Appearance</h3>
                         <p>Customize the way NexusLoan looks.</p>
+                        <button type="button" class="btn btn-secondary" data-theme-open>Open my appearance studio</button>
                     </div>
                 </div>
                 <form method="post" action="{% if is_admin_editing %}{% url 'update_appearance_preferences_user' target_user.id %}{% else %}{% url 'update_appearance_preferences' %}{% endif %}">
@@ -431,7 +432,7 @@
                 </form>
             </div>
         </section>
-        
+
         <section id="privacy" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -455,7 +456,7 @@
                 </form>
             </div>
         </section>
-        
+
         <section id="statistics" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -479,7 +480,7 @@
                 </div>
             </div>
         </section>
-        
+
         <section id="support" class="settings-section">
             <div class="glass-card" style="padding:24px;">
                 <div class="settings-section-header">
@@ -490,11 +491,11 @@
                 </div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
                     <a href="{% url 'support_dashboard' %}" class="btn btn-primary"><i class="fas fa-headset"></i> Support Center</a>
-                    <a href="{% url 'support_dashboard' %}#create-ticket" class="btn btn-outline">Create Ticket</a>
+                    <a href="{% url 'create_support_ticket' %}" class="btn btn-outline">Create Ticket</a>
                 </div>
             </div>
         </section>
-        
+
         <section id="danger" class="settings-section">
             <div class="glass-card danger-zone" style="padding:24px;">
                 <div class="settings-section-header">

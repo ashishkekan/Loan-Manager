@@ -1,96 +1,175 @@
-from decimal import Decimal
+"""Atomic recording of externally confirmed repayments (no bank transfer)."""
 
+from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
+from loans.accounting import (
+    ZERO,
+    last_transaction_date,
+    money,
+    outstanding,
+    refresh_balance,
+    schedule,
+)
+from loans.utils import (
+    calculate_remaining_periods,
+    create_notification,
+    get_period_details,
+)
+from payments.models import Payment, Prepayment
 
-from loans.services import AccruedInterestService
-from loans.utils import add_periods, create_notification, get_period_details
-from payments.models import Payment
+
+def _validate_date(loan, value):
+    if value < last_transaction_date(loan) or value > timezone.localdate():
+        raise ValueError(
+            "Use a date on or after the last recorded transaction and no later than today."
+        )
+
+
+def _notify_closed(loan):
+    if loan.status == "closed":
+        create_notification(
+            user=loan.user,
+            title="Loan Fully Repaid",
+            message=f"{loan.loan_name} has been fully repaid.",
+            notification_type="loan",
+            loan=loan,
+        )
 
 
 @transaction.atomic
 def process_emi_payment(
-    loan, payment_date=None, payment_mode="manual", payment_type="emi"
+    loan,
+    payment_date=None,
+    payment_mode="manual",
+    payment_type="emi",
+    *,
+    request_key,
+    expected_period,
+    expected_amount=None,
 ):
     loan = loan.__class__.objects.select_for_update().get(pk=loan.pk)
-    if payment_date is None:
-        payment_date = timezone.now().date()
-
-    if payment_date < loan.schedule_start_date:
-        raise ValueError("Payment date cannot be before loan start date.")
-
-    if loan.status == "closed":
-        return None
-
-    if loan.remaining_balance == Decimal("0.00"):
-        loan.remaining_balance = Decimal("0.00")
-        loan.status = "closed"
-        loan.closed_date = payment_date
-        loan.save(update_fields=["remaining_balance", "status", "closed_date"])
-        create_notification(
-            user=loan.user,
-            title="Loan Fully Repaid",
-            message=f"{loan.loan_name} has been fully repaid and is now closed.",
-            notification_type="loan",
-            loan=loan,
+    existing = Payment.objects.filter(request_key=request_key, loan=loan).first()
+    if existing:
+        return existing
+    if not request_key:
+        raise ValueError("Payment confirmation is required.")
+    if payment_mode != "manual":
+        raise ValueError("Automatic collection requires a verified bank integration.")
+    payment_date = payment_date or timezone.localdate()
+    _validate_date(loan, payment_date)
+    rows = [r for r in schedule(loan) if not r["is_paid"]]
+    if loan.status != "active" or not rows:
+        raise ValueError("There is no outstanding installment to record.")
+    row = rows[0]
+    if row["period"] != expected_period:
+        raise ValueError(
+            "This installment has changed. Refresh the loan before confirming."
         )
-        return None
-
-    frequency = getattr(loan, "emi_frequency", "monthly")
-    last_payment = loan.payments.select_for_update().order_by("-payment_number").first()
-    payment_number = 1 if last_payment is None else last_payment.payment_number + 1
-    if Payment.objects.filter(
-        loan=loan, payment_number=payment_number, status="paid"
-    ).exists():
-        return None
-    due_date = add_periods(loan.schedule_start_date, payment_number - 1, frequency)
-    breakup = AccruedInterestService.calculate_total_debit(loan=loan, emi_date=due_date)
-    regular_emi = breakup["regular_emi"]
-    regular_interest = breakup["regular_interest"]
-    total_debit = breakup["total_debit"]
-    principal = (regular_emi - regular_interest).quantize(Decimal("0.01"))
-    if principal <= Decimal("0.00"):
-        raise ValueError("EMI is too low to cover interest.")
-
-    if principal >= breakup["outstanding_disbursed"]:
-        principal = breakup["outstanding_disbursed"]
-        payment_amount = (principal + regular_interest).quantize(Decimal("0.01"))
-    else:
-        payment_amount = total_debit.quantize(Decimal("0.01"))
-    new_balance = (breakup["outstanding_disbursed"] - principal).quantize(
-        Decimal("0.01")
-    )
-    if new_balance < Decimal("0.00"):
-        new_balance = Decimal("0.00")
-    payment = Payment.objects.create(
+    if row["due_date"] > payment_date:
+        raise ValueError(
+            "This installment is not due yet. Use prepayment for an early repayment."
+        )
+    if expected_amount is not None and money(expected_amount) != row["total_debit"]:
+        raise ValueError(
+            "The amount has changed. Refresh the loan before confirming payment."
+        )
+    if row["principal"] <= ZERO:
+        raise ValueError(
+            "The installment does not cover interest. Review the loan terms."
+        )
+    if row["principal"] > outstanding(loan, payment_date):
+        raise ValueError(
+            "Installment exceeds released outstanding principal. Refresh the loan."
+        )
+    payment, _ = Payment.objects.update_or_create(
         loan=loan,
-        payment_number=payment_number,
-        amount=payment_amount,
-        principal_component=principal,
-        interest_component=regular_interest,
-        regular_emi_amount=regular_emi,
-        total_debit_amount=total_debit,
-        balance_after=new_balance,
-        due_date=due_date,
-        payment_date=payment_date,
-        payment_mode=payment_mode,
-        payment_type=payment_type,
-        status="paid",
+        payment_number=row["period"],
+        defaults=dict(
+            request_key=request_key,
+            amount=row["total_debit"],
+            principal_component=row["principal"],
+            interest_component=row["interest"],
+            regular_emi_amount=row["total_debit"],
+            total_debit_amount=row["total_debit"],
+            balance_after=outstanding(loan, payment_date) - row["principal"],
+            due_date=row["due_date"],
+            payment_date=payment_date,
+            payment_mode=payment_mode,
+            payment_type=payment_type,
+            status="paid",
+        ),
     )
-    loan.remaining_balance = new_balance
-    loan.total_interest_paid += regular_interest.quantize(Decimal("0.01"))
-    update_fields = ["remaining_balance", "total_interest_paid"]
-    if loan.remaining_balance == Decimal("0.00"):
-        loan.remaining_balance = Decimal("0.00")
-        loan.status = "closed"
-        loan.closed_date = payment_date
-        update_fields.extend(["status", "closed_date"])
-    loan.save(update_fields=update_fields)
-    create_notification(
-        user=loan.user,
-        title="Loan Fully Repaid",
-        message=f"{loan.loan_name} has been fully repaid and is now closed.",
-        notification_type="loan",
-        loan=loan,
+    refresh_balance(loan, close=True)
+    _notify_closed(loan)
+    from dashboard.utils import add_activity
+
+    add_activity(
+        loan.user,
+        "emi_paid",
+        f"Installment {payment.payment_number} recorded",
+        loan,
+        f"₹{payment.amount:,.2f}",
     )
     return payment
+
+
+@transaction.atomic
+def process_prepayment(loan, amount, payment_date, *, request_key):
+    loan = loan.__class__.objects.select_for_update().get(pk=loan.pk)
+    existing = Prepayment.objects.filter(loan=loan, request_key=request_key).first()
+    if existing:
+        return existing
+    _validate_date(loan, payment_date)
+    amount = money(amount)
+    balance = outstanding(loan, payment_date)
+    if not request_key or loan.status != "active" or not ZERO < amount <= balance:
+        raise ValueError(
+            "Prepayment must be positive and cannot exceed released outstanding principal."
+        )
+    if any(not r["is_paid"] and r["due_date"] <= payment_date for r in schedule(loan)):
+        raise ValueError("Record due installments before making a prepayment.")
+    old = calculate_remaining_periods(
+        balance, loan.interest_rate, loan.emi, loan.emi_frequency
+    )
+    new = calculate_remaining_periods(
+        balance - amount, loan.interest_rate, loan.emi, loan.emi_frequency
+    )
+    months, _ = get_period_details(loan.emi_frequency)
+
+    def interest_total(principal):
+        _, ppy = get_period_details(loan.emi_frequency)
+        total = ZERO
+        for _ in range(1200):
+            if principal <= ZERO:
+                break
+            interest = money(principal * loan.interest_rate / Decimal(ppy * 100))
+            paid = min(principal, loan.emi - interest)
+            if paid <= ZERO:
+                raise ValueError("The installment must cover interest.")
+            total += interest
+            principal -= paid
+        return total
+
+    saved = max(ZERO, interest_total(balance) - interest_total(balance - amount))
+    prepayment = Prepayment.objects.create(
+        loan=loan,
+        request_key=request_key,
+        amount=amount,
+        prepayment_date=payment_date,
+        months_reduced=max(0, old - new) * months,
+        interest_saved=saved,
+        status="paid",
+    )
+    refresh_balance(loan, close=True)
+    _notify_closed(loan)
+    from dashboard.utils import add_activity
+
+    add_activity(
+        loan.user,
+        "prepayment",
+        "Prepayment recorded",
+        loan,
+        f"₹{prepayment.amount:,.2f}",
+    )
+    return prepayment

@@ -1,6 +1,7 @@
 """URL routes for the loans app."""
 
 from django.urls import path
+from loans.themes import save_theme
 
 from loans.report_views import admin_reports, export_admin_report
 from loans.views import (
@@ -45,6 +46,7 @@ from loans.views import (
 )
 
 urlpatterns = [
+    path("appearance/save/", save_theme, name="save_theme"),
     path("loans/", LoanListView.as_view(), name="loan_list"),
     path("loans/create/", LoanCreateView.as_view(), name="create_loan"),
     path("loans/compare/", LoanCompareView.as_view(), name="loan_compare"),
@@ -62,7 +64,7 @@ urlpatterns = [
         "loans/<int:loan_id>/documents/upload/", upload_document, name="upload_document"
     ),
     path(
-        "loans/<int:loan_id>/documents/<int:doc_id>/delete/",
+        "loans/<int:loan_id>/documents/<int:document_id>/delete/",
         delete_document,
         name="delete_document",
     ),

@@ -199,7 +199,7 @@
                 <div style="border:1px solid #e5e7eb;border-radius:14px;padding:20px;background:rgba(255,255,255,.5);">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;">
                         <div>
-                            <div style="font-size:13px;color:#64748b;margin-bottom:5px;">#{{ ticket.ticket_number }}</div>
+                            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:5px;">#{{ ticket.ticket_number }}</div>
                             <h3 style="margin:0;font-size:18px;">{{ ticket.subject }}</h3>
                         </div>
                         {% if ticket.status == "open" %}
@@ -209,13 +209,13 @@
                         {% elif ticket.status == "resolved" %}
                             <span style="padding:5px 10px;border-radius:20px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;">Solved</span>
                         {% else %}
-                            <span style="padding:5px 10px;border-radius:20px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600;">Closed</span>
+                            <span style="padding:5px 10px;border-radius:20px;background:var(--primary-50);color:var(--text-secondary);font-size:12px;font-weight:600;">Closed</span>
                         {% endif %}
                     </div>
-                    <div style="font-size:13px;color:#64748b;margin-bottom:10px;">{{ ticket.get_category_display }} · {{ ticket.get_priority_display }} Priority</div>
-                    <p style="margin:0 0 15px;color:#475569;line-height:1.6;">{{ ticket.message|truncatechars:120 }}</p>
+                    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">{{ ticket.get_category_display }} · {{ ticket.get_priority_display }} Priority</div>
+                    <p style="margin:0 0 15px;color:var(--text-secondary);line-height:1.6;">{{ ticket.message|truncatechars:120 }}</p>
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-                        <small style="color:#64748b;">{{ ticket.created_at|date:"d M Y, h:i A" }}</small>
+                        <small style="color:var(--text-secondary);">{{ ticket.created_at|date:"d M Y, h:i A" }}</small>
                         <a href="{% url 'support_ticket_detail' ticket.id %}" class="btn btn-outline btn-sm">View Details</a>
                     </div>
                 </div>

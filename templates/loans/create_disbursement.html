@@ -4,13 +4,13 @@
 {% block app_content %}
 <div class="page-header">
     <div>
-        <h1 class="page-title">Create Disbursement</h1>
+        <h1 class="page-title">{% if object %}Edit disbursement{% else %}Record a disbursement{% endif %}</h1>
         <p class="page-subtitle">Record amount released against this loan</p>
     </div>
 </div>
 <div class="form-card glass-card">
     <form method="post" class="loan-form" novalidate>
-        {% csrf_token %}
+        {% csrf_token %}{{ form.non_field_errors }}
         {% for field in form %}
             <div class="form-group {% if field.errors %}has-error{% endif %}">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>

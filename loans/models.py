@@ -58,7 +58,7 @@ class Loan(models.Model):
         max_length=20, choices=EMI_FREQUENCY_CHOICES, default="monthly"
     )
     auto_debit = models.BooleanField(
-        default=True, help_text="Automatically deduct EMI on due date."
+        default=False, help_text="Enable due-date reminders. No automatic bank debit."
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
     closed_date = models.DateField(null=True, blank=True)
@@ -89,8 +89,15 @@ class Loan(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def current_balance(self):
+        from loans.accounting import outstanding
+
+        return outstanding(self)
+
+    @property
     def total_payable(self):
-        return self.emi * self.tenure_years * 12
+        _, periods_per_year = get_period_details(self.emi_frequency)
+        return self.emi * self.tenure_years * periods_per_year
 
     @property
     def total_interest_projected(self):
@@ -102,14 +109,21 @@ class Loan(models.Model):
 
     @property
     def total_prepayment_amount(self):
-        return self.prepayments.aggregate(total=Sum("amount"))["total"] or 0
+        return (
+            self.prepayments.filter(status="paid").aggregate(total=Sum("amount"))[
+                "total"
+            ]
+            or 0
+        )
 
     @property
     def progress_percent(self):
         if self.amount <= 0:
             return 0
-        paid = float(self.amount - self.remaining_balance)
-        return round(min(paid / float(self.amount) * 100, 100), 1)
+        paid = float(self.total_disbursed_amount - self.current_balance)
+        return round(
+            min(paid / float(self.total_disbursed_amount or self.amount) * 100, 100), 1
+        )
 
     @property
     def months_elapsed(self):
@@ -128,25 +142,16 @@ class Loan(models.Model):
     def is_overdue(self):
         if self.status != "active":
             return False
-        next_num = self.months_elapsed + 1
-        next_due = add_periods(
-            self.schedule_start_date,
-            next_num - 1,
-            self.emi_frequency,
-        )
-        return next_due < timezone.now().date()
+        from loans.accounting import schedule
+
+        return any(row["is_overdue"] for row in schedule(self))
 
     @property
     def overdue_days(self):
-        if not self.is_overdue:
-            return 0
-        next_num = self.months_elapsed + 1
-        next_due = add_periods(
-            self.schedule_start_date,
-            next_num - 1,
-            self.emi_frequency,
-        )
-        return (timezone.now().date() - next_due).days
+        from loans.accounting import schedule
+
+        overdue = [row["due_date"] for row in schedule(self) if row["is_overdue"]]
+        return (timezone.localdate() - min(overdue)).days if overdue else 0
 
     @property
     def health_score(self):
@@ -269,18 +274,6 @@ class Loan(models.Model):
         return self.amount - self.total_disbursed_amount
 
     @property
-    def total_pending_accrued_interest(self):
-        return self.accrued_interests.filter(status="pending").aggregate(
-            total=Sum("interest_amount")
-        )["total"] or Decimal("0.00")
-
-    @property
-    def total_recovered_accrued_interest(self):
-        return self.accrued_interests.filter(status="recovered").aggregate(
-            total=Sum("interest_amount")
-        )["total"] or Decimal("0.00")
-
-    @property
     def disbursement_percentage(self):
         if self.amount <= 0:
             return Decimal("0")
@@ -291,18 +284,6 @@ class Loan(models.Model):
     @property
     def total_disbursement_count(self):
         return self.disbursements.filter(status="released").count()
-
-    @property
-    def pending_accrued_interest_count(self):
-        return self.accrued_interests.filter(status="pending").count()
-
-    @property
-    def recovered_accrued_interest_count(self):
-        return self.accrued_interests.filter(status="recovered").count()
-
-    @property
-    def has_pending_accrued_interest(self):
-        return self.accrued_interests.filter(status="pending").exists()
 
 
 class LoanNote(models.Model):
@@ -390,6 +371,9 @@ class LoanDocument(models.Model):
 
 
 class Investment(models.Model):
+    request_key = models.CharField(
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("active", "Active"),
@@ -652,6 +636,7 @@ class AppearancePreference(models.Model):
         ("light", "Light"),
         ("dark", "Dark"),
         ("system", "System"),
+        ("palette", "Match color palette"),
     ]
     LANGUAGE_CHOICES = [
         ("en", "English"),
@@ -668,6 +653,8 @@ class AppearancePreference(models.Model):
         related_name="appearance_preferences",
     )
     theme = models.CharField(max_length=20, choices=THEME_CHOICES, default="system")
+    color_palette = models.CharField(max_length=20, default="inherit")
+    font_style = models.CharField(max_length=20, default="auto")
     language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")
     currency = models.CharField(max_length=10, default="INR")
     date_format = models.CharField(
@@ -730,3 +717,10 @@ class BankAccount(models.Model):
 
     def __str__(self):
         return f"{self.bank_name} - {self.masked_account_number}"
+
+
+class SiteAppearance(models.Model):
+    """Single workspace default. Personal preferences remain separate."""
+    default_palette = models.CharField(max_length=20, default="green")
+    default_font = models.CharField(max_length=20, default="auto")
+    allow_personal_themes = models.BooleanField(default=True)

@@ -85,19 +85,19 @@ class LoanForm(forms.ModelForm):
             "start_date": "Loan Creation Date",
             "first_emi_date": "First EMI Date",
             "emi_frequency": "EMI Frequency",
-            "auto_debit": "Auto Debit EMI",
+            "auto_debit": "Due-date reminders",
         }
         help_texts = {
             "user": "Select the user who owns this loan.",
             "start_date": "Date on which loan was created.",
             "first_emi_date": "EMI schedule will start from this date.",
-            "auto_debit": "EMI will be automatically marked paid on every due date.",
+            "auto_debit": "Receive reminders for due installments. No money is debited.",
         }
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.fields["auto_debit"].initial = True
+        self.fields["auto_debit"].initial = False
         self.fields["emi_frequency"].initial = "monthly"
         if not self.instance.pk:
             self.fields["first_emi_date"].required = True
@@ -116,6 +116,31 @@ class LoanForm(forms.ModelForm):
                 self.add_error(
                     "first_emi_date",
                     "First EMI date cannot be before loan creation date.",
+                )
+        if self.instance.pk:
+            original = Loan.objects.get(pk=self.instance.pk)
+            protected = [
+                "amount",
+                "interest_rate",
+                "tenure_years",
+                "emi_frequency",
+                "start_date",
+                "first_emi_date",
+                "user",
+            ]
+            if original.payments.exists() or original.prepayments.exists():
+                for field in protected:
+                    if field in self.changed_data:
+                        self.add_error(
+                            field,
+                            "Financial terms cannot change after transactions are recorded.",
+                        )
+            if (
+                cleaned_data.get("amount", original.amount)
+                < original.total_disbursed_amount
+            ):
+                self.add_error(
+                    "amount", "Sanction cannot be lower than released funds."
                 )
         return cleaned_data
 
@@ -185,7 +210,7 @@ class LoanDisbursementForm(forms.ModelForm):
         self.loan = loan
         self.fields["amount"].help_text = "Actual amount released by bank."
         self.fields["disbursement_date"].help_text = (
-            "Interest calculation will start from this date."
+            "Interest uses released funds available on each installment date."
         )
 
     def clean_disbursement_date(self):
@@ -214,7 +239,9 @@ class LoanDisbursementForm(forms.ModelForm):
             return cleaned
         previous_total = self.loan.total_disbursed_amount
         if self.instance.pk:
-            previous_total -= self.instance.amount
+            original = LoanDisbursement.objects.get(pk=self.instance.pk)
+            if original.status == "released":
+                previous_total -= original.amount
         if status == "released":
             if previous_total + amount > self.loan.amount:
                 remaining = self.loan.amount - previous_total
