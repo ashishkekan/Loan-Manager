@@ -45,6 +45,12 @@ class Loan(models.Model):
     )
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     interest_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    interest_basis = models.CharField(
+        max_length=20, default="periodic",
+        choices=[("periodic", "Periodic reducing balance"),
+                 ("actual_365", "Daily reducing balance (Actual/365)")],
+        help_text="Daily interest counts release day, excludes due day, and uses 365 days per year.",
+    )
     tenure_years = models.PositiveIntegerField()
     emi = models.DecimalField(max_digits=15, decimal_places=2)
     start_date = models.DateField()

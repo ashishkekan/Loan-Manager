@@ -20,7 +20,7 @@ Open http://127.0.0.1:8011/. Newly created sample accounts are `demo` and `demo_
 
 1. Create a loan with sanctioned amount, interest, tenure and installment frequency.
 2. Record actual disbursements. An undisbursed sanction is not outstanding debt.
-3. The schedule uses released funds available by each installment date. Interest is calculated per installment using the annual rate divided by periods per year; this is not a daily-interest or bank-reconciliation engine.
+3. Select periodic interest (the existing default), or daily reducing balance (Actual/365). Daily interest uses dated released principal and actual repayment/prepayment dates, includes the release day and excludes the installment day, and rounds the total daily interest for each installment to the nearest rupee (half up), displayed with two decimals. Interest is billed on contractual due dates without late fees or interest capitalization. Enter the actual bank installment when known; leaving it blank calculates EMI from the sanctioned terms.
 4. Record an installment only after confirming receipt. The action uses a signed, expiring confirmation tied to the user, loan, installment and amount. Repeating that confirmation returns the existing payment.
 5. Clear due installments before recording an early principal prepayment. A prepayment must be positive, no greater than released outstanding principal, and not precede the last recorded repayment. Savings shown are estimates under unchanged loan terms.
 6. Financial terms and historical disbursements cannot be edited after repayments. Add subsequent releases as new records, dated on or after the latest repayment. Loans with financial history cannot be deleted.
@@ -73,3 +73,75 @@ Tests use an in-memory database and temporary upload storage. They cover populat
 New schema migrations: `loans.0008`, `loans.0009`, `loans.0010`, and `payments.0003`. These add nullable unique request keys and change the default/help text for the reminder preference; they do not correct or delete historical financial records.
 
 Before deployment, take a database backup, review `python manage.py migrate --plan`, apply the schema migrations against the explicitly selected environment, run `collectstatic`, and restart the application. Verify that media requests reach Django. Review any pre-existing balance discrepancies against actual receipts before making separately authorized financial corrections. No production migrations or data repairs are performed by the local preview workflow.
+
+## July 2026 in-memory test scenario
+
+Run a fresh, disposable localhost workspace:
+
+```bash
+cd /home/ubuntu/Documents/ZIPS/Product/Loan/loan_manager
+../venv/bin/python -u run_loan_scenario.py
+```
+
+Open http://127.0.0.1:8012/accounts/login/. Borrower `july_borrower` (user ID 1),
+admin `july_admin` (user ID 2), both with test password `JulyLoan!2026`.
+Django admin is at `/admin/`; the loan is `/loans/1/`.
+The runner migrates and seeds a named, shared **RAM-only SQLite database** in one
+process, with a keeper connection and no reloader. Stopping the process loses
+all database changes; rerunning recreates the original scenario. Temporary media
+is separate. Existing disk databases are not migrated or seeded by this runner.
+Migration `loans.0011` is required for other environments; it has only been applied
+to disposable test/scenario databases in this workflow.
+
+The profile, address, contact details, KYC flag and bank account are fictional
+fixtures. The loan creation/business date is 18 July 2026; `created_at` retains the
+actual fixture insertion timestamp. Terms: sanction Rs 20,00,000, 20 years, 7.30%,
+monthly EMI **Rs 15,869 as supplied by the user**, first due 10 September 2026.
+
+| Release date | Purpose | Amount |
+| --- | --- | ---: |
+| 30 July 2026 | Insurance | 29,000.00 |
+| 30 July 2026 | Builder | 1,35,742.00 |
+| 31 August 2026 | Builder (assumed purpose) | 3,59,842.00 |
+| Total | Released principal | 5,24,584.00 |
+
+No interest is charged from creation on 18 July through 29 July, or on the
+undisbursed Rs 14,75,416. Daily convention is an explicit simulation assumption,
+not verification of the bank's day-count/rounding policy:
+
+- 30 July–31 August: 32 days × 1,64,742 × 7.30% / 365 = 1,054.3488.
+- 31 August–10 September: 10 days × 5,24,584 × 7.30% / 365 = 1,049.1680.
+- First interest 2,103.5168 rounded once to the nearest rupee: **2,104.00**.
+
+| Due/payment date | EMI | Interest | Principal | Closing principal | Fixture state |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 10 September 2026 | 15,869.00 | 2,104.00 | 13,765.00 | 5,10,819.00 | Simulated received payment |
+| 10 October 2026 | 15,869.00 | 3,065.00 | 12,804.00 | 4,98,015.00 | Projection |
+
+Subsequent dates stay on the 10th. Since only part of the sanction has been
+released, the projection pays off that released balance earlier than 20 years
+unless further releases are added. Future installments are not marked paid.
+No bank connection or automatic debit is configured; due-date reminders do not
+move money. The record-payment button becomes available when the installment is
+due. As of 9 October, October's installment is correctly pending.
+
+Check borrower Overview → My loans → loan details → disbursements, full schedule
+and ledger. Payments shows the September receipt; Settings has the populated
+profile and mock bank account. Support includes a resolved example conversation.
+Admin can inspect the same loan, user profile, bank listing, activity and reports.
+Documents upload/download and report exports are covered by the regression suite.
+Prepayment savings and general comparison/foreclosure calculators remain
+estimates; they are not bank settlement quotes. Full daily-interest prepayment
+between installment dates is rejected to avoid dropping unbilled interest;
+clear the installment and fully prepay on that due date, or obtain a settlement
+quote for a different date.
+
+```bash
+../venv/bin/python manage_local.py test loans accounts payments dashboard marketplace --noinput
+../venv/bin/python manage_local.py makemigrations --check --dry-run
+```
+
+The focused `loans.test_daily_scenario` tests independently assert the above
+amounts, next due dates, retries, late principal effects, partial prepayments,
+same-day releases, pending/future releases, bank EMI input, financial-term locks,
+owner isolation, populated borrower/admin pages and report exports.

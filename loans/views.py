@@ -115,7 +115,7 @@ class LoanCreateView(LoginRequiredMixin, CreateView):
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
 
-        form.instance.emi = calculate_emi(
+        form.instance.emi = form.cleaned_data.get("emi") or calculate_emi(
             amount, rate, tenure, form.cleaned_data["emi_frequency"]
         )
         form.instance.remaining_balance = Decimal("0.00")
@@ -386,6 +386,8 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
             for field in (
                 "amount",
                 "interest_rate",
+                "interest_basis",
+                "emi",
                 "tenure_years",
                 "emi_frequency",
                 "start_date",
@@ -408,7 +410,7 @@ class LoanUpdateView(LoginRequiredMixin, UpdateView):
         amount = form.cleaned_data["amount"]
         rate = form.cleaned_data["interest_rate"]
         tenure = form.cleaned_data["tenure_years"]
-        form.instance.emi = calculate_emi(
+        form.instance.emi = form.cleaned_data.get("emi") or calculate_emi(
             amount, rate, tenure, form.cleaned_data["emi_frequency"]
         )
         if not form.instance.first_emi_date:

@@ -129,6 +129,14 @@ def process_prepayment(loan, amount, payment_date, *, request_key):
         )
     if any(not r["is_paid"] and r["due_date"] <= payment_date for r in schedule(loan)):
         raise ValueError("Record due installments before making a prepayment.")
+    if loan.interest_basis == "actual_365" and amount == balance:
+        latest = loan.payments.filter(status="paid").order_by("-due_date").first()
+        if loan.interest_rate > 0 and (not latest or latest.due_date != payment_date):
+            raise ValueError(
+                "Daily-interest loans can be fully prepaid on an installment date "
+                "after that installment is recorded. Otherwise accrued interest "
+                "requires a separate settlement quote."
+            )
     old = calculate_remaining_periods(
         balance, loan.interest_rate, loan.emi, loan.emi_frequency
     )
