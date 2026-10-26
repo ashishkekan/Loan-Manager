@@ -33,7 +33,9 @@ class LoanForm(forms.ModelForm):
             "loan_type",
             "amount",
             "interest_rate",
+            "interest_basis",
             "tenure_years",
+            "emi",
             "start_date",
             "first_emi_date",
             "emi_frequency",
@@ -77,6 +79,8 @@ class LoanForm(forms.ModelForm):
             "first_emi_date": forms.DateInput(
                 attrs={"class": "form-input", "type": "date"}
             ),
+            "interest_basis": forms.Select(attrs={"class": "form-input"}),
+            "emi": forms.NumberInput(attrs={"class": "form-input", "min": "0.01", "step": "0.01"}),
             "emi_frequency": forms.Select(attrs={"class": "form-input"}),
             "auto_debit": forms.CheckboxInput(attrs={"class": "form-checkbox"}),
         }
@@ -85,19 +89,23 @@ class LoanForm(forms.ModelForm):
             "start_date": "Loan Creation Date",
             "first_emi_date": "First EMI Date",
             "emi_frequency": "EMI Frequency",
-            "auto_debit": "Auto Debit EMI",
+            "auto_debit": "Due-date reminders",
         }
         help_texts = {
             "user": "Select the user who owns this loan.",
             "start_date": "Date on which loan was created.",
             "first_emi_date": "EMI schedule will start from this date.",
-            "auto_debit": "EMI will be automatically marked paid on every due date.",
+            "auto_debit": "Receive reminders for due installments. No money is debited.",
         }
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.fields["auto_debit"].initial = True
+        self.fields["interest_basis"].required = False
+        self.fields["emi"].required = False
+        self.fields["emi"].label = "Actual bank installment (optional)"
+        self.fields["emi"].help_text = "Enter the bank EMI, or leave blank to calculate from sanctioned amount and tenure."
+        self.fields["auto_debit"].initial = False
         self.fields["emi_frequency"].initial = "monthly"
         if not self.instance.pk:
             self.fields["first_emi_date"].required = True
@@ -117,7 +125,43 @@ class LoanForm(forms.ModelForm):
                     "first_emi_date",
                     "First EMI date cannot be before loan creation date.",
                 )
+        if self.instance.pk:
+            original = Loan.objects.get(pk=self.instance.pk)
+            protected = [
+                "amount",
+                "interest_rate",
+                "interest_basis",
+                "tenure_years",
+                "emi",
+                "emi_frequency",
+                "start_date",
+                "first_emi_date",
+                "user",
+            ]
+            if original.payments.exists() or original.prepayments.exists():
+                for field in protected:
+                    if field in self.changed_data:
+                        self.add_error(
+                            field,
+                            "Financial terms cannot change after transactions are recorded.",
+                        )
+            if (
+                cleaned_data.get("amount", original.amount)
+                < original.total_disbursed_amount
+            ):
+                self.add_error(
+                    "amount", "Sanction cannot be lower than released funds."
+                )
         return cleaned_data
+
+    def clean_interest_basis(self):
+        return self.cleaned_data.get("interest_basis") or "periodic"
+
+    def clean_emi(self):
+        value = self.cleaned_data.get("emi")
+        if value is not None and value <= 0:
+            raise forms.ValidationError("Installment must be greater than zero.")
+        return value
 
     def clean_amount(self):
         amount = self.cleaned_data.get("amount")
@@ -185,7 +229,7 @@ class LoanDisbursementForm(forms.ModelForm):
         self.loan = loan
         self.fields["amount"].help_text = "Actual amount released by bank."
         self.fields["disbursement_date"].help_text = (
-            "Interest calculation will start from this date."
+            "Interest follows the loan calculation basis; daily loans accrue from each release date."
         )
 
     def clean_disbursement_date(self):
@@ -214,7 +258,9 @@ class LoanDisbursementForm(forms.ModelForm):
             return cleaned
         previous_total = self.loan.total_disbursed_amount
         if self.instance.pk:
-            previous_total -= self.instance.amount
+            original = LoanDisbursement.objects.get(pk=self.instance.pk)
+            if original.status == "released":
+                previous_total -= original.amount
         if status == "released":
             if previous_total + amount > self.loan.amount:
                 remaining = self.loan.amount - previous_total

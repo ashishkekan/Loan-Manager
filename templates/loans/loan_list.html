@@ -7,8 +7,8 @@
         <h1 class="page-title">{% if not request.user.is_staff %}My Loans{% else %}Loans{% endif %}</h1>
         <p class="page-subtitle">Manage and track all your loans</p>
     </div>
-    <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" style="width: 40px; height: 40px;">
-        <i class="fas fa-plus"></i>
+    <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan">
+        <i class="fas fa-plus"></i> Add loan
     </a>
 </div>
 {% if loans %}
@@ -30,7 +30,7 @@
             <div class="loan-card-meta">
                 <div>
                     <span class="lcm-label">EMI</span>
-                    <span class="lcm-value">₹{{ loan.emi|floatformat:0 }}/mo</span>
+                    <span class="lcm-value">₹{{ loan.emi|floatformat:0 }} / {{ loan.get_emi_frequency_display }}</span>
                 </div>
                 <div>
                     <span class="lcm-label">Rate</span>
@@ -47,7 +47,7 @@
                 </div>
                 <div class="loan-progress-info">
                     <span>{{ loan.progress_percent }}% repaid</span>
-                    <span>₹{{ loan.remaining_balance|floatformat:0 }} left</span>
+                    <span>₹{{ loan.current_balance|floatformat:0 }} left</span>
                 </div>
             </div>
         </a>

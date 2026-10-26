@@ -14,7 +14,7 @@
             <span>Amortization Schedule</span>
         </div>
         <h1 class="page-title">Amortization Schedule</h1>
-        <p class="page-subtitle">{{ total_schedule_items }} months · {{ loan.loan_name }}</p>
+        <p class="page-subtitle">{{ total_schedule_items }} installments · {{ loan.loan_name }}</p>
     </div>
     <div class="page-actions">
         <button class="btn btn-ghost" onclick="window.print()">
@@ -35,7 +35,7 @@
         <button class="filter-btn" data-filter="paid">Paid</button>
         <button class="filter-btn" data-filter="projected">Projected</button>
         <span style="margin-left: auto; font-size: 13px; color: var(--text-secondary);">
-            Showing <span id="rowCount">{{ total_schedule_items }}</span> of {{ total_schedule_items }} months
+            Showing <span id="rowCount">{{ schedule|length }}</span> of {{ total_schedule_items }} installments
         </span>
     </div>
 </div>
@@ -44,7 +44,7 @@
         <table class="data-table schedule-table" id="scheduleTable">
             <thead>
                 <tr>
-                    <th>Month</th>
+                    <th>Installment</th>
                     <th>Due Date</th>
                     <th>Regular EMI</th>
                     <th>Principal</th>
@@ -59,11 +59,11 @@
                     <tr class="row-{{ row.status }}" data-status="{{ row.status }}">
                         <td>{{ row.period }}</td>
                         <td>{{ row.due_date|date:"M d, Y" }}</td>
-                        <td>₹{{ row.regular_emi|floatformat:0 }}</td>
-                        <td>₹{{ row.principal|floatformat:0 }}</td>
-                        <td>₹{{ row.interest|floatformat:0 }}</td>
-                        <td>₹{{ row.total_debit|floatformat:0 }}</td>
-                        <td>₹{{ row.balance|floatformat:0 }}</td>
+                        <td>₹{{ row.regular_emi|floatformat:2 }}</td>
+                        <td>₹{{ row.principal|floatformat:2 }}</td>
+                        <td>₹{{ row.interest|floatformat:2 }}</td>
+                        <td>₹{{ row.total_debit|floatformat:2 }}</td>
+                        <td>₹{{ row.balance|floatformat:2 }}</td>
                         <td>
                             {% if row.status == 'paid' %}
                                 <span class="status-badge status-paid">

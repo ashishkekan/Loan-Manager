@@ -103,7 +103,7 @@ def _iter_loan_portfolio(f):
     for loan in qs.select_related("user"):
         _, ppy = get_period_details(loan.emi_frequency)
         end_date = add_periods(
-            loan.schedule_start_date, loan.tenure_years * ppy, loan.emi_frequency
+            loan.schedule_start_date, loan.tenure_years * ppy - 1, loan.emi_frequency
         )
         yield [
             loan.loan_name,
@@ -111,7 +111,7 @@ def _iter_loan_portfolio(f):
             loan.get_loan_type_display(),
             float(loan.amount),
             float(loan.emi),
-            float(loan.remaining_balance),
+            float(loan.current_balance),
             loan.status,
             loan.start_date.strftime("%Y-%m-%d"),
             end_date.strftime("%Y-%m-%d"),
@@ -126,7 +126,7 @@ def _iter_payment_collection(f):
             p.loan.user.get_full_name() or p.loan.user.username,
             p.loan.loan_name,
             p.payment_number,
-            float(p.total_debit_amount),
+            float(p.amount),
             p.due_date.strftime("%Y-%m-%d"),
             p.payment_date.strftime("%Y-%m-%d") if p.payment_date else "",
             p.get_status_display(),
@@ -137,15 +137,15 @@ def _iter_payment_collection(f):
 def _iter_overdue(f):
     qs = get_overdue_qs(f)
     today = timezone.localdate()
-    for p in qs.select_related("loan", "loan__user"):
+    for p in qs:
         yield [
             p.loan.user.get_full_name() or p.loan.user.username,
             p.loan.loan_name,
             p.payment_number,
             p.due_date.strftime("%Y-%m-%d"),
-            float(p.total_debit_amount),
+            float(p.amount),
             (today - p.due_date).days,
-            float(p.loan.remaining_balance),
+            float(p.loan.current_balance),
             p.loan.status,
         ]
 
@@ -193,7 +193,7 @@ def _export_excel(report_type, f):
     meta = REPORT_META[report_type]
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = meta["title"][:31]
+    ws.title = meta["title"].replace("/", "-")[:31]
 
     ws.merge_cells(
         start_row=1, start_column=1, end_row=1, end_column=len(meta["headers"])
@@ -307,6 +307,26 @@ def _export_pdf(report_type, f):
 
 
 def export_report(report_type, fmt, f):
+    if fmt == "csv":
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{REPORT_META[report_type]["filename"]}.csv"'
+        )
+        writer = csv.writer(response)
+        writer.writerow(REPORT_META[report_type]["headers"])
+        for row in ROW_GENERATORS[report_type](f):
+            writer.writerow(
+                [
+                    (
+                        ("'" + value)
+                        if isinstance(value, str)
+                        and value.startswith(("=", "+", "-", "@"))
+                        else value
+                    )
+                    for value in row
+                ]
+            )
+        return response
     if fmt == "excel":
         return _export_excel(report_type, f)
     if fmt == "pdf":

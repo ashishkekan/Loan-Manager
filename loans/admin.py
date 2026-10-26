@@ -46,6 +46,7 @@ class LoanAdmin(admin.ModelAdmin):
                     "loan_type",
                     "amount",
                     "interest_rate",
+                    "interest_basis",
                     "tenure_years",
                     "emi",
                     "start_date",

@@ -467,7 +467,7 @@
                     <td>{{ loan.get_loan_type_display }}</td>
                     <td class="num">{{ loan.amount|inr }}</td>
                     <td class="num">{{ loan.emi|inr }}</td>
-                    <td class="num">{{ loan.remaining_balance|inr }}</td>
+                    <td class="num">{{ loan.current_balance|inr }}</td>
                     <td>
                         <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status }}</span>
                     </td>
@@ -669,7 +669,7 @@
                     <td>{{ p.due_date|date:"Y-m-d" }}</td>
                     <td class="num">{{ p.total_debit_amount|inr }}</td>
                     <td class="num">{{ p.computed_days_overdue }}</td>
-                    <td class="num">{{ p.loan.remaining_balance|inr }}</td>
+                    <td class="num">{{ p.loan.current_balance|inr }}</td>
                     <td>
                         <span class="loan-status-badge badge-{{ p.loan.status }}">{{ p.loan.status }}</span>
                     </td>

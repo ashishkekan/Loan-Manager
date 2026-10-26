@@ -1,9 +1,16 @@
+import hashlib
+import uuid
+
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import DecimalField, Sum
+from django.core import signing
+from django.db import transaction
+from django.db.models import DecimalField, F, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, ListView, TemplateView
 
 from accounts.models import Profile
@@ -52,33 +59,69 @@ class MarketplaceView(LoginRequiredMixin, ListView):
         profile = self.request.user.profile
         context["is_lender"] = profile.role == "lender" and profile.kyc_verified
         context["profile_complete"] = profile.role != "guest"
+        for loan in context["opportunities"]:
+            loan.confirmation = signing.dumps(
+                {
+                    "loan": loan.pk,
+                    "user": self.request.user.pk,
+                    "nonce": uuid.uuid4().hex,
+                },
+                salt="investment",
+            )
         return context
 
 
+@login_required
+@require_POST
 def invest_in_loan(request, loan_id):
-    if request.method == "POST":
-        loan = get_object_or_404(Loan, pk=loan_id, is_public=True)
-        profile = request.user.profile
-
-        if profile.role != "lender" or not profile.kyc_verified:
-            messages.error(request, "Complete lender KYC to invest.")
-            return redirect("marketplace")
-
-        amount = float(request.POST.get("amount", 0))
-        remaining_to_fund = float(loan.amount) - float(loan.funded_amount)
-
-        if amount <= 0 or amount > remaining_to_fund:
-            messages.error(
-                request, f"Invalid amount. Max investable: ₹{remaining_to_fund:,.0f}"
+    token = request.POST.get("confirmation", "")
+    try:
+        data = signing.loads(token, salt="investment", max_age=86400)
+        if data["loan"] != loan_id or data["user"] != request.user.pk:
+            raise ValueError("Invalid investment confirmation.")
+        key = hashlib.sha256(token.encode()).hexdigest()
+        form = InvestForm(request.POST)
+        if not form.is_valid():
+            raise ValueError("Enter a valid positive investment amount.")
+        amount = form.cleaned_data["amount"]
+        with transaction.atomic():
+            loan = get_object_or_404(
+                Loan.objects.select_for_update(), pk=loan_id, is_public=True
             )
-            return redirect("loan_detail", pk=loan_id)
-
-        Investment.objects.create(loan=loan, lender=request.user, amount=amount)
-        loan.funded_amount += amount
-        if loan.funded_amount >= loan.amount:
-            loan.status = "active"
-        loan.save()
+            profile = Profile.objects.select_for_update().get(user=request.user)
+            if Investment.objects.filter(request_key=key, lender=request.user).exists():
+                messages.info(request, "This investment is already recorded.")
+                return redirect("marketplace")
+            if profile.role != "lender" or not profile.kyc_verified:
+                raise ValueError("Complete lender verification before investing.")
+            if loan.user_id == request.user.pk or loan.status != "active":
+                raise ValueError("This loan is not eligible for investment.")
+            if (
+                amount <= 0
+                or amount > loan.amount - loan.funded_amount
+                or amount > profile.available_funds
+            ):
+                raise ValueError(
+                    "Amount exceeds available funds or remaining funding capacity."
+                )
+            Investment.objects.create(
+                loan=loan, lender=request.user, amount=amount, request_key=key
+            )
+            loan.funded_amount += amount
+            loan.save(update_fields=["funded_amount"])
+            profile.available_funds -= amount
+            profile.save(update_fields=["available_funds"])
         messages.success(
-            request, f"Successfully invested ₹{amount:,.0f} in {loan.loan_name}!"
+            request,
+            "Investment recorded against your available platform funds. No bank transfer was initiated.",
         )
-    return redirect("loan_detail", pk=loan_id)
+    except (signing.BadSignature, ValueError, KeyError) as exc:
+        messages.error(
+            request,
+            (
+                str(exc)
+                if isinstance(exc, ValueError)
+                else "Confirmation expired. Refresh the marketplace."
+            ),
+        )
+    return redirect("marketplace")
