@@ -36,128 +36,14 @@ from payments.services import process_emi_payment
 
 @login_required
 def pay_emi(request, loan_id):
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    payment = process_emi_payment(loan, payment_mode="manual", payment_type="emi")
-    if payment is None:
-        if loan.status == "closed":
-            messages.warning(request, "Loan is already closed.")
-        else:
-            messages.warning(request, "Payment could not be processed.")
-    else:
-        add_activity(
-            loan.user,
-            "emi_paid",
-            f"EMI #{payment.payment_number} Paid",
-            loan,
-            f"₹{payment.amount:,.0f}",
-        )
-        create_notification(
-            user=loan.user,
-            title="EMI Payment Successful",
-            message=f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} has been paid successfully.",
-            notification_type="payment",
-            loan=loan,
-        )
-        messages.success(
-            request,
-            f"EMI #{payment.payment_number} of ₹{payment.amount:,.2f} paid successfully.",
-        )
-    return redirect("loan_detail", pk=loan.id)
+    get_object_or_404(Loan, pk=loan_id, user=request.user)
+    return redirect(f"/operations/receipts/new/?loan={loan_id}&kind=emi")
 
 
+@login_required
 def make_prepayment(request, loan_id):
-    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
-    if loan.status == "closed":
-        messages.warning(request, "Cannot make prepayment on a closed loan.")
-        return redirect("loan_detail", pk=loan_id)
-
-    if request.method == "POST":
-        form = PrepaymentForm(request.POST, loan=loan)
-        if form.is_valid():
-            amount = form.cleaned_data["amount"]
-            prepayment_date = form.cleaned_data["prepayment_date"]
-
-            old_balance = loan.remaining_balance
-            new_balance = old_balance - amount
-            frequency = getattr(loan, "emi_frequency", "monthly")
-            old_periods = calculate_remaining_periods(
-                old_balance, loan.interest_rate, loan.emi, frequency
-            )
-            new_periods = calculate_remaining_periods(
-                max(new_balance, Decimal("0.01")),
-                loan.interest_rate,
-                loan.emi,
-                frequency,
-            )
-            periods_reduced = max(0, old_periods - new_periods)
-            _, periods_per_year = get_period_details(frequency)
-            R = (
-                Decimal(str(loan.interest_rate))
-                / Decimal(str(periods_per_year))
-                / Decimal("100")
-            )
-            avg_period_interest = (old_balance + new_balance) / 2 * R
-            months_per_period, _ = get_period_details(frequency)
-            months_reduced = periods_reduced * months_per_period
-            interest_saved = avg_period_interest * months_reduced
-            prepayment = Prepayment.objects.create(
-                loan=loan,
-                amount=amount,
-                prepayment_date=prepayment_date,
-                months_reduced=months_reduced,
-                interest_saved=interest_saved.quantize(Decimal("0.01")),
-                payment_mode="manual",
-                payment_type="prepayment",
-                status="paid",
-            )
-            create_notification(
-                user=loan.user,
-                title="Prepayment Successful",
-                message=(
-                    f"₹{amount:,.2f} prepayment was made towards {loan.loan_name}. "
-                    f"Approximately {months_reduced} months of tenure reduced "
-                    f"and ₹{interest_saved:,.2f} interest saved."
-                ),
-                notification_type="payment",
-                loan=loan,
-            )
-            loan.remaining_balance = max(new_balance, Decimal("0.00"))
-            loan.save(update_fields=["remaining_balance", "status"])
-            if (
-                loan.remaining_balance == Decimal("0.00")
-                and not loan.has_pending_accrued_interest
-            ):
-                loan.status = "closed"
-                loan.remaining_balance = Decimal("0.00")
-                messages.success(
-                    request, f"Prepayment of ₹{amount:,.2f} applied. Loan fully repaid!"
-                )
-            else:
-                messages.success(
-                    request,
-                    f"Prepayment of ₹{amount:,.2f} applied. "
-                    f"~{months_reduced} months saved, ~₹{interest_saved:,.0f} interest saved.",
-                )
-            loan.save()
-            add_activity(
-                loan.user,
-                "prepayment",
-                "Prepayment Done",
-                loan,
-                f"₹{prepayment.amount:,.0f} prepaid.",
-            )
-            create_notification(
-                user=loan.user,
-                title="Loan Fully Repaid",
-                message=f"{loan.loan_name} has been fully repaid and is now closed.",
-                notification_type="loan",
-                loan=loan,
-            )
-        else:
-            for errors in form.errors.values():
-                for error in errors:
-                    messages.error(request, error)
-    return redirect("loan_detail", pk=loan_id)
+    get_object_or_404(Loan, pk=loan_id, user=request.user)
+    return redirect(f"/operations/receipts/new/?loan={loan_id}&kind=prepayment")
 
 
 class EMIScheduleView(LoginRequiredMixin, TemplateView):
@@ -166,7 +52,7 @@ class EMIScheduleView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan_id = kwargs.get("loan_id")
-        if self.request.user.is_staff:
+        if self.request.user.is_superuser:
             loan = get_object_or_404(Loan, pk=loan_id)
         else:
             loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
@@ -183,7 +69,7 @@ class EMIScheduleView(LoginRequiredMixin, TemplateView):
 
 @login_required
 def export_schedule_excel(request, loan_id):
-    if request.user.is_staff:
+    if request.user.is_superuser:
         loan = get_object_or_404(Loan, pk=loan_id)
     else:
         loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
@@ -256,12 +142,14 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         loan_id = kwargs.get("loan_id")
-        if self.request.user.is_staff:
+        if self.request.user.is_superuser:
             loan = get_object_or_404(Loan, pk=loan_id)
         else:
             loan = get_object_or_404(Loan, pk=loan_id, user=self.request.user)
         transactions = []
-        for p in loan.payments.filter(status="paid").order_by("-payment_date"):
+        for p in loan.payments.filter(status__in=["paid", "partial"]).order_by(
+            "-payment_date"
+        ):
             transactions.append(
                 {
                     "date": p.payment_date,
@@ -270,7 +158,7 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
                     "detail": f"EMI #{p.payment_number}",
                 }
             )
-        for p in loan.prepayments.all().order_by("-prepayment_date"):
+        for p in loan.prepayments.filter(status="paid").order_by("-prepayment_date"):
             transactions.append(
                 {
                     "date": p.prepayment_date,
@@ -288,16 +176,18 @@ class TransactionLedgerView(LoginRequiredMixin, TemplateView):
 @login_required
 def payment_dashboard(request):
     today = date.today()
-    if request.user.is_staff:
+    late_interest = Decimal("0.00")
+    late_interest_collected = Decimal("0.00")
+    if request.user.is_superuser:
         payments = Payment.objects.select_related("loan", "loan__user").order_by(
             "-due_date", "-payment_number"
         )
-        paid_payments = payments.filter(status="paid")
+        paid_payments = payments.filter(status__in=["paid", "partial"])
         pending_payments = payments.filter(status="pending")
         overdue_payments = payments.filter(status="overdue")
-        total_paid = paid_payments.aggregate(total=Sum("total_debit_amount"))[
-            "total"
-        ] or Decimal("0.00")
+        total_paid = paid_payments.aggregate(total=Sum("amount"))["total"] or Decimal(
+            "0.00"
+        )
         pending_amount = pending_payments.aggregate(total=Sum("total_debit_amount"))[
             "total"
         ] or Decimal("0.00")
@@ -370,7 +260,7 @@ def payment_dashboard(request):
             paid=Count("id", filter=Q(status="paid")),
             pending=Count("id", filter=Q(status="pending")),
             overdue=Count("id", filter=Q(status="overdue")),
-            collected=Sum("total_debit_amount", filter=Q(status="paid")),
+            collected=Sum("amount", filter=Q(status__in=["paid", "partial"])),
             outstanding=Sum(
                 "total_debit_amount", filter=Q(status__in=["pending", "overdue"])
             ),
@@ -518,7 +408,7 @@ def payment_dashboard(request):
             overdue_days = 0
             total_payable = Decimal("0.00")
         auto_debit_count = loans.filter(auto_debit=True, status="active").count()
-        recent_payments = payment_queryset.filter(status="paid")[:5]
+        recent_payments = payment_queryset.filter(status__in=["paid", "partial"])[:5]
         context = {
             "page_title": "Payments",
             "loans": loans,
@@ -669,7 +559,7 @@ def download_statement(request):
 @login_required
 def prepayment_dashboard(request):
     today = timezone.localdate()
-    if request.user.is_staff:
+    if request.user.is_superuser:
         prepayments = Prepayment.objects.select_related("loan", "loan__user").order_by(
             "-prepayment_date", "-created_at"
         )

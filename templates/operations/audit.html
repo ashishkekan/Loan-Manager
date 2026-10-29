@@ -1,0 +1,2 @@
+{% extends 'app_layout.html' %}{% block app_content %}<h1>Audit history</h1>{% for item in items %}<article><h3>{{ item.created_at }} · {{ item.actor|default:'System' }} · {{ item.action }} {{ item.model }} #{{ item.object_id }}</h3><p>{{ item.reason }}</p><details><summary>Before / after</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ item.before }}
+{{ item.after }}</pre></details></article>{% empty %}<p>No events.</p>{% endfor %}{% endblock %}

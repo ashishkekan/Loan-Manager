@@ -57,8 +57,22 @@ class Loan(models.Model):
     emi_frequency = models.CharField(
         max_length=20, choices=EMI_FREQUENCY_CHOICES, default="monthly"
     )
+    organization = models.ForeignKey(
+        "operations.Organization", null=True, blank=True, on_delete=models.PROTECT
+    )
+    branch = models.ForeignKey(
+        "operations.Branch", null=True, blank=True, on_delete=models.PROTECT
+    )
+    schedule_version = models.PositiveIntegerField(default=0)
+    schedule_anchor = models.DateField(null=True, blank=True)
+    schedule_offset = models.PositiveIntegerField(default=0)
+    capitalized_interest = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0
+    )
+    import_key = models.CharField(max_length=120, unique=True, null=True, blank=True)
     auto_debit = models.BooleanField(
-        default=True, help_text="Automatically deduct EMI on due date."
+        default=False,
+        help_text="Create a reminder for due EMI; money is posted only after verification.",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
     closed_date = models.DateField(null=True, blank=True)
@@ -90,7 +104,7 @@ class Loan(models.Model):
 
     @property
     def total_payable(self):
-        return self.emi * self.tenure_years * 12
+        return self.emi * self.tenure_years * get_period_details(self.emi_frequency)[1]
 
     @property
     def total_interest_projected(self):
@@ -102,14 +116,20 @@ class Loan(models.Model):
 
     @property
     def total_prepayment_amount(self):
-        return self.prepayments.aggregate(total=Sum("amount"))["total"] or 0
+        return (
+            self.prepayments.filter(status="paid").aggregate(total=Sum("amount"))[
+                "total"
+            ]
+            or 0
+        )
 
     @property
     def progress_percent(self):
-        if self.amount <= 0:
+        funded = self.total_disbursed_amount + self.capitalized_interest
+        if funded <= 0:
             return 0
-        paid = float(self.amount - self.remaining_balance)
-        return round(min(paid / float(self.amount) * 100, 100), 1)
+        paid = max(Decimal("0"), funded - self.remaining_balance)
+        return round(min(float(paid / funded * 100), 100), 1)
 
     @property
     def months_elapsed(self):
@@ -126,14 +146,12 @@ class Loan(models.Model):
 
     @property
     def is_overdue(self):
-        if self.status != "active":
+        if self.status != "active" or self.remaining_balance <= 0:
             return False
         next_num = self.months_elapsed + 1
-        next_due = add_periods(
-            self.schedule_start_date,
-            next_num - 1,
-            self.emi_frequency,
-        )
+        from operations.services import next_due as installment_due
+
+        next_due = installment_due(self, next_num)
         return next_due < timezone.now().date()
 
     @property
@@ -141,11 +159,9 @@ class Loan(models.Model):
         if not self.is_overdue:
             return 0
         next_num = self.months_elapsed + 1
-        next_due = add_periods(
-            self.schedule_start_date,
-            next_num - 1,
-            self.emi_frequency,
-        )
+        from operations.services import next_due as installment_due
+
+        next_due = installment_due(self, next_num)
         return (timezone.now().date() - next_due).days
 
     @property
@@ -270,15 +286,12 @@ class Loan(models.Model):
 
     @property
     def total_pending_accrued_interest(self):
-        return self.accrued_interests.filter(status="pending").aggregate(
-            total=Sum("interest_amount")
-        )["total"] or Decimal("0.00")
+        # Separate accrued-interest records were removed in migration 0007.
+        return Decimal("0.00")
 
     @property
     def total_recovered_accrued_interest(self):
-        return self.accrued_interests.filter(status="recovered").aggregate(
-            total=Sum("interest_amount")
-        )["total"] or Decimal("0.00")
+        return Decimal("0.00")
 
     @property
     def disbursement_percentage(self):
@@ -294,15 +307,15 @@ class Loan(models.Model):
 
     @property
     def pending_accrued_interest_count(self):
-        return self.accrued_interests.filter(status="pending").count()
+        return 0
 
     @property
     def recovered_accrued_interest_count(self):
-        return self.accrued_interests.filter(status="recovered").count()
+        return 0
 
     @property
     def has_pending_accrued_interest(self):
-        return self.accrued_interests.filter(status="pending").exists()
+        return False
 
 
 class LoanNote(models.Model):
@@ -342,6 +355,10 @@ class LoanDocument(models.Model):
         max_length=20, choices=VERIFICATION_STATUS, default="pending"
     )
     notes = models.TextField(blank=True)
+    previous_version = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="versions"
+    )
+    expires_on = models.DateField(null=True, blank=True)
 
     @property
     def file_extension(self):
@@ -430,6 +447,20 @@ class LoanDisbursement(models.Model):
     loan = models.ForeignKey(
         "loans.Loan", on_delete=models.CASCADE, related_name="disbursements"
     )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="requested_disbursements",
+    )
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="released_disbursements",
+    )
     disbursement_number = models.PositiveIntegerField()
     disbursement_date = models.DateField()
     amount = models.DecimalField(max_digits=15, decimal_places=2)
@@ -459,14 +490,48 @@ class LoanDisbursement(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if not self.disbursement_number:
-            last = (
-                LoanDisbursement.objects.filter(loan=self.loan)
-                .order_by("-disbursement_number")
-                .first()
+        from django.db import transaction
+        from django.core.exceptions import ValidationError
+
+        with transaction.atomic():
+            loan = Loan.objects.select_for_update().get(pk=self.loan_id)
+            previous = (
+                type(self).objects.filter(pk=self.pk).first() if self.pk else None
             )
-            self.disbursement_number = 1 if not last else last.disbursement_number + 1
-        super().save(*args, **kwargs)
+            if (
+                loan.status == "closed"
+                or loan.payments.filter(status__in=["paid", "partial"]).exists()
+                or loan.receipts.filter(status="verified").exists()
+            ):
+                raise ValidationError(
+                    "Disbursements are locked once repayments begin or a loan closes."
+                )
+            if (
+                self.amount <= 0
+                or self.disbursement_date < loan.start_date
+                or self.disbursement_date > timezone.localdate()
+            ):
+                raise ValidationError(
+                    "Enter a positive amount and a date between loan start and today."
+                )
+            total = loan.total_disbursed_amount - (
+                previous.amount
+                if previous and previous.status == "released"
+                else Decimal(0)
+            )
+            if self.status == "released" and total + self.amount > loan.amount:
+                raise ValidationError(
+                    "Released disbursements cannot exceed the sanctioned amount."
+                )
+            if not self.disbursement_number:
+                last = (
+                    type(self)
+                    .objects.filter(loan=loan)
+                    .order_by("-disbursement_number")
+                    .first()
+                )
+                self.disbursement_number = last.disbursement_number + 1 if last else 1
+            return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.loan.loan_name} - Disbursement #{self.disbursement_number}"

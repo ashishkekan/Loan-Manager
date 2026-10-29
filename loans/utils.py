@@ -115,64 +115,56 @@ def build_paid_schedule(loan):
 
 
 def build_projected_schedule(loan):
-    frequency = getattr(loan, "emi_frequency", "monthly")
-    _, periods_per_year = get_period_details(frequency)
-    rate = (
-        Decimal(str(loan.interest_rate))
-        / Decimal(str(periods_per_year))
-        / Decimal("100")
-    )
-    emi = Decimal(str(loan.emi))
-    balance = Decimal(str(loan.amount))
-    today = date.today()
-    prepayments = list(loan.prepayments.order_by("prepayment_date"))
-    prepayment_index = 0
+    from operations.services import next_due, money
+
     rows = {}
-    total_periods = (loan.tenure_years * periods_per_year) + 20
-    for period in range(1, total_periods + 1):
-        if balance <= Decimal("0.01"):
+    if loan.status == "closed":
+        return rows
+    number = loan.payments.filter(status="paid").count() + 1
+    balance = loan.remaining_balance
+    rate = loan.interest_rate / Decimal(100 * get_period_details(loan.emi_frequency)[1])
+    partial = loan.payments.filter(status="partial").first()
+    today = date.today()
+    for period in range(number, number + 1000):
+        if balance <= 0:
             break
-        due_date = add_periods(loan.schedule_start_date, period - 1, frequency)
-        while (
-            prepayment_index < len(prepayments)
-            and prepayments[prepayment_index].prepayment_date <= due_date
-        ):
-            balance = max(
-                Decimal("0.00"),
-                balance - Decimal(str(prepayments[prepayment_index].amount)),
+        due = next_due(loan, period)
+        interest = money(balance * rate)
+        target = min(loan.emi, money(balance + interest))
+        credited = Decimal("0")
+        if partial and period == partial.payment_number:
+            interest = max(
+                Decimal("0"),
+                money((balance + partial.principal_component) * rate)
+                - partial.interest_component,
             )
-            prepayment_index += 1
-        interest = (balance * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        principal = (emi - interest).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        current_emi = emi
-        if principal >= balance:
-            principal = balance
-            current_emi = (principal + interest).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-        projected_balance = max(Decimal("0.00"), balance - principal)
-        total_debit = current_emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        status = "pending" if due_date >= today else "overdue"
+            target = partial.total_debit_amount - partial.amount
+            credited = partial.amount
+        principal = min(balance, money(target - interest))
+        if principal <= 0 and target > 0:
+            break
+        balance = max(Decimal("0"), money(balance - principal))
+        status = "overdue" if due < today else "pending"
         rows[period] = {
             "period": period,
             "loan": loan,
-            "payment": None,
-            "due_date": due_date,
+            "payment": partial if credited else None,
+            "due_date": due,
             "payment_date": None,
             "status": status,
-            "regular_emi": current_emi,
+            "regular_emi": target,
             "principal": principal,
             "interest": interest,
-            "total_debit": total_debit,
-            "balance": projected_balance,
-            "payment_mode": ("auto_debit" if loan.auto_debit else "manual"),
+            "total_debit": target,
+            "balance": balance,
+            "amount_credited": credited,
+            "payment_mode": "manual",
             "payment_type": "emi",
             "is_paid": False,
             "is_pending": status == "pending",
             "is_overdue": status == "overdue",
             "is_projected": True,
         }
-        balance = projected_balance
     return rows
 
 
@@ -232,6 +224,14 @@ def get_schedule_summary(loan):
         else:
             overdue += 1
             overdue_amount += row["total_debit"]
+    partials = loan.payments.filter(status="partial").aggregate(
+        amount=Sum("amount"),
+        principal=Sum("principal_component"),
+        interest=Sum("interest_component"),
+    )
+    paid_amount += partials["amount"] or Decimal("0")
+    principal_paid += partials["principal"] or Decimal("0")
+    interest_paid += partials["interest"] or Decimal("0")
     return {
         "paid": paid,
         "pending": pending,
@@ -353,7 +353,22 @@ def calculate_foreclosure(loan):
             break
         principal = min(principal, temp_balance)
         temp_balance -= principal
-    penalty = balance * Decimal("0.02")
+    from operations.models import ChargePolicy
+
+    policy = (
+        ChargePolicy.objects.filter(
+            loan_type=loan.loan_type,
+            kind="foreclosure",
+            effective_from__lte=timezone.localdate(),
+        )
+        .order_by("-effective_from")
+        .first()
+    )
+    penalty = (
+        (policy.fixed_amount + balance * policy.percentage / Decimal(100))
+        if policy
+        else Decimal("0")
+    )
     total_foreclosure = balance + penalty
     return {
         "outstanding_balance": balance.quantize(
@@ -473,7 +488,7 @@ def get_user_loans(user):
     from loans.models import Loan
 
     queryset = Loan.objects.all()
-    if user.is_staff:
+    if user.is_superuser:
         return queryset
     return queryset.filter(user=user)
 

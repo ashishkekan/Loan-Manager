@@ -8,7 +8,7 @@ def loan_notifications(request):
             "header_unread_notifications": 0,
         }
 
-    if request.user.is_staff:
+    if request.user.is_superuser:
         notifications = Notification.objects.select_related("loan", "user").order_by(
             "-created_at"
         )[:5]
@@ -26,5 +26,5 @@ def loan_notifications(request):
     return {
         "header_notifications": notifications,
         "header_unread_notifications": unread_count,
-        "is_admin": request.user.is_staff,
+        "is_admin": request.user.is_superuser,
     }

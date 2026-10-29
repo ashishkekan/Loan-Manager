@@ -1,0 +1,15 @@
+{% extends 'app_layout.html' %}
+{% block app_content %}
+<h1>Account security</h1>
+<p>Manage email verification, two-step sign-in and your active sessions.</p>
+<div class="security-grid">
+<article class="glass-card">
+<h2>Email & sign-in protection</h2>
+<dl><dt>Email address</dt><dd>{{ request.user.email|default:'Not provided' }}</dd><dt>Verified address</dt><dd>{{ identity.verified_email|default:'Not verified' }}</dd><dt>Two-step sign-in</dt><dd>{{ security.two_factor|yesno:'Enabled,Disabled' }}</dd></dl>
+<form method="post">{% csrf_token %}<div class="action-row"><button name="action" value="verify_email">Verify email</button><button name="action" value="enable_2fa">Enable two-step sign-in</button><button name="action" value="disable_2fa">Disable two-step sign-in</button></div></form>
+</article>
+<article class="glass-card"><h2>Confirm your verification code</h2><p>Enter the code sent to your email to complete verification.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button name="action" value="confirm">Confirm code</button></form><a href="{% url 'password_reset' %}">Reset password</a></article>
+</div>
+<h2>Sign-in history</h2>
+{% for item in sessions %}<article class="glass-card session-card"><form method="post">{% csrf_token %}<input type="hidden" name="session_id" value="{{ item.pk }}"><p><strong>{{ item.created_at }}</strong></p><p>{{ item.user_agent }}</p>{% if item.revoked %}<p>Revoked</p>{% else %}<button name="action" value="revoke">Revoke session</button>{% endif %}</form></article>{% empty %}<p>No recorded sessions.</p>{% endfor %}
+{% endblock %}

@@ -114,7 +114,7 @@
     </div>
     <div class="admin-stat glass-card">
         <div class="admin-stat-top">
-            <span class="admin-stat-label">Auto Debit Success</span>
+            <span class="admin-stat-label">Scheduled reminder Success</span>
             <div class="admin-stat-icon"><i class="fas fa-repeat"></i></div>
         </div>
         <strong class="admin-stat-value">{{ auto_debit_rate }}%</strong>
@@ -287,7 +287,7 @@
         <div class="admin-section-title">
             <div class="sc-icon"><i class="fas fa-repeat"></i></div>
             <div>
-                <h3>Auto Debit Monitoring</h3>
+                <h3>Scheduled reminder Monitoring</h3>
                 <p>Monitor automated EMI payment activity.</p>
             </div>
         </div>
@@ -318,7 +318,7 @@
                         <td>{{ payment.loan.loan_name }}</td>
                         <td>{{ payment.due_date|date:"d M Y" }}</td>
                         <td>₹{{ payment.total_debit_amount|floatformat:0 }}</td>
-                        <td><span class="admin-mode mode-auto">Auto Debit</span></td>
+                        <td><span class="admin-mode mode-auto">Scheduled reminder</span></td>
                         <td>
                             {% if payment.status == "paid" %}
                                 <span class="status-badge status-paid"><i class="fas fa-circle-check"></i> Paid</span>
@@ -379,7 +379,7 @@
                         <td>₹{{ payment.total_debit_amount|floatformat:0 }}</td>
                         <td>
                             {% if payment.payment_mode == "auto_debit" %}
-                                <span class="admin-mode mode-auto">Auto Debit</span>
+                                <span class="admin-mode mode-auto">Scheduled reminder</span>
                             {% elif payment.payment_mode == "upi" %}
                                 <span class="admin-mode mode-upi">UPI</span>
                             {% else %}
@@ -462,7 +462,7 @@
         </select>
         <select id="adminModeFilter">
             <option value="all">All Modes</option>
-            <option value="auto_debit">Auto Debit</option>
+            <option value="auto_debit">Scheduled reminder</option>
             <option value="manual">Manual</option>
             <option value="upi">UPI</option>
             <option value="net_banking">Net Banking</option>
@@ -505,7 +505,7 @@
                         <td><strong>₹{{ payment.total_debit_amount|floatformat:0 }}</strong></td>
                         <td>
                             {% if payment.payment_mode == "auto_debit" %}
-                                <span class="admin-mode mode-auto">Auto Debit</span>
+                                <span class="admin-mode mode-auto">Scheduled reminder</span>
                             {% elif payment.payment_mode == "upi" %}
                                 <span class="admin-mode mode-upi">UPI</span>
                             {% elif payment.payment_mode == "manual" %}
@@ -635,7 +635,7 @@
     <div class="summary-card glass-card">
         <div class="sc-icon info"><i class="fas fa-rotate"></i></div>
         <div class="sc-info">
-            <span class="sc-label">Auto Debit</span>
+            <span class="sc-label">Scheduled reminder</span>
             {% if auto_debit_enabled %}
                 <h4 class="text-success">Enabled</h4>
                 <span class="sc-sub">Next debit on {{ next_auto_debit|date:"d M Y" }}</span>
@@ -679,7 +679,7 @@
             {% if upcoming_emi.loan.auto_debit %}
                 <span class="badge badge-success">
                     <i class="fas fa-repeat"></i>
-                    Auto Debit Enabled
+                    Scheduled reminder Enabled
                 </span>
             {% else %}
                 <span class="badge badge-warning">
@@ -717,7 +717,7 @@
                 <div class="action-left">
                     <button class="btn btn-success" disabled>
                         <i class="fas fa-repeat"></i>
-                        Auto Debit Enabled
+                        Scheduled reminder Enabled
                     </button>
                 </div>
                 <div class="action-right">
@@ -876,7 +876,7 @@
                 <div style="font-size:16px;font-weight:600;">{{ analytics.late_payments }}</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Auto Debit Success</div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:6px;">Scheduled reminder Success</div>
                 <div style="font-size:16px;font-weight:600;">{{ analytics.auto_debit_rate }}%</div>
             </div>
             <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
@@ -916,7 +916,7 @@
             <button class="filter-btn" data-filter="overdue">Overdue</button>
             <button class="filter-btn" data-filter="month">This Month</button>
             <button class="filter-btn" data-filter="year">This Year</button>
-            <button class="filter-btn" data-filter="auto_debit">Auto Debit</button>
+            <button class="filter-btn" data-filter="auto_debit">Scheduled reminder</button>
             <button class="filter-btn" data-filter="manual">Manual</button>
         </div>
         <div class="filter-search">
@@ -970,7 +970,7 @@
                             {% if payment.payment_mode == "manual" %}
                                 <span class="badge badge-light"><i class="fas fa-hand-pointer"></i> Manual</span>
                             {% elif payment.payment_mode == "auto_debit" %}
-                                <span class="badge badge-info"><i class="fas fa-repeat"></i> Auto Debit</span>
+                                <span class="badge badge-info"><i class="fas fa-repeat"></i> Scheduled reminder</span>
                             {% elif payment.payment_mode == "upi" %}
                                 <span class="badge badge-primary"><i class="fas fa-mobile-screen"></i> UPI</span>
                             {% else %}

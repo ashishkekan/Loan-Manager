@@ -222,8 +222,8 @@ def get_payment_summary(f):
     today = timezone.localdate()
     return {
         "total_payments": qs.count(),
-        "total_collected": qs.filter(status="paid").aggregate(
-            t=Sum("total_debit_amount")
+        "total_collected": qs.filter(status__in=["paid", "partial"]).aggregate(
+            t=Sum("amount")
         )["t"]
         or Decimal("0"),
         "pending_amount": qs.filter(status="pending").aggregate(
@@ -324,7 +324,7 @@ def get_user_summary_qs(f):
         pay_base = pay_base.filter(loan__start_date__lte=f["to_date_obj"])
 
     repaid_sq = (
-        pay_base.filter(status="paid")
+        pay_base.filter(status__in=["paid", "partial"])
         .values("loan__user")
         .annotate(t=Sum("principal_component"))
         .values("t")[:1]
@@ -353,7 +353,7 @@ def get_user_summary_qs(f):
 def get_performance_data(f):
     group_by = f["group_by"]
     paid_sq = (
-        Payment.objects.filter(loan=OuterRef("pk"), status="paid")
+        Payment.objects.filter(loan=OuterRef("pk"), status__in=["paid", "partial"])
         .values("loan")
         .annotate(t=Sum("principal_component"))
         .values("t")[:1]

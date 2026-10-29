@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<main style="max-width:520px;margin:4rem auto;padding:1.5rem"><h1>{{ title|default:'Account recovery' }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit" class="btn btn-primary">{{ button|default:'Continue' }}</button></form><p><a href="{% url 'login' %}">Back to sign in</a></p></main>{% endblock %}

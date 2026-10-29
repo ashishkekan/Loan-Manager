@@ -1,0 +1,8 @@
+{% extends 'app_layout.html' %}
+{% block app_content %}
+<h1>Compare your loans</h1>
+<p>Projected totals follow each loan's repayment frequency. Remaining periods are instalments, not necessarily months.</p>
+<div style="overflow-x:auto"><table class="table"><thead><tr><th>Loan</th><th>Frequency</th><th>EMI</th><th>Projected total</th><th>Projected interest</th><th>Remaining periods</th></tr></thead><tbody>
+{% for item in comparison %}<tr><td><a href="{% url 'loan_detail' item.loan.pk %}">{{ item.loan.loan_name }}</a></td><td>{{ item.loan.get_emi_frequency_display }}</td><td>{{ item.emi|floatformat:2 }}</td><td>{{ item.total_payable|floatformat:2 }}</td><td>{{ item.total_interest|floatformat:2 }}</td><td>{{ item.months_remaining }}</td></tr>{% empty %}<tr><td colspan="6">Add at least two loans to compare.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

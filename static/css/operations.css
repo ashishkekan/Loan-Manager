@@ -1,0 +1,24 @@
+.operations-ui { min-width:0; }
+.operations-ui h1 { margin-bottom:12px; }
+.operations-ui h2 { margin:28px 0 14px; font-size:22px; }
+.operations-ui h3 { margin-bottom:12px; }
+.operations-ui p { margin:10px 0 16px; line-height:1.65; }
+.operations-ui article { padding:20px; margin:16px 0; border:1px solid var(--border); border-radius:16px; background:var(--bg-card); }
+.operations-ui table { width:100%; border-collapse:collapse; margin:12px 0 24px; text-align:left; background:var(--bg-card); }
+.operations-ui th,.operations-ui td { padding:14px 18px; border-bottom:1px solid var(--border); vertical-align:top; }
+.operations-ui th { color:var(--text-secondary); font-size:13px; }
+.operations-ui form { margin:16px 0 24px; max-width:760px; }
+.operations-ui form p { margin-bottom:18px; }
+.operations-ui input:not([type=checkbox]):not([type=hidden]),.operations-ui select,.operations-ui textarea { display:block; width:100%; min-height:44px; margin:7px 0; padding:10px 12px; border:1px solid var(--border-input); border-radius:10px; background:var(--bg-input); color:var(--text); font:inherit; }
+.operations-ui input[type=checkbox] { width:18px; height:18px; vertical-align:middle; margin-right:8px; }
+.operations-ui label { font-weight:600; display:inline-block; margin-right:12px; }
+.operations-ui .helptext { font-size:13px; color:var(--text-secondary); display:block; }
+.operations-ui .errorlist { color:var(--danger); padding-left:20px; margin:12px 0; }
+.operations-ui button { background:var(--primary); color:white; border:1px solid var(--primary); border-radius:10px; padding:11px 18px; margin:5px 8px 5px 0; font:inherit; font-weight:600; cursor:pointer; min-height:44px; }
+.operations-ui button[value=reject],.operations-ui button[value=revoke],.operations-ui button[value=disable_2fa] { background:transparent; color:var(--danger); border-color:var(--danger); }
+.operations-ui :focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.operations-ui summary { cursor:pointer; padding:12px 0; color:var(--primary); font-weight:600; }
+.operations-ui dl { display:grid; grid-template-columns:minmax(130px,1fr) 3fr; gap:10px 20px; margin:12px 0; }
+.operations-ui dd { margin:0; overflow-wrap:anywhere; }
+.operations-ui pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:600px) { .operations-ui h1 { font-size:26px; } .operations-ui dl { grid-template-columns:1fr; gap:6px; } .operations-ui dd { margin-bottom:12px; } .operations-ui button { width:100%; } .operations-ui th,.operations-ui td { padding:10px; } }

@@ -1,0 +1,21 @@
+{% extends 'app_layout.html' %}
+{% block title %}Site Appearance — NexusLoan{% endblock %}
+{% block app_content %}
+<h1>Site Appearance</h1>
+<p>Choose one of 16 colors for NexusLoan. Every page keeps a light background with your selected accent color.</p>
+<article class="glass-card appearance-panel">
+<h2>Brand color</h2>
+<form method="post" class="appearance-form">{% csrf_token %}
+{{ form.non_field_errors }}{{ form.color.errors }}
+<fieldset><legend>Choose a site color</legend><div class="color-options">
+{% for palette in palettes %}<label class="color-option" style="--swatch:{{ palette.primary }};--swatch-bg:{{ palette.background }}">
+<span class="color-sample" aria-hidden="true"><span></span><span></span></span>
+<span class="color-choice"><input type="radio" name="color" value="{{ palette.key }}" {% if form.color.value == palette.key %}checked{% endif %} required><strong>{{ palette.name }}</strong></span>
+</label>{% endfor %}
+</div></fieldset>
+<p class="appearance-help">Applies to buttons, navigation, highlights and page backgrounds for all users on their next page load. Only administrators can change the site color.</p>
+<button type="submit">Save site color</button>
+</form>
+{% if appearance.updated_at %}<p class="appearance-help">Last updated {{ appearance.updated_at }}{% if appearance.updated_by %} by {{ appearance.updated_by }}{% endif %}.</p>{% endif %}
+</article>
+{% endblock %}

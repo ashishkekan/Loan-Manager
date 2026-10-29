@@ -1,0 +1,15 @@
+<style>
+:root {
+  color-scheme: light;
+  --primary: {{ site_palette.primary|default:'#22863a' }};
+  --primary-dark: {{ site_palette.dark|default:'#1b6b2e' }};
+  --primary-light: {{ site_palette.light|default:'#4e9e61' }};
+  --primary-rgb: {{ site_palette.rgb|default:'34, 134, 58' }};
+  --primary-glow: rgba(var(--primary-rgb), .25);
+  --primary-subtle: rgba(var(--primary-rgb), .08);
+  --primary-50: rgba(var(--primary-rgb), .05);
+  --bg: {{ site_palette.background|default:'#f6faf7' }};
+  --border: rgba(var(--primary-rgb), .14);
+  --border-strong: rgba(var(--primary-rgb), .28);
+}
+</style>

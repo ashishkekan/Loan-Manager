@@ -35,12 +35,12 @@ VALID_FORMATS = ["excel", "csv", "pdf"]
 
 
 def _staff_required(user):
-    return user.is_authenticated and user.is_staff
+    return user.is_authenticated and user.is_superuser
 
 
 @login_required
 def admin_reports(request):
-    if not request.user.is_staff:
+    if not request.user.is_superuser:
         messages.error(request, "You do not have permission to access Reports.")
         return redirect("dashboard")
 
@@ -115,7 +115,7 @@ def admin_reports(request):
 
 @login_required
 def export_admin_report(request, report_type, format):
-    if not request.user.is_staff:
+    if not request.user.is_superuser:
         messages.error(request, "You do not have permission to export reports.")
         return redirect("dashboard")
 

@@ -1,7 +1,7 @@
 {% load static %}
 
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" data-color="{{ site_palette.key }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +18,12 @@
     <!-- App Styles -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
+    {% if request.resolver_match.namespace == 'operations' %}<link rel="stylesheet" href="{% static 'css/operations.css' %}">{% endif %}
+    {% include "operations/palette_style.html" %}
     {% block extra_head %}{% endblock %}
+<link rel="manifest" href="{% url 'manifest' %}">
+<meta name="theme-color" content="{{ site_palette.primary }}">
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js', {scope:'/', updateViaCache:'none'}).catch(function () {}); }); }</script>
 </head>
 <body>
     <!-- Django Messages -->
@@ -35,7 +40,7 @@
 
     {% block content %}{% endblock %}
 
-    <script src="{% static 'js/main.js' %}"></script>
+    <script src="{% static 'js/main.js' %}?v=site-colors-1"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

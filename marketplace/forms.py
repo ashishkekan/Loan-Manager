@@ -7,7 +7,7 @@ from loans.models import Investment
 class ProfileSetupForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ["role", "phone", "pan_number", "annual_income", "credit_score"]
+        fields = ["role", "phone", "pan_number", "annual_income"]
         widgets = {
             "role": forms.Select(attrs={"class": "form-input"}),
             "phone": forms.TextInput(

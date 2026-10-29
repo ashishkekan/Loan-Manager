@@ -15,6 +15,15 @@ from loans.models import (
 
 
 class LoanDisbursementInline(admin.TabularInline):
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     model = LoanDisbursement
     extra = 0
     fields = ("disbursement_number", "disbursement_date", "amount", "purpose", "status")
@@ -107,6 +116,15 @@ class LoanNoteAdmin(admin.ModelAdmin):
 
 @admin.register(LoanDisbursement)
 class LoanDisbursementAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = (
         "loan",
         "disbursement_number",

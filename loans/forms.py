@@ -85,7 +85,7 @@ class LoanForm(forms.ModelForm):
             "start_date": "Loan Creation Date",
             "first_emi_date": "First EMI Date",
             "emi_frequency": "EMI Frequency",
-            "auto_debit": "Auto Debit EMI",
+            "auto_debit": "Scheduled EMI reminder",
         }
         help_texts = {
             "user": "Select the user who owns this loan.",
@@ -102,7 +102,7 @@ class LoanForm(forms.ModelForm):
         if not self.instance.pk:
             self.fields["first_emi_date"].required = True
         if "user" in self.fields:
-            if user and not user.is_staff:
+            if user and not user.is_superuser:
                 self.fields.pop("user")
             else:
                 self.fields["user"].required = True
@@ -212,8 +212,17 @@ class LoanDisbursementForm(forms.ModelForm):
         status = cleaned.get("status")
         if amount is None:
             return cleaned
+        if self.loan.status == "closed":
+            raise ValidationError("Cannot change disbursements for a closed loan.")
+        if (
+            self.loan.payments.exists()
+            or self.loan.receipts.filter(status="verified").exists()
+        ):
+            raise ValidationError(
+                "Disbursements cannot be changed after repayments have started."
+            )
         previous_total = self.loan.total_disbursed_amount
-        if self.instance.pk:
+        if self.instance.pk and self.instance.status == "released":
             previous_total -= self.instance.amount
         if status == "released":
             if previous_total + amount > self.loan.amount:

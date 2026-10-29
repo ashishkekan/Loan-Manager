@@ -20,7 +20,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         loans = Loan.objects.filter(user=user)
-        if user.is_staff:
+        if user.is_superuser:
             self._build_admin_context(context)
         else:
             self._build_user_context(context, loans, user)
@@ -31,7 +31,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         all_loans = Loan.objects.select_related("user").all()
         active_loans = all_loans.filter(status="active")
         closed_loans = all_loans.filter(status="closed")
-        all_payments = Payment.objects.filter(status="paid")
+        all_payments = Payment.objects.filter(status__in=["paid", "partial"])
         all_prepayments = Prepayment.objects.all()
         loan_stats = all_loans.aggregate(
             total_amount=Coalesce(Sum("amount"), 0, output_field=DecimalField()),
@@ -168,13 +168,18 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             "interest": round(float(aggregates["total_interest"]), 2),
         }
         context["recent_payments"] = (
-            Payment.objects.filter(loan__user=user, status="paid")
+            Payment.objects.filter(loan__user=user, status__in=["paid", "partial"])
             .select_related("loan")
             .order_by("-payment_date")[:8]
         )
-        principal_paid = sum(loan.amount - loan.remaining_balance for loan in loans)
+        principal_paid = sum(
+            loan.total_disbursed_amount
+            + loan.capitalized_interest
+            - loan.remaining_balance
+            for loan in loans
+        )
         total_prepayments = prepay_stats["total_prepaid"]
-        total_paid = principal_paid + aggregates["total_interest"] + total_prepayments
+        total_paid = principal_paid + aggregates["total_interest"]
         context["principal_paid"] = principal_paid
         context["total_prepayments"] = total_prepayments
         context["interest_saved"] = prepay_stats["total_saved"]
@@ -182,9 +187,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         upcoming = []
         for loan in active_loans:
             paid_count = loan.payments.filter(status="paid").count()
-            due_date = add_periods(
-                loan.schedule_start_date, paid_count, loan.emi_frequency
-            )
+            from operations.services import next_due
+
+            due_date = next_due(loan, paid_count + 1)
             upcoming.append(
                 {
                     "loan": loan,
@@ -218,7 +223,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         month_start = today.replace(day=1)
         month_payments = Payment.objects.filter(
             loan__user=user,
-            status="paid",
+            status__in=["paid", "partial"],
             payment_date__gte=month_start,
             payment_date__lte=today,
         )
@@ -259,7 +264,7 @@ class AdminUsersView(LoginRequiredMixin, ListView):
     paginate_by = 15
 
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_staff:
+        if not request.user.is_superuser:
             from django.shortcuts import redirect
 
             return redirect("dashboard")

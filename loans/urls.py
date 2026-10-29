@@ -62,7 +62,7 @@ urlpatterns = [
         "loans/<int:loan_id>/documents/upload/", upload_document, name="upload_document"
     ),
     path(
-        "loans/<int:loan_id>/documents/<int:doc_id>/delete/",
+        "loans/<int:loan_id>/documents/<int:document_id>/delete/",
         delete_document,
         name="delete_document",
     ),

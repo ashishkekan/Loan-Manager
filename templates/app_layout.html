@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}{{ page_title|default:"Dashboard" }} — NexusLoan{% endblock %}
+{% block title %}{{ page_title|default:navigation_title|default:"Dashboard" }} — NexusLoan{% endblock %}
+{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/app-shell.css' %}?v=compact-ui-1"><script defer src="{% static 'js/app-shell.js' %}"></script>{% endblock %}
 {% block content %}
 <style>
     .notification-badge {
@@ -23,13 +24,11 @@
 </style>
 <div class="app-layout">
     <header class="mobile-header">
-        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="false">
             <i class="fas fa-bars"></i>
         </button>
         <span class="mobile-logo">NexusLoan</span>
-        <button class="theme-toggle-mobile" id="themeToggleMobile" aria-label="Toggle theme">
-            <i class="fas fa-moon"></i>
-        </button>
+        {% if request.user.is_superuser %}<a href="{% url 'operations:appearance' %}" class="theme-toggle-mobile" aria-label="Site Appearance"><i class="fas fa-palette" aria-hidden="true"></i></a>{% else %}<span class="mobile-header-spacer" aria-hidden="true"></span>{% endif %}
     </header>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <aside class="sidebar" id="sidebar">
@@ -41,103 +40,26 @@
                 <span class="logo-text">NexusLoan</span>
             </a>
         </div>
-        <nav class="sidebar-nav">
-            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                <i class="fas fa-chart-pie"></i>
-                <span>Dashboard</span>
-            </a>
-            {% if not request.user.is_staff %}
-                <a href="{% url 'loan_list' %}" class="nav-item {% if request.resolver_match.url_name == 'loan_list' %}active{% endif %}">
-                    <i class="fas fa-wallet"></i>
-                    <span>My Loans</span>
-                </a>
-                <a href="{% url 'payment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'payment_dashboard' %}active{% endif %}">
-                    <i class="fas fa-credit-card"></i>
-                    <span>Payments</span>
-                </a>
-                <a href="{% url 'prepayment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'prepayment_dashboard' %}active{% endif %}">
-                    <i class="fas fa-money-bill-transfer"></i>
-                    <span>Prepayments</span>
-                </a>
-                <a href="{% url 'documents_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'documents_dashboard' %}active{% endif %}">
-                    <i class="fas fa-folder-open"></i>
-                    <span>Documents</span>
-                </a>
-                <li>
-                    <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
-                        <i class="fas fa-bell"></i>
-                        <span>Notifications</span>
-                        {% if header_unread_notifications > 0 %}
-                            <span class="notification-badge">{{ header_unread_notifications }}</span>
-                        {% endif %}
-                    </a>
-                </li>
-                <a href="{% url 'support_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'support_dashboard' %}active{% endif %}">
-                    <i class="fas fa-headset"></i>
-                    <span>Support</span>
-                </a>
-                <a href="{% url 'settings_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'settings_dashboard' %}active{% endif %}">
-                    <i class="fas fa-gear"></i>
-                    <span>Settings</span>
-                </a>
-            {% else %}
-                <a href="{% url 'admin_users' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_users' %}active{% endif %}">
-                    <i class="fas fa-users"></i>
-                    <span>Users</span>
-                </a>
-                <a href="{% url 'loan_list' %}" class="nav-item {% if request.resolver_match.url_name == 'loan_list' %}active{% endif %}">
-                    <i class="fas fa-wallet"></i>
-                    <span>Loans</span>
-                </a>
-                <a href="{% url 'payment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'payment_dashboard' %}active{% endif %}">
-                    <i class="fas fa-credit-card"></i>
-                    <span>Payments</span>
-                </a>
-                <a href="{% url 'prepayment_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'prepayment_dashboard' %}active{% endif %}">
-                    <i class="fas fa-money-bill-transfer"></i>
-                    <span>Prepayments</span>
-                </a>
-                <a href="{% url 'admin_banks' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_banks' %}active{% endif %}">
-                    <i class="fas fa-university"></i>
-                    <span>Banks</span>
-                </a>
-                <li>
-                    <a href="{% url 'notifications_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications_dashboard' %}active{% endif %}">
-                        <i class="fas fa-bell"></i>
-                        <span>Notifications</span>
-                        {% if header_unread_notifications > 0 %}
-                            <span class="notification-badge">{{ header_unread_notifications }}</span>
-                        {% endif %}
-                    </a>
-                </li>
-                <a href="{% url 'admin_reports' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_reports' %}active{% endif %}">
-                    <i class="fas fa-chart-column"></i>
-                    <span>Reports</span>
-                </a>
-                <a href="{% url 'activity_logs_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'activity_logs_dashboard' %}active{% endif %}">
-                    <i class="fas fa-clock-rotate-left"></i>
-                    <span>Activity Logs</span>
-                </a>
-                <a href="{% url 'settings_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'settings_dashboard' %}active{% endif %}">
-                    <i class="fas fa-gear"></i>
-                    <span>Settings</span>
-                </a>
-            {% endif %}
-            {% if loans %}
-                <div class="nav-divider"></div>
-                <span class="nav-label">
-                    <i class="fas fa-bolt"></i>
-                    Quick Access
-                </span>
-                {% for loan in loans %}
-                    {% if loan.status == 'active' %}
-                        <a href="{% url 'loan_detail' loan.pk %}" class="nav-item nav-sub {% if request.resolver_match.url_name == 'loan_detail' and request.resolver_match.kwargs.pk|slugify == loan.pk|slugify %}active{% endif %}">
-                            <i class="fas fa-circle" style="font-size:6px; color: var(--accent);"></i>
-                            <span>{{ loan.loan_name|truncatechars:18 }}</span>
-                        </a>
+        <nav class="sidebar-nav" aria-label="Main navigation">
+            <a href="{% url 'dashboard' %}" class="nav-item {% if sidebar_dashboard_active %}active{% endif %}" {% if sidebar_dashboard_active %}aria-current="page"{% endif %}><i class="fas fa-chart-pie" aria-hidden="true"></i><span>Dashboard</span></a>
+            {% for group in sidebar_groups %}
+            <details class="nav-group {% if group.active %}has-active{% endif %}" {% if group.active %}open{% endif %}>
+                <summary><i class="fas fa-{{ group.icon }}" aria-hidden="true"></i><span>{{ group.label }}</span><i class="fas fa-chevron-down nav-chevron" aria-hidden="true"></i></summary>
+                <div class="nav-children">
+                    {% if group.categories %}
+                    <a href="{{ group.overview.url }}" class="nav-item nav-child {% if group.overview.active %}active{% endif %}" {% if group.overview.active %}aria-current="page"{% endif %}>Overview</a>
+                    {% for category in group.categories %}
+                    <details class="nav-group nav-category" {% if category.active %}open{% endif %}><summary><span>{{ category.label }}</span><i class="fas fa-chevron-down nav-chevron" aria-hidden="true"></i></summary><div class="nav-children">
+                    {% for item in category.items %}<a href="{{ item.url }}" class="nav-item nav-child {% if item.active %}active{% endif %}" {% if item.active %}aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+                    </div></details>{% endfor %}
+                    {% else %}
+                    {% for item in group.items %}
+                    <a href="{{ item.url }}" class="nav-item nav-child {% if item.active %}active{% endif %}" {% if item.active %}aria-current="page"{% endif %}><span>{{ item.label }}</span>{% if item.label == 'Notifications' and header_unread_notifications %}<span class="notification-badge">{{ header_unread_notifications }}</span>{% endif %}</a>
+                    {% endfor %}
                     {% endif %}
-                {% endfor %}
-            {% endif %}
+                </div>
+            </details>
+            {% endfor %}
         </nav>
         <div class="sidebar-footer">
             <div class="user-info">
@@ -145,7 +67,7 @@
                 <div class="user-details">
                     <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
                     <span class="user-role">
-                        {% if request.user.profile %}
+                        {% if request.user.is_superuser %}Administrator{% elif request.user.is_staff %}Team member{% elif request.user.profile %}
                             {{ request.user.profile.get_role_display }}
                         {% else %}
                             User
@@ -153,17 +75,14 @@
                     </span>
                 </div>
             </div>
-            <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-                <i class="fas fa-moon" id="themeIcon"></i>
-                <span id="themeLabel" style="font-size: 10px;">Dark Mode</span>
-            </button>
+
             <a href="{% url 'logout' %}" class="nav-item nav-logout">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </a>
         </div>
     </aside>
-    <main class="main-content">
+    <main class="main-content {% if request.resolver_match.namespace == 'operations' %}operations-ui{% endif %}">
         {% block app_content %}{% endblock %}
     </main>
 </div>

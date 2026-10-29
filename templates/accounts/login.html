@@ -34,7 +34,7 @@
                         <input type="password" name="password" id="id_password" class="form-input" placeholder="Enter your password" required>
                     </div>
                     <button type="submit" class="btn btn-primary btn-block" style="margin-top: 8px;">Log In</button>
-                </form>
+                </form><p><a href="{% url 'password_reset' %}">Forgot password?</a></p>
                 <p class="auth-switch">Don't have an account? <a href="{% url 'register' %}">Create one</a></p>
             </div>
         </div>

@@ -55,30 +55,55 @@ class MarketplaceView(LoginRequiredMixin, ListView):
         return context
 
 
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.db import transaction
+from decimal import Decimal, InvalidOperation
+
+
+@login_required
+@require_POST
+@transaction.atomic
 def invest_in_loan(request, loan_id):
-    if request.method == "POST":
-        loan = get_object_or_404(Loan, pk=loan_id, is_public=True)
-        profile = request.user.profile
-
-        if profile.role != "lender" or not profile.kyc_verified:
-            messages.error(request, "Complete lender KYC to invest.")
-            return redirect("marketplace")
-
-        amount = float(request.POST.get("amount", 0))
-        remaining_to_fund = float(loan.amount) - float(loan.funded_amount)
-
-        if amount <= 0 or amount > remaining_to_fund:
-            messages.error(
-                request, f"Invalid amount. Max investable: ₹{remaining_to_fund:,.0f}"
-            )
-            return redirect("loan_detail", pk=loan_id)
-
-        Investment.objects.create(loan=loan, lender=request.user, amount=amount)
-        loan.funded_amount += amount
-        if loan.funded_amount >= loan.amount:
-            loan.status = "active"
-        loan.save()
-        messages.success(
-            request, f"Successfully invested ₹{amount:,.0f} in {loan.loan_name}!"
+    loan = get_object_or_404(
+        Loan.objects.select_for_update(), pk=loan_id, is_public=True, status="active"
+    )
+    if loan.disbursements.filter(status="released").exists() or loan.payments.exists():
+        messages.error(
+            request, "Funding closes once a loan is disbursed or repayments begin."
         )
-    return redirect("loan_detail", pk=loan_id)
+        return redirect("marketplace")
+    profile = Profile.objects.select_for_update().get(user=request.user)
+    if (
+        profile.role != "lender"
+        or not profile.kyc_verified
+        or loan.user_id == request.user.id
+    ):
+        messages.error(
+            request,
+            "Verified lender access is required; self-investment is not allowed.",
+        )
+        return redirect("marketplace")
+    try:
+        amount = Decimal(request.POST.get("amount", "0"))
+        if (
+            not amount.is_finite()
+            or amount != amount.quantize(Decimal("0.01"))
+            or amount <= 0
+            or amount > loan.amount - loan.funded_amount
+            or amount > profile.available_funds
+        ):
+            raise ValueError()
+    except (InvalidOperation, ValueError):
+        messages.error(
+            request,
+            "Enter a valid amount within available funds and the funding limit.",
+        )
+        return redirect("marketplace")
+    Investment.objects.create(loan=loan, lender=request.user, amount=amount)
+    loan.funded_amount += amount
+    profile.available_funds -= amount
+    loan.save(update_fields=["funded_amount"])
+    profile.save(update_fields=["available_funds"])
+    messages.success(request, "Investment recorded against available funds.")
+    return redirect("marketplace")

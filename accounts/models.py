@@ -18,7 +18,10 @@ class Profile(models.Model):
     kyc_verified = models.BooleanField(default=False)
     pan_number = models.CharField(max_length=10, blank=True, null=True)
     credit_score = models.PositiveIntegerField(
-        default=750, help_text="CIBIL score approximation"
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Unverified internal score; not a credit-bureau report",
     )
     annual_income = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,0 +1,1 @@
+{% extends 'app_layout.html' %}{% block app_content %}<h1>Provider checkout</h1>{% if error %}<p>{{ error }}</p>{% else %}<p>INR {{ receipt.amount }} for {{ receipt.loan.loan_name }}. The receipt stays pending until provider confirmation.</p><a href="{{ checkout_url }}" rel="noopener noreferrer">Continue to secure provider checkout</a>{% endif %}{% endblock %}

@@ -87,7 +87,7 @@
                 <i class="fas fa-rotate"></i>
             </div>
             <div class="sc-info">
-                <span class="sc-label">Auto Debit</span>
+                <span class="sc-label">Scheduled reminder</span>
                 <span class="sc-value">{{ admin_auto_debit_loans }}</span>
                 <span class="sc-sub">{{ admin_manual_loans }} manual loans</span>
             </div>
@@ -146,7 +146,7 @@
                             </span>
                             {% if loan.auto_debit %}
                             <span class="loan-status-badge badge-active" style="margin-left:6px;font-size:10px;padding:2px 8px;">
-                                Auto Debit
+                                Scheduled reminder
                             </span>
                             {% endif %}
                         </div>
@@ -315,7 +315,7 @@
                 </div>
                 {% if next_emi_auto_debit %}
                     <span class="loan-status-badge badge-active" style="font-size:10px;padding:2px 8px;">
-                        <i class="fas fa-repeat"></i> Auto Debit
+                        <i class="fas fa-repeat"></i> Scheduled reminder
                     </span>
                 {% else %}
                     <span class="loan-status-badge badge-closed" style="font-size:10px;padding:2px 8px;">
@@ -471,7 +471,7 @@
                             <div class="lmi-meta">
                                 EMI #{{ item.payment_number }} · {{ item.due_date|date:"d M Y" }}
                                 {% if item.auto_debit %}
-                                    <span class="loan-status-badge badge-active" style="margin-left:8px;font-size:10px;padding:2px 8px;">Auto Debit</span>
+                                    <span class="loan-status-badge badge-active" style="margin-left:8px;font-size:10px;padding:2px 8px;">Scheduled reminder</span>
                                 {% else %}
                                     <span class="loan-status-badge badge-closed" style="margin-left:8px;font-size:10px;padding:2px 8px;">Manual</span>
                                 {% endif %}
@@ -592,7 +592,7 @@
                                 {% if loan.auto_debit %}
                                     <span class="loan-status-badge badge-active"
                                         style="margin-left:6px;font-size:10px;padding:2px 8px;">
-                                        Auto Debit
+                                        Scheduled reminder
                                     </span>
                                 {% endif %}
                             </div>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="{{ site_palette.primary }}">
+  <title>Connection unavailable | NexusLoan</title>
+  <style>
+    /* Self-contained: the fallback must work without a network or cached assets. */
+    :root { color-scheme:light; --bg:#f0fdf4; --card:rgba(255,255,255,.85); --text:#0f172a; --muted:#64748b; --border:rgba(var(--primary-rgb),.18); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; min-height:100svh; display:grid; place-items:center; padding:24px; background:radial-gradient(ellipse at top,rgba(var(--primary-rgb),.12),transparent 65%),var(--bg); color:var(--text); font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+    main { width:100%; max-width:500px; padding:44px 36px; text-align:center; border:1px solid var(--border); border-radius:28px; background:var(--card); box-shadow:0 12px 40px rgba(0,0,0,.08); }
+    .brand { margin:0 0 30px; font-size:20px; font-weight:800; letter-spacing:-.6px; }
+    .brand span { color:var(--primary); }
+    .icon { display:grid; place-items:center; width:76px; height:76px; margin:0 auto 24px; border-radius:24px; color:var(--primary); background:rgba(var(--primary-rgb),.1); }
+    h1 { margin:0 0 14px; font-size:clamp(24px,5vw,30px); letter-spacing:-.8px; line-height:1.25; }
+    p { margin:0; color:var(--muted); font-size:15px; line-height:1.7; }
+    .actions { display:flex; justify-content:center; flex-wrap:wrap; gap:12px; margin-top:28px; }
+    a { display:inline-flex; align-items:center; justify-content:center; min-height:48px; padding:12px 24px; border:1px solid var(--border); border-radius:12px; font-size:14px; font-weight:700; text-decoration:none; color:var(--text); }
+    .primary { background:var(--primary); border-color:var(--primary); color:white; }
+    a:hover { border-color:var(--primary); } .primary:hover { background:var(--primary-dark); }
+    a:focus-visible { outline:3px solid #f59e0b; outline-offset:4px; }
+    .note { margin-top:24px; font-size:12px; }
+    @media(max-width:420px) { main { padding:32px 22px; } .actions { flex-direction:column; } }
+  </style>
+{% include "operations/palette_style.html" %}
+</head>
+<body>
+  <main aria-labelledby="connection-title">
+    <div class="brand">Nexus<span>Loan</span></div>
+    <div class="icon" aria-hidden="true"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="m3 3 18 18M2 8.8a16 16 0 0 1 3-2M9 5.3A16 16 0 0 1 22 8.8M5 12a11 11 0 0 1 3-1.7M12 10a11 11 0 0 1 7 2M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r=".7"/></svg></div>
+    <h1 id="connection-title">We couldn’t connect</h1>
+    <p id="connection-message">NexusLoan is temporarily unreachable. Check your connection or try again once the server is available.</p>
+    <div class="actions"><a class="primary" href="" id="retry">Try again</a><a href="/">Go to Home</a></div>
+    <p class="note">If you just submitted a payment or form, check its status before submitting again.</p>
+  </main>
+  <script>
+    // A link makes a fresh GET; never automatically replay a failed form POST.
+    document.getElementById('retry').href = location.pathname + location.search;
+    function updateConnectionMessage() {
+      document.getElementById('connection-title').textContent = navigator.onLine ? 'We couldn’t connect' : 'You’re offline';
+      document.getElementById('connection-message').textContent = navigator.onLine
+        ? 'NexusLoan is temporarily unreachable. Check your connection or try again once the server is available.'
+        : 'Reconnect to the internet, then try again to securely access your loan information.';
+    }
+    updateConnectionMessage();
+    window.addEventListener('online', updateConnectionMessage);
+    window.addEventListener('offline', updateConnectionMessage);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', {scope:'/', updateViaCache:'none'}).catch(function () {});
+  </script>
+</body>
+</html>

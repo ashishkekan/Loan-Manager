@@ -22,9 +22,15 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 from accounts.views import custom_logout
+from operations.pwa import manifest, worker
+from operations.security import SecureLoginView
 
 urlpatterns = [
+    path("manifest.webmanifest", manifest, name="manifest"),
+    path("sw.js", worker, name="service_worker"),
+    path("admin/login/", SecureLoginView.as_view(), name="secure_admin_login"),
     path("admin/", admin.site.urls),
+    path("operations/", include("operations.urls")),
     path("", TemplateView.as_view(template_name="index.html"), name="home"),
     path("accounts/logout/", custom_logout, name="logout"),
     path("", include("accounts.urls")),
@@ -33,6 +39,3 @@ urlpatterns = [
     path("", include("dashboard.urls")),
     path("", include("marketplace.urls")),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

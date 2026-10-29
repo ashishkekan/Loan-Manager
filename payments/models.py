@@ -7,6 +7,7 @@ from django.db import models
 class Payment(models.Model):
     STATUS_CHOICES = [
         ("paid", "Paid"),
+        ("partial", "Part paid"),
         ("pending", "Pending"),
         ("overdue", "Overdue"),
     ]

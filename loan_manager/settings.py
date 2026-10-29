@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "accounts",
+    "operations.apps.OperationsConfig",
     "loans",
     "payments",
     "dashboard",
@@ -58,6 +59,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "operations.audit.ActorMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -75,6 +77,8 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "loan_manager.context_processors.loan_notifications",
+                "loan_manager.navigation.app_navigation",
+                "operations.appearance.site_appearance",
             ],
         },
     },
@@ -153,3 +157,29 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
+
+# Delivery is opt-in. Configure SMTP or a dotted SMS adapter callable in deployment.
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "loans@localhost")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "False") == "True"
+EMAIL_TIMEOUT = 15
+SMS_ADAPTER = os.environ.get("SMS_ADAPTER", "")
+REMINDER_DAYS = [7, 3, 1, 0]
+
+PAYMENT_ADAPTER = os.environ.get("PAYMENT_ADAPTER", "")
+PAYMENT_SERVICE_USER_ID = int(os.environ.get("PAYMENT_SERVICE_USER_ID", "0"))
+PAYMENT_CHECKOUT_HOSTS = [
+    host.strip()
+    for host in os.environ.get("PAYMENT_CHECKOUT_HOSTS", "").split(",")
+    if host.strip()
+]
+
+PAYMENT_RECURRING_ENABLED = (
+    os.environ.get("PAYMENT_RECURRING_ENABLED", "False") == "True"
+)
