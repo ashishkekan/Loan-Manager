@@ -74,9 +74,9 @@
                 </div>
                 <div class="card-mini-chart">
                     <svg viewBox="0 0 200 50" class="sparkline">
-                        <polyline fill="none" stroke="#28a745" stroke-width="2" points="0,40 20,38 40,35 60,32 80,28 100,24 120,20 140,18 160,15 180,12 200,8"/>
+                        <polyline fill="none" stroke="var(--primary)" stroke-width="2" points="0,40 20,38 40,35 60,32 80,28 100,24 120,20 140,18 160,15 180,12 200,8"/>
                         <polyline fill="url(#sparkGrad)" stroke="none" points="0,40 20,38 40,35 60,32 80,28 100,24 120,20 140,18 160,15 180,12 200,8 200,50 0,50"/>
-                        <defs><linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#28a745" stop-opacity="0.3"/><stop offset="100%" stop-color="#28a745" stop-opacity="0"/></linearGradient></defs>
+                        <defs><linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--primary)" stop-opacity="0.3"/><stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/></linearGradient></defs>
                     </svg>
                 </div>
             </div>
@@ -260,12 +260,12 @@
                 <div class="calc-emi-value" id="calcEmiValue">₹21,698</div>
                 <div class="calc-breakdown">
                     <div class="calc-breakdown-item">
-                        <span class="cbi-dot" style="background: #28a745;"></span>
+                        <span class="cbi-dot" style="background: var(--primary);"></span>
                         <span>Principal</span>
                         <strong id="calcPrincipal">₹25,00,000</strong>
                     </div>
                     <div class="calc-breakdown-item">
-                        <span class="cbi-dot" style="background: #f59e0b;"></span>
+                        <span class="cbi-dot" style="background: var(--chart-secondary);"></span>
                         <span>Total Interest</span>
                         <strong id="calcInterest">₹27,07,533</strong>
                     </div>
@@ -407,8 +407,8 @@
                 labels: ['Principal', 'Interest'],
                 datasets: [{
                     data: [principal, interest],
-                    backgroundColor: ['#28a745', '#f59e0b'],
-                    borderColor: ['rgba(40,167,69,0.4)', 'rgba(245,158,11,0.4)'],
+                    backgroundColor: LoanChartTheme.series.slice(0, 2),
+                    borderColor: ['#ffffff', '#ffffff'],
                     borderWidth: 2,
                     hoverOffset: 6
                 }]

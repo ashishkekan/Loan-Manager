@@ -1034,3 +1034,20 @@ class FakeProvider:
 
     def create_recurring_payment(self, **kwargs):
         return {"id": "recurring-test"}
+
+
+class ChartPaletteTests(TestCase):
+    def test_every_theme_has_distinct_readable_chart_colors(self):
+        from .palettes import COLORS, chart_palette
+        def luminance(color):
+            channels = [int(color[i:i+2], 16) / 255 for i in (1, 3, 5)]
+            channels = [c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4 for c in channels]
+            return sum(c * weight for c, weight in zip(channels, [.2126, .7152, .0722]))
+        for key, (_, primary) in COLORS.items():
+            with self.subTest(theme=key):
+                colors = chart_palette(key)["series"]
+                self.assertEqual(colors[0], primary)
+                self.assertEqual(len(set(colors)), 4)
+                for color in colors:
+                    self.assertGreaterEqual(1.05 / (luminance(color) + .05), 3)
+        self.assertEqual(chart_palette("invalid"), chart_palette("green"))

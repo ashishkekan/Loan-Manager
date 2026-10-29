@@ -1,36 +1,40 @@
 {% extends 'app_layout.html' %}
 {% load static %}
-{% block title %}{% if not request.user.is_staff %}My Loans{% else %}Loans{% endif %}{% endblock %}
+{% block title %}{% if not request.user.is_superuser %}My Loans{% else %}Loans{% endif %}{% endblock %}
+{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/loan-pages.css' %}">{% endblock %}
 {% block app_content %}
+<section class="loan-list-page">
 <div class="page-header">
     <div>
-        <h1 class="page-title">{% if not request.user.is_staff %}My Loans{% else %}Loans{% endif %}</h1>
+        <h1 class="page-title">{% if not request.user.is_superuser %}My Loans{% else %}Loans{% endif %}</h1>
         <p class="page-subtitle">Manage and track all your loans</p>
     </div>
-    <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan" style="width: 40px; height: 40px;">
-        <i class="fas fa-plus"></i>
+    <a href="{% url 'create_loan' %}" class="btn btn-primary" title="Create Loan">
+        <i class="fas fa-plus" aria-hidden="true"></i> Add loan
     </a>
 </div>
 {% if loans %}
     <div class="loans-grid">
         {% for loan in loans %}
-        <a href="{% url 'loan_detail' loan.pk %}" class="loan-card glass-card">
+        <article class="loan-card glass-card">
             <div class="loan-card-header">
                 <span class="loan-status-badge badge-{{ loan.status }}">{{ loan.status|title }}</span>
                 <span class="loan-type"><i class="fas fa-file-invoice-dollar"></i></span>
             </div>
-            <h3 class="loan-card-title">{{ loan.loan_name }}</h3>
-            {% if request.user.is_staff %}
+            <h3 class="loan-card-title"><a href="{% url 'loan_detail' loan.pk %}">{{ loan.loan_name }}</a></h3>
+            <p class="loan-card-kind">{{ loan.get_loan_type_display }}</p>
+            {% if request.user.is_superuser %}
                 <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
                     <i class="fas fa-user"></i>
                     {{ loan.user.get_full_name|default:loan.user.username }}
                 </div>
             {% endif %}
+            <span class="lcm-label">Sanctioned amount</span>
             <div class="loan-card-amount">₹{{ loan.amount|floatformat:0 }}</div>
             <div class="loan-card-meta">
                 <div>
                     <span class="lcm-label">EMI</span>
-                    <span class="lcm-value">₹{{ loan.emi|floatformat:0 }}/mo</span>
+                    <span class="lcm-value">₹{{ loan.emi|floatformat:0 }}<small>{{ loan.get_emi_frequency_display }}</small></span>
                 </div>
                 <div>
                     <span class="lcm-label">Rate</span>
@@ -42,7 +46,7 @@
                 </div>
             </div>
             <div class="loan-progress-section">
-                <div class="loan-progress-bar">
+                <div class="loan-progress-bar" role="progressbar" aria-label="{{ loan.loan_name }} repayment" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ loan.progress_percent }}">
                     <div class="loan-progress-fill" style="width: {{ loan.progress_percent }}%"></div>
                 </div>
                 <div class="loan-progress-info">
@@ -50,7 +54,8 @@
                     <span>₹{{ loan.remaining_balance|floatformat:0 }} left</span>
                 </div>
             </div>
-        </a>
+            <div class="loan-card-actions"><a href="{% url 'loan_detail' loan.pk %}" class="btn btn-primary">View loan <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="{% url 'emi_schedule' loan.pk %}" class="btn btn-outline">Schedule</a></div>
+        </article>
         {% endfor %}
     </div>
     {% if is_paginated %}
@@ -66,4 +71,5 @@
         </a>
     </div>
 {% endif %}
+</section>
 {% endblock %}

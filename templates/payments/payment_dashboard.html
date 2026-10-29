@@ -4,7 +4,7 @@
 {% block app_content %}
 {% if admin_view %}
 <style>
-    .admin-payment-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px}
+    .admin-payment-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-bottom:24px}
     .admin-stat{padding:20px;border:1px solid var(--border);border-radius:16px;background:var(--card-bg,#fff)}
     .admin-stat-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
     .admin-stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,.1);color:#2563eb}
@@ -16,9 +16,18 @@
     .admin-section-title{display:flex;align-items:center;gap:12px}
     .admin-section-title h3{margin:0}
     .admin-section-title p{margin:4px 0 0;color:#64748b;font-size:13px}
-    .admin-two-column{display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px}
-    .admin-three-column{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:24px}
-    .admin-table-wrapper{width:100%;overflow-x:auto}
+    .admin-two-column{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;margin-bottom:24px}
+    .admin-three-column{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-bottom:24px}
+    .admin-two-column > *, .admin-three-column > *, .admin-payment-grid > * {min-width:0}
+    .admin-table-wrapper{width:100%;max-width:100%;overflow-x:auto}
+    .admin-risk-grid{grid-template-columns:minmax(0,1fr)}
+    .admin-high-risk{grid-column:1 / -1;width:100%;min-width:0}
+    .admin-high-risk .admin-table{min-width:0;table-layout:fixed}
+    .admin-high-risk .admin-table th,.admin-high-risk .admin-table td{white-space:normal;overflow-wrap:anywhere}
+    .admin-high-risk .admin-table th:first-child{width:45%}
+    .admin-section-title{min-width:0}
+    .admin-section-title > div{min-width:0}
+    .admin-section-header{flex-wrap:wrap}
     .admin-table{width:100%;min-width:850px;border-collapse:collapse}
     .admin-table th,.admin-table td{padding:13px 14px;text-align:left;border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap}
     .admin-table th{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
@@ -148,7 +157,7 @@
                 </div>
             </div>
         </div>
-        <div class="admin-payment-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0;">
+        <div class="admin-payment-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:0;">
             <div class="admin-stat">
                 <span class="admin-stat-label">Today</span>
                 <strong class="admin-stat-value" style="font-size:20px;">₹{{ today_collection|floatformat:0 }}</strong>
@@ -179,7 +188,7 @@
                     <span>{{ mode.label }}</span>
                     <strong>{{ mode.percentage }}%</strong>
                 </div>
-                <div class="admin-progress">
+                <div class="admin-progress" role="progressbar" aria-label="{{ mode.label }} payment share" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ mode.percentage }}">
                     <span style="width:{{ mode.percentage }}%;"></span>
                 </div>
                 <small style="color:#64748b;">{{ mode.count }} payments · ₹{{ mode.amount|floatformat:0 }}</small>
@@ -189,7 +198,7 @@
         {% endfor %}
     </div>
 </div>
-<div class="admin-two-column">
+<div class="admin-two-column admin-risk-grid">
     <div class="glass-card admin-section">
         <div class="admin-section-header">
             <div class="admin-section-title">
@@ -241,7 +250,7 @@
             </table>
         </div>
     </div>
-    <div class="glass-card admin-section">
+    <div class="glass-card admin-section admin-high-risk">
         <div class="admin-section-header">
             <div class="admin-section-title">
                 <div class="sc-icon"><i class="fas fa-shield-halved"></i></div>
@@ -252,7 +261,7 @@
             </div>
         </div>
         <div class="admin-table-wrapper">
-            <table class="admin-table" style="min-width:500px;">
+            <table class="admin-table">
                 <thead>
                     <tr>
                         <th>User</th>

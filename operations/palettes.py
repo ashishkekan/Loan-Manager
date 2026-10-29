@@ -30,3 +30,29 @@ def palette(key):
             "rgb": ", ".join(map(str, rgb)),
             "dark": "#" + "".join(f"{round(c*.8):02x}" for c in rgb),
             "light": mix(.2), "background": mix(.96)}
+
+# Distinct companion hues for financial series on light backgrounds.
+CHART_COMPANIONS = {
+    "green": ("#b45309", "#1d4ed8", "#7e22ce"),
+    "emerald": ("#c2410c", "#4338ca", "#be185d"),
+    "teal": ("#b45309", "#6d28d9", "#be123c"),
+    "cyan": ("#c2410c", "#7e22ce", "#047857"),
+    "sky": ("#b45309", "#be185d", "#047857"),
+    "blue": ("#c2410c", "#047857", "#a21caf"),
+    "indigo": ("#b45309", "#0f766e", "#be123c"),
+    "violet": ("#0f766e", "#b45309", "#be123c"),
+    "purple": ("#047857", "#c2410c", "#0369a1"),
+    "fuchsia": ("#0f766e", "#b45309", "#1d4ed8"),
+    "pink": ("#0369a1", "#047857", "#b45309"),
+    "rose": ("#0f766e", "#4338ca", "#a16207"),
+    "red": ("#0369a1", "#047857", "#7e22ce"),
+    "orange": ("#1d4ed8", "#047857", "#a21caf"),
+    "amber": ("#4338ca", "#0f766e", "#be123c"),
+    "slate": ("#0369a1", "#b45309", "#047857"),
+}
+
+
+def chart_palette(key):
+    key = key if key in COLORS else "green"
+    return {"series": [COLORS[key][1], *CHART_COMPANIONS[key]],
+            "neutral": "#94a3b8", "grid": "#e2e8f0", "text": "#64748b"}

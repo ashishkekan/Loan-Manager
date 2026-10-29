@@ -1,0 +1,37 @@
+/* Site-wide decorative icons and financial progress indicators. */
+html[data-theme="light"] :is(.feature-icon,.step-icon,.health-icon,.admin-stat-icon,.loan-type-icon,.loan-icon,.qs-icon):not(.danger):not(.warn),
+html[data-theme="light"] .sc-icon:not(.danger):not(.warn) {
+  color:var(--primary);
+  background:var(--primary-subtle);
+  box-shadow:none;
+}
+html[data-theme="light"] .qs-icon:not(.danger):not(.warn) {
+  color:var(--primary) !important;
+  background:var(--primary-subtle) !important;
+}
+html[data-theme="light"] :is(.feature-icon,.step-icon,.health-icon,.admin-stat-icon,.loan-type-icon,.loan-icon) i { color:inherit; }
+html[data-theme="light"] :is(.card-title,.chart-header,.operation-category) > i,
+html[data-theme="light"] .mc-type { color:var(--primary) !important; }
+html[data-theme="light"] :is(.progress-bar-large,.progress-small,.loan-progress-bar,.lmi-progress-bar,.card-progress-bar,.opp-progress-bar,.mc-bar,.goal-progress,.admin-progress) {
+  height:8px;
+  background:rgba(var(--primary-rgb),.1);
+  border-radius:999px;
+  overflow:hidden;
+  isolation:isolate;
+}
+html[data-theme="light"] :is(.progress-fill,.loan-progress-fill,.lmi-progress-fill,.card-progress-fill,.opp-progress-fill,.mc-bar-fill,.goal-progress-bar),
+html[data-theme="light"] .admin-progress > span {
+  display:block;
+  height:100%;
+  min-width:0;
+  max-width:100%;
+  border-radius:inherit;
+  background:var(--primary) !important;
+  box-shadow:none;
+}
+html[data-theme="light"] .progress-fill::after { display:none; }
+html[data-theme="light"] .lmi-progress-bar { height:6px; }
+html[data-theme="light"] :is(.lmi-percent,.loan-progress-info,.progress-percentage) { color:var(--primary-dark); font-variant-numeric:tabular-nums; }
+@media(prefers-reduced-motion:reduce) {
+  html[data-theme="light"] :is(.progress-fill,.loan-progress-fill,.lmi-progress-fill,.card-progress-fill,.opp-progress-fill,.mc-bar-fill,.goal-progress-bar) { transition:none; }
+}

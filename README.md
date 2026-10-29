@@ -4,6 +4,7 @@ Django loan tracking and operations application. New workflows are under **Loan 
 
 - [Feature guide, workflows and rollout notes](docs/OPERATIONS.md)
 - [Payment provider integration contract](docs/PROVIDER_CONTRACT.md)
+- [Setup, user and administrator workflow guide (Word)](docs/NexusLoan_Setup_and_Workflows.docx)
 
 ## Isolated local setup
 

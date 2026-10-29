@@ -15,12 +15,16 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+    {{ site_chart_palette|json_script:"site-chart-palette" }}
+    <script src="{% static 'js/chart-theme.js' %}"></script>
+
     <!-- App Styles -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
     {% if request.resolver_match.namespace == 'operations' %}<link rel="stylesheet" href="{% static 'css/operations.css' %}">{% endif %}
     {% include "operations/palette_style.html" %}
     {% block extra_head %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/theme-components.css' %}">
 <link rel="manifest" href="{% url 'manifest' %}">
 <meta name="theme-color" content="{{ site_palette.primary }}">
 <script>if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js', {scope:'/', updateViaCache:'none'}).catch(function () {}); }); }</script>

@@ -1,0 +1,61 @@
+/* Loan workspace: compact headings, predictable actions and readable metrics. */
+.loan-list-page .page-header,.loan-detail-page .page-header { margin-bottom:20px; }
+.loan-list-page .loans-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:18px; }
+.loan-list-page .loan-card { display:flex; flex-direction:column; padding:20px; min-width:0; }
+.loan-list-page .loan-card-header { margin-bottom:14px; }
+.loan-list-page .loan-card-title { font-size:16px; line-height:1.5; overflow-wrap:anywhere; margin:0; }
+.loan-list-page .loan-card-title a { color:var(--text); text-decoration:none; }
+.loan-list-page .loan-card-title a:hover { color:var(--primary); }
+.loan-list-page .loan-card-kind { margin:3px 0 16px; color:var(--text-secondary); font-size:12px; }
+.loan-list-page .loan-card-amount { font-size:24px; font-weight:700; margin:4px 0 18px; font-variant-numeric:tabular-nums; }
+.loan-list-page .loan-card-meta { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; padding:14px 0; border-top:1px solid #eef2f6; border-bottom:1px solid #eef2f6; margin:0 0 18px; }
+.loan-list-page .lcm-label { font-size:10px; color:#64748b; font-weight:600; }
+.loan-list-page .lcm-value { font-size:13px; margin-top:4px; }
+.loan-list-page .lcm-value small { display:block; color:#64748b; font-size:10px; font-weight:400; margin-top:3px; }
+.loan-list-page .loan-progress-section { margin-top:auto; }
+.loan-list-page .loan-progress-info { font-size:11px; gap:10px; flex-wrap:wrap; }
+.loan-list-page .loan-card-actions { display:flex; gap:10px; margin-top:18px; }
+.loan-list-page .loan-card-actions .btn { flex:1; }
+.loan-list-page .loan-status-badge,.loan-detail-page .loan-status-badge { font-size:10px; padding:4px 9px; }
+.loan-detail-page .loan-heading-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; margin-bottom:8px; }
+.loan-detail-page .loan-heading-row h1 { margin:0; overflow-wrap:anywhere; }
+.loan-detail-page .page-header > div:first-child { min-width:0; flex:1 1 100%; }
+.loan-detail-page .page-actions { justify-content:flex-start; width:100%; gap:8px; padding-top:12px; border-top:1px solid #e2e8f0; }
+.loan-detail-page .page-actions form { display:flex !important; margin:0 !important; }
+.loan-detail-page .page-actions .btn { min-height:36px; }
+.loan-detail-page .loan-action-bar { gap:12px; margin-bottom:18px; align-items:center; }
+.loan-detail-page .overdue-alert-enhanced { gap:12px; padding:12px 14px; border-radius:9px; background:#fff7f7; border:1px solid #fecaca; box-shadow:none; }
+.loan-detail-page .oa-icon { width:32px; height:32px; font-size:14px; border-radius:8px; color:#b91c1c; background:#fee2e2; }
+.loan-detail-page .oa-content { display:flex; align-items:center; flex-wrap:wrap; gap:4px 14px; min-width:0; }
+.loan-detail-page .oa-title { font-size:13px; font-weight:650; margin:0; line-height:1.5; }
+.loan-detail-page .oa-meta { gap:10px; font-size:11px; margin:0; align-items:center; }
+.loan-detail-page .oa-days { font-size:10px; padding:3px 8px; background:#fee2e2; color:#991b1b; border-radius:6px; }
+.loan-detail-page .oa-note { flex-basis:100%; font-size:11px; color:#7f1d1d; line-height:1.5; }
+.loan-detail-page .pay-emi-form { margin:0 0 0 auto; }
+.loan-detail-page .pay-emi-small { width:auto; min-width:145px; height:40px; padding:8px 14px; border-radius:8px; gap:8px; }
+.loan-detail-page .pay-emi-small i { font-size:14px; }
+.loan-detail-page .pay-text { display:flex; align-items:center; gap:8px; }
+.loan-detail-page .pay-text strong,.loan-detail-page .pay-text small { font-size:12px; }
+.loan-detail-page .summary-grid { gap:14px; }
+.loan-detail-page .glass-card { min-width:0; }
+.loan-detail-page .glass-card h3 { line-height:1.5; }
+.loan-detail-page .breadcrumb { flex-wrap:wrap; overflow-wrap:anywhere; font-size:11px; }
+.loan-detail-page .lc-type-icon { background:var(--primary-subtle) !important; color:var(--primary) !important; border-radius:7px; }
+@media(max-width:900px) {
+  .loan-detail-page .loan-action-bar { align-items:stretch; }
+  .loan-detail-page .pay-emi-form { width:auto; margin:0; }
+  .loan-detail-page .pay-emi-small { width:100%; }
+}
+@media(max-width:600px) {
+  .loan-list-page .loan-card { padding:16px; }
+  .loan-list-page .page-header > .btn { width:100%; }
+  .loan-detail-page .page-actions .btn { flex:1 1 auto; min-height:44px; }
+  .loan-detail-page .oa-meta { flex-basis:100%; }
+  .loan-detail-page .overdue-alert-enhanced { align-items:flex-start; }
+  .loan-detail-page .oa-note { margin-top:2px; }
+  .loan-detail-page .pay-emi-small { min-height:44px; }
+}
+
+.loan-detail-page .page-actions .pay-emi-form { margin:0; width:auto; }
+.loan-detail-page .page-actions .pay-emi-small { height:36px; min-height:36px; min-width:0; }
+@media(max-width:600px) { .loan-detail-page .page-actions .pay-emi-small { min-height:44px; } }

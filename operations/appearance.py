@@ -5,7 +5,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 from .models import SiteAppearance
-from .palettes import COLORS, palette
+from .palettes import COLORS, palette, chart_palette
 
 
 class AppearanceForm(forms.ModelForm):
@@ -17,7 +17,8 @@ class AppearanceForm(forms.ModelForm):
 
 def site_appearance(request):
     appearance = SiteAppearance.objects.filter(pk=1).first()
-    return {"site_palette": palette(appearance.color if appearance else "green")}
+    color = appearance.color if appearance else "green"
+    return {"site_palette": palette(color), "site_chart_palette": chart_palette(color)}
 
 
 @login_required

@@ -154,7 +154,7 @@
                 </div>
                 <div class="lmi-right">
                     <div class="lmi-balance">₹{{ loan.remaining_balance|floatformat:0 }}</div>
-                    <div class="lmi-progress-bar">
+                    <div class="lmi-progress-bar" role="progressbar" aria-label="{{ loan.loan_name }} repayment" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ loan.progress_percent }}">
                         <div class="lmi-progress-fill" style="width:{{ loan.progress_percent }}%"></div>
                     </div>
                     <div class="lmi-percent">{{ loan.progress_percent }}%</div>
@@ -600,7 +600,7 @@
                     </div>
                     <div class="lmi-right">
                         <div class="lmi-balance">₹{{ loan.remaining_balance|floatformat:0 }}</div>
-                        <div class="lmi-progress-bar">
+                        <div class="lmi-progress-bar" role="progressbar" aria-label="{{ loan.loan_name }} repayment" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ loan.progress_percent }}">
                             <div class="lmi-progress-fill" style="width: {{ loan.progress_percent }}%"></div>
                         </div>
                         <div class="lmi-percent">{{ loan.progress_percent }}%</div>
@@ -641,7 +641,7 @@
                 </div>
                 <div class="qs-item">
                     <div class="qs-left">
-                        <div class="qs-icon" style="background: rgba(239,68,68,0.1); color: var(--danger);">
+                        <div class="qs-icon danger" style="background: rgba(239,68,68,0.1); color: var(--danger);">
                             <i class="fas fa-exclamation-triangle"></i>
                         </div>
                         <div>
@@ -785,7 +785,7 @@
             labels: data.labels,
             datasets: [{
                 data: data.values,
-                backgroundColor: ["#28a745", "#94a3b8"],
+                backgroundColor: [LoanChartTheme.series[0], LoanChartTheme.neutral],
                 borderWidth: 2
             }]
         },
@@ -811,7 +811,7 @@
             labels: data.labels,
             datasets: [{
                 data: data.values,
-                backgroundColor: ["#28a745", "#f59e0b"],
+                backgroundColor: LoanChartTheme.series.slice(0, 2),
                 borderWidth: 2
             }]
         },
@@ -840,9 +840,9 @@
 
         // Gradient fill under the line
         const gradient = ctx.createLinearGradient(0, 0, 0, 280);
-        gradient.addColorStop(0, 'rgba(40, 167, 69, 0.22)');
-        gradient.addColorStop(0.5, 'rgba(40, 167, 69, 0.08)');
-        gradient.addColorStop(1, 'rgba(40, 167, 69, 0.01)');
+        gradient.addColorStop(0, LoanChartTheme.alpha(LoanChartTheme.series[0], 0.22));
+        gradient.addColorStop(0.5, LoanChartTheme.alpha(LoanChartTheme.series[0], 0.08));
+        gradient.addColorStop(1, LoanChartTheme.alpha(LoanChartTheme.series[0], 0.01));
 
         new Chart(ctx, {
             type: 'line',
@@ -851,13 +851,13 @@
                 datasets: [{
                     label: 'Remaining Balance',
                     data: data.balances,
-                    borderColor: '#28a745',
+                    borderColor: LoanChartTheme.series[0],
                     backgroundColor: gradient,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
                     pointHoverRadius: 6,
-                    pointHoverBackgroundColor: '#28a745',
+                    pointHoverBackgroundColor: LoanChartTheme.series[0],
                     pointHoverBorderColor: '#fff',
                     pointHoverBorderWidth: 3,
                     borderWidth: 2.5,
@@ -894,18 +894,18 @@
                         grid: { display: false },
                         ticks: {
                             maxTicksLimit: 12,
-                            color: '#94a3b8',
+                            color: LoanChartTheme.text,
                             font: { family: 'Plus Jakarta Sans', size: 11 }
                         },
                         border: { display: false }
                     },
                     y: {
                         grid: {
-                            color: 'rgba(148, 163, 184, 0.08)',
+                            color: LoanChartTheme.grid,
                             drawBorder: false,
                         },
                         ticks: {
-                            color: '#94a3b8',
+                            color: LoanChartTheme.text,
                             font: { family: 'Plus Jakarta Sans', size: 11 },
                             padding: 8,
                             callback: function(value) {
@@ -941,10 +941,10 @@
                 datasets: [{
                     data: hasData ? [data.principal, data.interest] : [1, 0],
                     backgroundColor: hasData
-                        ? ['#28a745', '#f59e0b']
+                        ? LoanChartTheme.series.slice(0, 2)
                         : ['rgba(148,163,184,0.15)', 'rgba(148,163,184,0.08)'],
                     borderColor: hasData
-                        ? ['rgba(40,167,69,0.4)', 'rgba(245,158,11,0.4)']
+                        ? ['#ffffff', '#ffffff']
                         : ['rgba(148,163,184,0.1)', 'rgba(148,163,184,0.05)'],
                     borderWidth: 2,
                     hoverOffset: 10,
