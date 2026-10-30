@@ -4,8 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
+
 from .models import SiteAppearance
-from .palettes import COLORS, palette, chart_palette
+from .palettes import COLORS, chart_palette, palette
 
 
 class AppearanceForm(forms.ModelForm):
@@ -34,4 +35,12 @@ def appearance_view(request):
         appearance.save()
         messages.success(request, "Site appearance updated for everyone.")
         return redirect("operations:appearance")
-    return render(request, "operations/appearance.html", {"form": form, "appearance": appearance, "palettes": [palette(key) for key in COLORS]})
+    return render(
+        request,
+        "operations/appearance.html",
+        {
+            "form": form,
+            "appearance": appearance,
+            "palettes": [palette(key) for key in COLORS],
+        },
+    )

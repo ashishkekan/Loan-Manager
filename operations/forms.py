@@ -1,10 +1,13 @@
 from decimal import Decimal
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+
 from loans.models import LoanDocument
-from .models import *
+
 from .access import loans_for
+from .models import *
 
 
 class ReceiptForm(forms.ModelForm):

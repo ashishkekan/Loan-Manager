@@ -8,21 +8,45 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('operations', '0005_onboarding'),
+        ("operations", "0005_onboarding"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='SiteAppearance',
+            name="SiteAppearance",
             fields=[
-                ('id', models.PositiveSmallIntegerField(default=1, editable=False, primary_key=True, serialize=False)),
-                ('theme', models.CharField(choices=[('light', 'Light'), ('dark', 'Dark')], default='light', max_length=5)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('updated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.PositiveSmallIntegerField(
+                        default=1, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                (
+                    "theme",
+                    models.CharField(
+                        choices=[("light", "Light"), ("dark", "Dark")],
+                        default="light",
+                        max_length=5,
+                    ),
+                ),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "updated_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'constraints': [models.CheckConstraint(condition=models.Q(('id', 1)), name='single_site_appearance')],
+                "constraints": [
+                    models.CheckConstraint(
+                        condition=models.Q(("id", 1)), name="single_site_appearance"
+                    )
+                ],
             },
         ),
     ]

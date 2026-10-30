@@ -2,37 +2,40 @@ from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 from unittest.mock import patch
-from django.test import TestCase, override_settings
-from django.urls import reverse
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core import mail
-from django.core.exceptions import ValidationError, PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.utils import timezone
 from django.core.management import call_command
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
+
 from loans.models import (
+    Investment,
     Loan,
     LoanDisbursement,
     LoanDocument,
     Notification,
-    Investment,
     SecuritySetting,
 )
-from loans.utils import generate_full_schedule, calculate_emi, calculate_foreclosure
+from loans.utils import calculate_emi, calculate_foreclosure, generate_full_schedule
 from payments.models import Payment
+
+from .access import loans_for
+from .advanced import provision_roles, simulate_debts
+from .imports import commit_rows, read_rows, validate_rows
 from .models import *
+from .security import consume, send_challenge
 from .services import (
-    verify_receipt,
     approve_reversal,
-    review_revision,
     review_application,
+    review_revision,
+    verify_receipt,
     waive_charge,
 )
-from .security import send_challenge, consume
-from .access import loans_for
-from .imports import validate_rows, commit_rows, read_rows
-from .advanced import simulate_debts, provision_roles
 
 
 class OperationsTests(TestCase):
@@ -531,9 +534,10 @@ class OperationsTests(TestCase):
                 self.assertEqual(self.client.get(path).status_code, 200)
 
     def test_navigation_role_visibility_and_active_report(self):
-        from loan_manager.navigation import app_navigation
         from django.test import RequestFactory
         from django.urls import resolve
+
+        from loan_manager.navigation import app_navigation
 
         request = RequestFactory().get("/reports/?report=overdue")
         request.resolver_match = resolve("/reports/")
@@ -541,14 +545,23 @@ class OperationsTests(TestCase):
         groups = app_navigation(request)["sidebar_groups"]
         reports = next(group for group in groups if group["label"] == "Reports")
         self.assertTrue(reports["active"])
-        self.assertEqual([item["label"] for item in reports["items"] if item["active"]], ["Overdue loans"])
+        self.assertEqual(
+            [item["label"] for item in reports["items"] if item["active"]],
+            ["Overdue loans"],
+        )
         request.user = self.borrower
         groups = app_navigation(request)["sidebar_groups"]
         self.assertNotIn("Reports", [group["label"] for group in groups])
         self.assertNotIn("Administration", [group["label"] for group in groups])
-        operations = next(group for group in groups if group["label"] == "Loan Operations")
-        self.assertNotIn("Product policies", [item["label"] for item in operations["items"]])
-        self.assertNotIn("Bank reconciliation", [item["label"] for item in operations["items"]])
+        operations = next(
+            group for group in groups if group["label"] == "Loan Operations"
+        )
+        self.assertNotIn(
+            "Product policies", [item["label"] for item in operations["items"]]
+        )
+        self.assertNotIn(
+            "Bank reconciliation", [item["label"] for item in operations["items"]]
+        )
 
     def test_all_admin_navigation_destinations_render(self):
         self.client.force_login(self.checker)
@@ -588,6 +601,7 @@ class OperationsTests(TestCase):
 
     def test_all_site_colors_use_light_surfaces(self):
         from .palettes import COLORS
+
         self.client.force_login(self.checker)
         self.assertEqual(len(COLORS), 16)
         for color in COLORS:
@@ -597,7 +611,9 @@ class OperationsTests(TestCase):
                 self.assertContains(response, 'data-theme="light"')
                 self.assertContains(response, f'data-color="{color}"')
                 self.assertContains(response, COLORS[color][1])
-        self.assertNotContains(self.client.get(reverse("operations:appearance")), 'name="theme"')
+        self.assertNotContains(
+            self.client.get(reverse("operations:appearance")), 'name="theme"'
+        )
 
     def test_manifest_and_worker(self):
         self.assertEqual(self.client.get("/manifest.webmanifest").status_code, 200)
@@ -735,7 +751,7 @@ class OperationsTests(TestCase):
         self.assertEqual(summary["paid"], 0)
 
     def test_due_reminder_is_idempotent(self):
-        from operations.reminders import queue_reminders, deliver_reminders
+        from operations.reminders import deliver_reminders, queue_reminders
 
         queue_reminders()
         count = Reminder.objects.count()
@@ -835,7 +851,9 @@ class OperationsTests(TestCase):
         PAYMENT_CHECKOUT_HOSTS=["pay.example.test"],
     )
     def test_gateway_captured_signature_and_duplicate(self):
-        import json, hmac, hashlib
+        import hashlib
+        import hmac
+        import json
 
         r = self.receipt()
         GatewayOrder.objects.create(receipt=r, provider_order="order-test")
@@ -884,7 +902,9 @@ class OperationsTests(TestCase):
 
     @override_settings(PAYMENT_ADAPTER="operations.tests.FakeProvider")
     def test_gateway_wrong_amount_not_posted(self):
-        import json, hmac, hashlib
+        import hashlib
+        import hmac
+        import json
 
         r = self.receipt()
         GatewayOrder.objects.create(receipt=r, provider_order="order-test")
@@ -957,7 +977,9 @@ class OperationsTests(TestCase):
         PAYMENT_CHECKOUT_HOSTS=["pay.example.test"],
     )
     def test_mandate_pending_until_signed_callback(self):
-        import json, hmac, hashlib
+        import hashlib
+        import hmac
+        import json
 
         self.client.force_login(self.borrower)
         response = self.client.post(
@@ -1016,7 +1038,9 @@ class OperationsTests(TestCase):
 
 class FakeProvider:
     def verify_webhook(self, body, headers):
-        import hashlib, hmac, json
+        import hashlib
+        import hmac
+        import json
 
         expected = hmac.new(b"test-webhook-only", body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, headers.get("X-Signature", "")):
@@ -1039,15 +1063,22 @@ class FakeProvider:
 class ChartPaletteTests(TestCase):
     def test_every_theme_has_distinct_readable_chart_colors(self):
         from .palettes import COLORS, chart_palette
+
         def luminance(color):
-            channels = [int(color[i:i+2], 16) / 255 for i in (1, 3, 5)]
-            channels = [c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4 for c in channels]
-            return sum(c * weight for c, weight in zip(channels, [.2126, .7152, .0722]))
+            channels = [int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+            channels = [
+                c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+                for c in channels
+            ]
+            return sum(
+                c * weight for c, weight in zip(channels, [0.2126, 0.7152, 0.0722])
+            )
+
         for key, (_, primary) in COLORS.items():
             with self.subTest(theme=key):
                 colors = chart_palette(key)["series"]
                 self.assertEqual(colors[0], primary)
                 self.assertEqual(len(set(colors)), 4)
                 for color in colors:
-                    self.assertGreaterEqual(1.05 / (luminance(color) + .05), 3)
+                    self.assertGreaterEqual(1.05 / (luminance(color) + 0.05), 3)
         self.assertEqual(chart_palette("invalid"), chart_palette("green"))

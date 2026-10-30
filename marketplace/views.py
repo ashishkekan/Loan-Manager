@@ -1,9 +1,14 @@
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.db.models import DecimalField, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, ListView, TemplateView
 
 from accounts.models import Profile
@@ -53,12 +58,6 @@ class MarketplaceView(LoginRequiredMixin, ListView):
         context["is_lender"] = profile.role == "lender" and profile.kyc_verified
         context["profile_complete"] = profile.role != "guest"
         return context
-
-
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
-from django.db import transaction
-from decimal import Decimal, InvalidOperation
 
 
 @login_required

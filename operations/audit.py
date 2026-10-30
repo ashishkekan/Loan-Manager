@@ -1,7 +1,8 @@
 """Append-only application audit, without document contents or credentials."""
 
 from contextvars import ContextVar
-from django.db.models.signals import pre_save, post_save, post_delete
+
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 actor = ContextVar("audit_actor", default=None)
@@ -155,7 +156,9 @@ def disbursement_balance(sender, instance, raw=False, **kwargs):
     if raw:
         return
     from decimal import Decimal
+
     from django.db.models import Sum
+
     from loans.models import Loan
 
     loan = Loan.objects.get(pk=instance.loan_id)
@@ -172,8 +175,8 @@ def disbursement_balance(sender, instance, raw=False, **kwargs):
     loan.save(update_fields=["remaining_balance"])
 
 
-from django.db.models.signals import pre_delete
 from django.db.models.deletion import ProtectedError
+from django.db.models.signals import pre_delete
 
 
 @receiver(pre_delete)

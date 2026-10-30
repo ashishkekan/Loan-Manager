@@ -1,11 +1,13 @@
 import hashlib
 import secrets
 from datetime import timedelta
+
+from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.signals import user_logged_in
 from django.contrib.auth.views import LoginView
 from django.core.mail import send_mail
@@ -14,8 +16,9 @@ from django.dispatch import receiver
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from django import forms
+
 from loans.models import SecuritySetting
+
 from .models import Challenge, Identity, LoginAttempt, LoginSession
 
 

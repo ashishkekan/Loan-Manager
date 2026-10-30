@@ -1,11 +1,14 @@
 from datetime import timedelta
+
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 from django.utils.module_loading import import_string
-from loans.models import Loan, NotificationPreference, LoanDocument
+
+from loans.models import Loan, LoanDocument, NotificationPreference
 from loans.utils import create_notification, generate_full_schedule
+
 from .models import Reminder
 
 

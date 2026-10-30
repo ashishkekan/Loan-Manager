@@ -1,10 +1,12 @@
 import uuid
-from django.conf import settings
-from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
 
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+
 from loans.models import Loan
+
 from .palettes import COLOR_CHOICES
 
 USER = settings.AUTH_USER_MODEL
@@ -537,10 +539,17 @@ class Onboarding(models.Model):
 
 class SiteAppearance(models.Model):
     """One site-wide appearance record, managed only by a superuser."""
+
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     color = models.CharField(max_length=16, choices=COLOR_CHOICES, default="green")
-    updated_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.SET_NULL)
+    updated_by = models.ForeignKey(
+        USER, null=True, blank=True, on_delete=models.SET_NULL
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="single_site_appearance")]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(id=1), name="single_site_appearance"
+            )
+        ]

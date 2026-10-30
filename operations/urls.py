@@ -1,10 +1,11 @@
 from django.urls import path
-from . import views, security, advanced, gateway, appearance
+
+from . import advanced, appearance, gateway, security, views
 
 app_name = "operations"
 urlpatterns = [
     path("appearance/", appearance.appearance_view, name="appearance"),
-    path("profile-photo/<int:user_id>/",views.profile_photo,name="profile_photo"),
+    path("profile-photo/<int:user_id>/", views.profile_photo, name="profile_photo"),
     path("onboarding/", advanced.onboarding, name="onboarding"),
     path(
         "onboarding/<int:pk>/proof/", advanced.onboarding_proof, name="onboarding_proof"

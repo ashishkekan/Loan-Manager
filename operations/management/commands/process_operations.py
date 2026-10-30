@@ -1,9 +1,10 @@
-from django.core.management.base import BaseCommand
 from django.core.exceptions import ValidationError
+from django.core.management.base import BaseCommand
 from django.utils import timezone
+
 from operations.models import LoanRevision
+from operations.reminders import deliver_reminders, queue_reminders
 from operations.services import apply_revision
-from operations.reminders import queue_reminders, deliver_reminders
 
 
 class Command(BaseCommand):

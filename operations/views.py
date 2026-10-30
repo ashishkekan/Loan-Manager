@@ -1,25 +1,30 @@
 import csv
-from zipfile import BadZipFile
-from openpyxl.utils.exceptions import InvalidFileException
 import io
 from datetime import date
 from decimal import Decimal
+from zipfile import BadZipFile
+
 from django import forms
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction, IntegrityError
-from django.db.models import Q, Sum, Count
-from django.http import HttpResponse, FileResponse, Http404
-from django.shortcuts import render, redirect, get_object_or_404
+from django.db import IntegrityError, transaction
+from django.db.models import Count, Q, Sum
+from django.http import FileResponse, Http404, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from loans.models import Loan, LoanDocument, LoanDisbursement
+from openpyxl.utils.exceptions import InvalidFileException
+
+from loans.models import Loan, LoanDisbursement, LoanDocument
 from loans.utils import generate_full_schedule
-from . import models as m, forms as f, services as s
-from .access import loans_for, scope, can_operate, application_scope
-from .imports import read_rows, validate_rows, commit_rows, LOAN_HEADERS, BANK_HEADERS
+
+from . import forms as f
+from . import models as m
+from . import services as s
+from .access import application_scope, can_operate, loans_for, scope
+from .imports import BANK_HEADERS, LOAN_HEADERS, commit_rows, read_rows, validate_rows
 
 SECTIONS = {
     "disbursements": (LoanDisbursement, f.DisbursementForm, None),
@@ -531,9 +536,10 @@ def proof(request, pk):
 
 @login_required
 def document_pdf(request, kind, pk):
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
     from xml.sax.saxutils import escape
+
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
     receipt = None
     if kind == "receipt":
@@ -667,12 +673,14 @@ def edit_application(request, pk):
         request, "operations/form.html", {"form": form, "title": "Edit application"}
     )
 
+
 @login_required
 def profile_photo(request, user_id):
     from loans.models import UserProfile
+
     if request.user.pk != user_id and not request.user.is_superuser:
         raise Http404
-    profile=get_object_or_404(UserProfile,user_id=user_id)
+    profile = get_object_or_404(UserProfile, user_id=user_id)
     if not profile.photo:
         raise Http404
-    return FileResponse(profile.photo.open("rb"),as_attachment=False)
+    return FileResponse(profile.photo.open("rb"), as_attachment=False)

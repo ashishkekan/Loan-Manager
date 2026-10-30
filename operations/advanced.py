@@ -1,19 +1,22 @@
 from decimal import Decimal
+
 from django import forms
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Sum
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+
 from loans.models import Investment
+
 from . import models as m
+from .access import can_operate, loans_for
 from .forms import PlannerForm, TransferForm
-from .services import money, amortize, permit, checker
-from .access import loans_for, can_operate
+from .services import amortize, checker, money, permit
 
 ROLE_PERMISSIONS = {
     "Loan Officer": [

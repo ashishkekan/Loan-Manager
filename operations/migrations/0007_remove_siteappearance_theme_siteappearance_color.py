@@ -6,17 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('operations', '0006_siteappearance'),
+        ("operations", "0006_siteappearance"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='siteappearance',
-            name='theme',
+            model_name="siteappearance",
+            name="theme",
         ),
         migrations.AddField(
-            model_name='siteappearance',
-            name='color',
-            field=models.CharField(choices=[('green', 'Forest'), ('emerald', 'Emerald'), ('teal', 'Teal'), ('cyan', 'Ocean'), ('sky', 'Sky'), ('blue', 'Blue'), ('indigo', 'Indigo'), ('violet', 'Violet'), ('purple', 'Purple'), ('fuchsia', 'Orchid'), ('pink', 'Pink'), ('rose', 'Rose'), ('red', 'Ruby'), ('orange', 'Terracotta'), ('amber', 'Amber'), ('slate', 'Slate')], default='green', max_length=16),
+            model_name="siteappearance",
+            name="color",
+            field=models.CharField(
+                choices=[
+                    ("green", "Forest"),
+                    ("emerald", "Emerald"),
+                    ("teal", "Teal"),
+                    ("cyan", "Ocean"),
+                    ("sky", "Sky"),
+                    ("blue", "Blue"),
+                    ("indigo", "Indigo"),
+                    ("violet", "Violet"),
+                    ("purple", "Purple"),
+                    ("fuchsia", "Orchid"),
+                    ("pink", "Pink"),
+                    ("rose", "Rose"),
+                    ("red", "Ruby"),
+                    ("orange", "Terracotta"),
+                    ("amber", "Amber"),
+                    ("slate", "Slate"),
+                ],
+                default="green",
+                max_length=16,
+            ),
         ),
     ]

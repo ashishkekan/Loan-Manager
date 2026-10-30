@@ -490,8 +490,8 @@ class LoanDisbursement(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        from django.db import transaction
         from django.core.exceptions import ValidationError
+        from django.db import transaction
 
         with transaction.atomic():
             loan = Loan.objects.select_for_update().get(pk=self.loan_id)

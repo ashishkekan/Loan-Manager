@@ -1,19 +1,14 @@
 """URL routes for the accounts app."""
 
+from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from accounts.views import CustomLoginView, register_view
-
-urlpatterns = [
-    path("accounts/login/", CustomLoginView.as_view(), name="login"),
-    path("accounts/register/", register_view, name="register"),
-]
-
-from django.contrib.auth import views as auth_views
+from accounts.views import register_view
 from operations.security import SecureLoginView
 
-urlpatterns = [p for p in urlpatterns if p.name != "login"] + [
+urlpatterns = [
     path("accounts/login/", SecureLoginView.as_view(), name="login"),
+    path("accounts/register/", register_view, name="register"),
     path(
         "accounts/password/reset/",
         auth_views.PasswordResetView.as_view(template_name="registration/form.html"),

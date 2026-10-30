@@ -1,4 +1,5 @@
 """Curated light palettes. Only these validated values are rendered into CSS."""
+
 COLORS = {
     "green": ("Forest", "#22863a"),
     "emerald": ("Emerald", "#047857"),
@@ -23,13 +24,21 @@ COLOR_CHOICES = [(key, value[0]) for key, value in COLORS.items()]
 def palette(key):
     key = key if key in COLORS else "green"
     name, primary = COLORS[key]
-    rgb = tuple(int(primary[i:i+2], 16) for i in (1, 3, 5))
+    rgb = tuple(int(primary[i : i + 2], 16) for i in (1, 3, 5))
+
     def mix(amount):
         return "#" + "".join(f"{round(c + (255-c)*amount):02x}" for c in rgb)
-    return {"key": key, "name": name, "primary": primary,
-            "rgb": ", ".join(map(str, rgb)),
-            "dark": "#" + "".join(f"{round(c*.8):02x}" for c in rgb),
-            "light": mix(.2), "background": mix(.96)}
+
+    return {
+        "key": key,
+        "name": name,
+        "primary": primary,
+        "rgb": ", ".join(map(str, rgb)),
+        "dark": "#" + "".join(f"{round(c*.8):02x}" for c in rgb),
+        "light": mix(0.2),
+        "background": mix(0.96),
+    }
+
 
 # Distinct companion hues for financial series on light backgrounds.
 CHART_COMPANIONS = {
@@ -54,5 +63,9 @@ CHART_COMPANIONS = {
 
 def chart_palette(key):
     key = key if key in COLORS else "green"
-    return {"series": [COLORS[key][1], *CHART_COMPANIONS[key]],
-            "neutral": "#94a3b8", "grid": "#e2e8f0", "text": "#64748b"}
+    return {
+        "series": [COLORS[key][1], *CHART_COMPANIONS[key]],
+        "neutral": "#94a3b8",
+        "grid": "#e2e8f0",
+        "text": "#64748b",
+    }

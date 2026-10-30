@@ -1,5 +1,6 @@
 """Whole-rupee presentation; stored ledger values retain their precision."""
-from decimal import Decimal, ROUND_HALF_UP
+
+from decimal import ROUND_HALF_UP, Decimal
 
 
 def rounded_rupees(value):

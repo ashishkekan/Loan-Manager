@@ -1,21 +1,24 @@
 """Authoritative, atomic transitions for financial operations."""
 
 from datetime import timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
+
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+
 from loans.models import Loan, LoanDisbursement
 from loans.utils import (
-    calculate_emi,
-    get_period_details,
     add_periods,
+    calculate_emi,
     create_notification,
+    get_period_details,
 )
 from payments.models import Payment, Prepayment
-from .models import Receipt, Reversal, LoanRevision, Charge, Application
-from .access import can_operate, application_scope
+
+from .access import application_scope, can_operate
+from .models import Application, Charge, LoanRevision, Receipt, Reversal
 
 ZERO = Decimal("0.00")
 
@@ -142,7 +145,7 @@ def verify_receipt(pk, user, approve=True, remarks=""):
             raise ValidationError("Complete the partial EMI before prepayment.")
         if receipt.amount > loan.remaining_balance:
             raise ValidationError("Prepayment exceeds outstanding principal.")
-        from loans.utils import simulate_extra_emi, calculate_remaining_periods
+        from loans.utils import calculate_remaining_periods, simulate_extra_emi
 
         old_periods = calculate_remaining_periods(
             loan.remaining_balance, loan.interest_rate, loan.emi, loan.emi_frequency

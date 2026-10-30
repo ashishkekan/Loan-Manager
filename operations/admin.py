@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Organization, Branch, Membership, AuditEvent
+
+from .models import AuditEvent, Branch, Membership, Organization
 
 
 @admin.register(AuditEvent)

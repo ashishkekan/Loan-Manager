@@ -1,6 +1,7 @@
 """Compatibility facade for the next scheduled debit display."""
 
 from decimal import Decimal
+
 from loans.utils import generate_full_schedule
 
 

@@ -1,6 +1,8 @@
-from django.db.models import Q
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+
 from loans.models import Loan
+
 from .models import Membership
 
 

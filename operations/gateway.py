@@ -2,19 +2,21 @@
 
 import json
 from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db import transaction, IntegrityError
-from django.http import JsonResponse, HttpResponse
+from django.db import IntegrityError, transaction
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.module_loading import import_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from .models import GatewayOrder, GatewayEvent, Receipt, Mandate
-from .services import verify_receipt
+
 from .access import can_operate
+from .models import GatewayEvent, GatewayOrder, Mandate, Receipt
+from .services import verify_receipt
 
 
 def adapter():
@@ -145,8 +147,9 @@ def mandates(request):
     from django import forms
     from django.contrib import messages
     from django.utils import timezone
-    from .models import Mandate
+
     from .access import loans_for
+    from .models import Mandate
 
     class MandateForm(forms.ModelForm):
         consent = forms.BooleanField(
@@ -244,9 +247,11 @@ def mandates(request):
 def queue_recurring_payments():
     """Explicitly opt-in worker. Only provider callbacks can post the receipt."""
     from django.utils import timezone
-    from .models import Mandate
+
     from loans.models import Loan
     from loans.utils import generate_full_schedule
+
+    from .models import Mandate
 
     if not getattr(settings, "PAYMENT_RECURRING_ENABLED", False):
         return

@@ -59,7 +59,6 @@ from loans.models import (
 )
 from loans.services import AccruedInterestService
 from loans.utils import (
-    get_period_details,
     add_periods,
     calculate_emi,
     calculate_foreclosure,
@@ -70,6 +69,7 @@ from loans.utils import (
     generate_projected_schedule,
     get_account_statistics,
     get_admin_statistics,
+    get_period_details,
     get_support_ticket_summary,
     get_user_loans,
     simulate_extra_emi,

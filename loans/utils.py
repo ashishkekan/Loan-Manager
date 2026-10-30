@@ -115,7 +115,7 @@ def build_paid_schedule(loan):
 
 
 def build_projected_schedule(loan):
-    from operations.services import next_due, money
+    from operations.services import money, next_due
 
     rows = {}
     if loan.status == "closed":
