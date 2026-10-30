@@ -1,0 +1,18 @@
+.recovery-page { padding:40px 20px; min-height:100vh; }
+.recovery-card { width:100%; max-width:480px; padding:32px; }
+.recovery-card:hover { transform:none; }
+.recovery-card .auth-brand { display:flex; justify-content:center; color:var(--text); margin-bottom:28px; font-size:22px; }
+.recovery-icon { display:flex; align-items:center; justify-content:center; width:48px; height:48px; margin:0 auto 18px; border-radius:12px; background:var(--primary-subtle); color:var(--primary); font-size:20px; }
+.recovery-card h1 { text-align:center; font-size:26px; line-height:1.3; margin:0 0 12px; }
+.recovery-description { text-align:center; color:var(--text-secondary); font-size:14px; line-height:1.75; margin:0 0 24px; }
+.recovery-form label { display:block; margin-bottom:8px; font-size:14px; font-weight:600; }
+.recovery-form input { width:100%; min-height:44px; padding:12px 14px; border:1px solid var(--border-input); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text); font:inherit; }
+.recovery-form input:focus { outline:2px solid var(--primary); outline-offset:2px; }
+.recovery-form input[aria-invalid=true] { border-color:var(--danger); }
+.recovery-help { color:var(--text-secondary); font-size:12px; line-height:1.7; margin-top:8px; }
+.recovery-help ul,.recovery-errors ul { padding-left:18px; margin:6px 0; }
+.recovery-errors { color:var(--danger); font-size:13px; line-height:1.6; margin-top:8px; }
+.recovery-note { margin:0 0 24px; text-align:center; }
+.recovery-card .btn { min-height:44px; white-space:normal; }
+.recovery-card .auth-switch { margin:22px 0 0; text-align:center; }
+@media(max-width:480px) { .recovery-page { padding:24px 16px; } .recovery-card { padding:24px 20px; } .recovery-card h1 { font-size:23px; } }

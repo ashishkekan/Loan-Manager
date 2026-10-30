@@ -5,6 +5,38 @@
     const overlay = document.getElementById('sidebarOverlay');
     if (!sidebar || !toggle || !overlay) return;
     const mobile = window.matchMedia('(max-width: 1024px)');
+    const layout = sidebar.closest('.app-layout');
+    const collapseToggle = document.getElementById('sidebarCollapseToggle');
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('nexusloan.sidebarCollapsed') === 'true'; } catch (_) {}
+    function syncDesktop() {
+        const hidden = !mobile.matches && collapsed;
+        layout.classList.toggle('sidebar-collapsed', hidden);
+
+        collapseToggle?.setAttribute('aria-expanded', String(!hidden));
+        const label = hidden ? 'Expand sidebar' : 'Collapse sidebar';
+        collapseToggle?.setAttribute('aria-label', label);
+        collapseToggle?.setAttribute('title', label);
+    }
+    collapseToggle?.addEventListener('click', () => {
+        collapsed = !collapsed;
+        try { localStorage.setItem('nexusloan.sidebarCollapsed', String(collapsed)); } catch (_) {}
+        syncDesktop();
+    });
+    sidebar.querySelectorAll('.sidebar-nav > a, .sidebar-nav > details > summary, .nav-logout, .sidebar-logo').forEach(control => {
+        control.title = control.textContent.trim();
+    });
+    sidebar.querySelectorAll('.sidebar-nav > details > summary').forEach(summary => {
+        summary.addEventListener('click', event => {
+            if (mobile.matches || !collapsed) return;
+            event.preventDefault();
+            collapsed = false;
+            try { localStorage.setItem('nexusloan.sidebarCollapsed', 'false'); } catch (_) {}
+            syncDesktop();
+            summary.parentElement.open = true;
+        });
+    });
+    syncDesktop();
     function setOpen(open) {
         sidebar.classList.toggle('open', open);
         overlay.classList.toggle('active', open);
@@ -27,5 +59,5 @@
     sidebar.addEventListener('click', event => {
         if (mobile.matches && event.target.closest('a')) setOpen(false);
     });
-    mobile.addEventListener('change', () => setOpen(false));
+    mobile.addEventListener('change', () => { setOpen(false); syncDesktop(); });
 })();

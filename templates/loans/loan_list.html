@@ -1,7 +1,7 @@
 {% extends 'app_layout.html' %}
 {% load static %}
 {% block title %}{% if not request.user.is_superuser %}My Loans{% else %}Loans{% endif %}{% endblock %}
-{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/loan-pages.css' %}">{% endblock %}
+{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/loan-pages.css' %}?v=compact-3">{% endblock %}
 {% block app_content %}
 <section class="loan-list-page">
 <div class="page-header">

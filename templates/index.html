@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}NexusLoan — Smart P2P Lending & Loan Tracking{% endblock %}
+{% block extra_head %}{{ block.super }}<script defer src="{% static 'js/landing.js' %}?v=1"></script><link rel="stylesheet" href="{% static 'css/landing-readability.css' %}?v=moving-blobs-5">{% endblock %}
 {% block content %}
 <nav class="landing-nav" id="landingNav">
     <div class="nav-container">
@@ -36,7 +37,7 @@
     </div>
 </nav>
 <section class="hero">
-    <div class="hero-bg">
+    <div class="hero-bg" aria-hidden="true">
         <div class="hero-shape shape-1"></div>
         <div class="hero-shape shape-2"></div>
         <div class="hero-shape shape-3"></div>
@@ -96,7 +97,7 @@
 </section>
 <section class="section" id="features">
     <div class="container">
-        <div class="section-header">
+        <div class="landing-section-header">
             <span class="section-tag">Features</span>
             <h2 class="section-title">Everything You Need to Manage Money</h2>
             <p class="section-desc">Powerful tools designed to give you complete visibility over your loans and investments.</p>
@@ -113,7 +114,7 @@
 </section>
 <section class="section section-alt" id="how-it-works">
     <div class="container">
-        <div class="section-header">
+        <div class="landing-section-header">
             <span class="section-tag">Process</span>
             <h2 class="section-title">How It Works</h2>
             <p class="section-desc">Get started in under 2 minutes. Choose your journey.</p>
@@ -184,7 +185,7 @@
 </section>
 <section class="section" id="marketplace">
     <div class="container">
-        <div class="section-header">
+        <div class="landing-section-header">
             <span class="section-tag">Marketplace</span>
             <h2 class="section-title">High-Yield Investment Opportunities</h2>
             <p class="section-desc">Browse verified loans and invest to earn 12-15% annual returns.</p>
@@ -226,7 +227,7 @@
 </section>
 <section class="section section-alt" id="calculator">
     <div class="container">
-        <div class="section-header">
+        <div class="landing-section-header">
             <span class="section-tag">Calculator</span>
             <h2 class="section-title">Calculate Your EMI Instantly</h2>
             <p class="section-desc">Plan your finances before you borrow.</p>

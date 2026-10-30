@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Account recovery — NexusLoan{% endblock %}
+{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/account-recovery.css' %}?v=1">{% endblock %}
+{% block content %}
+<main class="auth-page recovery-page">
+    <section class="recovery-card glass-card" aria-labelledby="recovery-title">
+        <a href="/" class="auth-brand"><i class="fas fa-landmark" aria-hidden="true"></i> NexusLoan</a>
+        <div class="recovery-icon"><i class="fas fa-lock" aria-hidden="true"></i></div>
+        {% block recovery_content %}{% endblock %}
+        <p class="auth-switch"><a href="{% url 'login' %}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to sign in</a></p>
+    </section>
+</main>
+{% endblock %}

@@ -1,1 +1,24 @@
-{% extends 'base.html' %}{% block content %}<main style="max-width:520px;margin:4rem auto;padding:1.5rem"><h1>{{ title|default:'Account recovery' }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit" class="btn btn-primary">{{ button|default:'Continue' }}</button></form><p><a href="{% url 'login' %}">Back to sign in</a></p></main>{% endblock %}
+{% extends 'registration/recovery_base.html' %}
+{% block recovery_content %}
+{% if form %}
+<h1 id="recovery-title">{{ title|default:'Reset your password' }}</h1>
+<p class="recovery-description">{% if form.email %}Enter your account email address. We'll send you a link to reset your password.{% elif form.new_password1 %}Choose a new password to keep your account secure.{% else %}Enter your verification code to continue securely.{% endif %}</p>
+<form method="post" class="auth-form recovery-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-error-banner" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}
+    <div class="form-group">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.errors %}<div class="recovery-errors" id="{{ field.auto_id }}_error" role="alert">{{ field.errors }}</div>{% endif %}
+        {% if field.help_text %}<div class="recovery-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary btn-block">{% if form.email %}Send reset link{% elif form.new_password1 %}Update password{% else %}{{ button|default:'Continue' }}{% endif %}</button>
+</form>
+{% else %}
+<h1 id="recovery-title">Reset link expired</h1>
+<p class="recovery-description">This password reset link is invalid or has already been used. Request a new link to continue.</p>
+<a href="{% url 'password_reset' %}" class="btn btn-primary btn-block">Request a new link</a>
+{% endif %}
+{% endblock %}

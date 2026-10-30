@@ -177,3 +177,37 @@
   .app-layout .btn,.operations-ui button,.operation-links a,.app-layout .filter-btn,.app-layout .report-tab { min-height:44px; }
   .app-layout table th,.app-layout table td { padding:10px 12px; }
 }
+
+/* Sidebar disclosure stays inside both the full sidebar and its icon rail. */
+.app-layout .sidebar-header { display:flex; align-items:center; gap:8px; padding:20px 12px; }
+.app-layout .sidebar-logo { flex:1; min-width:0; gap:8px; }
+.app-layout .sidebar-logo .logo-text { font-size:18px; }
+.sidebar-collapse-toggle {
+  display:none; flex-shrink:0; width:30px; height:32px;
+  align-items:center; justify-content:center; border:1px solid var(--border);
+  border-radius:7px; background:var(--bg-card); color:var(--text-secondary); cursor:pointer;
+}
+.sidebar-collapse-toggle:hover { color:var(--primary); background:var(--primary-subtle); }
+@media(min-width:1025px) {
+  .sidebar-collapse-toggle { display:flex; }
+  .app-layout.sidebar-collapsed { --sidebar-w:68px; }
+  .sidebar-collapsed .sidebar-header { flex-direction:column; gap:12px; padding:20px 8px; }
+  .sidebar-collapsed .sidebar-logo { flex:none; }
+  .sidebar-collapsed .sidebar-collapse-toggle svg { transform:rotate(180deg); }
+  .sidebar-collapsed .sidebar-nav { padding:8px; }
+  .sidebar-collapsed .sidebar-nav > .nav-item,
+  .sidebar-collapsed .sidebar-nav > .nav-group > summary,
+  .sidebar-collapsed .nav-logout { justify-content:center; padding:12px 0; }
+  .sidebar-collapsed .sidebar-nav > .nav-group > .nav-children,
+  .sidebar-collapsed .nav-chevron,.sidebar-collapsed .user-details { display:none; }
+  .sidebar-collapsed .logo-text,
+  .sidebar-collapsed .sidebar-nav > .nav-item > span,
+  .sidebar-collapsed .sidebar-nav > .nav-group > summary > span,
+  .sidebar-collapsed .nav-logout > span {
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap;
+  }
+  .sidebar-collapsed .sidebar-footer { padding:14px 8px; }
+  .sidebar-collapsed .user-info { justify-content:center; padding:0; }
+}
+@media print { .sidebar-collapse-toggle { display:none; } }

@@ -1,21 +1,21 @@
 /* Loan workspace: compact headings, predictable actions and readable metrics. */
 .loan-list-page .page-header,.loan-detail-page .page-header { margin-bottom:20px; }
-.loan-list-page .loans-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:18px; }
-.loan-list-page .loan-card { display:flex; flex-direction:column; padding:20px; min-width:0; }
-.loan-list-page .loan-card-header { margin-bottom:14px; }
+.loan-list-page .loans-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr)); gap:14px; }
+.loan-list-page .loan-card { display:flex; flex-direction:column; padding:16px; min-width:0; }
+.loan-list-page .loan-card-header { margin-bottom:8px; }
 .loan-list-page .loan-card-title { font-size:16px; line-height:1.5; overflow-wrap:anywhere; margin:0; }
 .loan-list-page .loan-card-title a { color:var(--text); text-decoration:none; }
 .loan-list-page .loan-card-title a:hover { color:var(--primary); }
-.loan-list-page .loan-card-kind { margin:3px 0 16px; color:var(--text-secondary); font-size:12px; }
-.loan-list-page .loan-card-amount { font-size:24px; font-weight:700; margin:4px 0 18px; font-variant-numeric:tabular-nums; }
-.loan-list-page .loan-card-meta { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; padding:14px 0; border-top:1px solid #eef2f6; border-bottom:1px solid #eef2f6; margin:0 0 18px; }
+.loan-list-page .loan-card-kind { margin:3px 0 10px; color:var(--text-secondary); font-size:12px; }
+.loan-list-page .loan-card-amount { font-size:22px; font-weight:700; margin:3px 0 10px; font-variant-numeric:tabular-nums; }
+.loan-list-page .loan-card-meta { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; padding:10px 0; border-top:1px solid #eef2f6; border-bottom:1px solid #eef2f6; margin:0 0 12px; }
 .loan-list-page .lcm-label { font-size:10px; color:#64748b; font-weight:600; }
 .loan-list-page .lcm-value { font-size:13px; margin-top:4px; }
 .loan-list-page .lcm-value small { display:block; color:#64748b; font-size:10px; font-weight:400; margin-top:3px; }
 .loan-list-page .loan-progress-section { margin-top:auto; }
 .loan-list-page .loan-progress-info { font-size:11px; gap:10px; flex-wrap:wrap; }
-.loan-list-page .loan-card-actions { display:flex; gap:10px; margin-top:18px; }
-.loan-list-page .loan-card-actions .btn { flex:1; }
+.loan-list-page .loan-card-actions { display:flex; gap:8px; margin-top:12px; }
+.loan-list-page .loan-card-actions .btn { flex:1; min-height:36px; padding:8px 10px; font-size:12px; }
 .loan-list-page .loan-status-badge,.loan-detail-page .loan-status-badge { font-size:10px; padding:4px 9px; }
 .loan-detail-page .loan-heading-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; margin-bottom:8px; }
 .loan-detail-page .loan-heading-row h1 { margin:0; overflow-wrap:anywhere; }

@@ -1,0 +1,92 @@
+/* Text-only refinements; retain the landing page palette, cards and layout. */
+.hero-title { line-height:1.18; text-wrap:balance; }
+.hero-subtitle { max-width:50ch; line-height:1.8; text-wrap:pretty; }
+.hero-content { min-width:0; }
+.hero-badge { line-height:1.5; }
+.hero-stats { flex-wrap:wrap; row-gap:16px; }
+.hero-stat { gap:4px; }
+.section-title { line-height:1.3; text-wrap:balance; }
+.section-desc { max-width:62ch; margin-inline:auto; line-height:1.8; text-wrap:pretty; }
+.feature-card h3,.step-card h3 { line-height:1.45; text-wrap:balance; }
+.feature-card p,.step-card p { line-height:1.75; text-wrap:pretty; }
+.feature-card p { max-width:32ch; margin-inline:auto; }
+.step-card p { max-width:30ch; margin-inline:auto; }
+@media(max-width:480px) {
+  .hero-subtitle { text-align:left; }
+  .hero-badge { font-size:12px; }
+}
+/* Dashboard header flex rules must not squeeze landing section copy. */
+.landing-section-header {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:0;
+  max-width:720px;
+  margin:0 auto 48px;
+  text-align:center;
+}
+@media(max-width:360px) {
+  .market-preview-grid { grid-template-columns:minmax(0,1fr); }
+}
+
+/* A shared surface joins the navbar to the landing page at the top. */
+#landingNav,
+#landingNav.scrolled {
+  background:var(--bg);
+  border-bottom-color:transparent;
+  box-shadow:none;
+  padding:14px 0;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+#landingNav::after {
+  content:"";
+  position:absolute;
+  inset:auto 0 -1px;
+  height:1px;
+  background:var(--border-strong);
+  opacity:var(--nav-border-opacity, 0);
+  transition:opacity 180ms ease-out;
+  pointer-events:none;
+}
+.hero { background:var(--bg); }
+.hero-bg {
+  mask-image:linear-gradient(to bottom, transparent, #000 180px);
+  -webkit-mask-image:linear-gradient(to bottom, transparent, #000 180px);
+}
+.hero-shape {
+  background:var(--primary);
+  opacity:.11;
+  filter:blur(38px);
+  border-radius:42% 58% 65% 35% / 46% 35% 65% 54%;
+  animation:landingBlobDrift 12s ease-in-out infinite;
+  will-change:transform;
+}
+.hero-shape.shape-1 {
+  width:clamp(280px,38vw,540px); height:clamp(280px,38vw,540px);
+  top:14%; right:8%; animation-delay:-3s;
+}
+.hero-shape.shape-2 {
+  width:clamp(240px,32vw,440px); height:clamp(240px,32vw,440px);
+  bottom:12%; left:6%; background:var(--primary-light);
+  animation-duration:15s; animation-delay:-8s; animation-direction:reverse;
+}
+.hero-shape.shape-3 {
+  width:clamp(200px,25vw,350px); height:clamp(200px,25vw,350px);
+  top:35%; left:36%; background:var(--primary-dark);
+  animation-duration:10s; animation-delay:-5s; opacity:.08;
+}
+@keyframes landingBlobDrift {
+  0%,100% {
+    transform:translate3d(-8vw,-35px,0) scale(.85) rotate(-15deg);
+    border-radius:42% 58% 65% 35% / 46% 35% 65% 54%;
+  }
+  50% {
+    transform:translate3d(8vw,95px,0) scale(1.15) rotate(35deg);
+    border-radius:65% 35% 38% 62% / 35% 62% 38% 65%;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  .hero-shape { animation:none; }
+  #landingNav::after { transition:none; }
+}

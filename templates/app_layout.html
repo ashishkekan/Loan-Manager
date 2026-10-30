@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}{{ page_title|default:navigation_title|default:"Dashboard" }} — NexusLoan{% endblock %}
-{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/app-shell.css' %}?v=compact-ui-1"><script defer src="{% static 'js/app-shell.js' %}"></script>{% endblock %}
+{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/app-shell.css' %}?v=sidebar-rail-3"><script defer src="{% static 'js/app-shell.js' %}?v=sidebar-rail-3"></script>{% endblock %}
 {% block content %}
 <style>
     .notification-badge {
@@ -39,6 +39,7 @@
                 </div>
                 <span class="logo-text">NexusLoan</span>
             </a>
+            <button type="button" class="sidebar-collapse-toggle" id="sidebarCollapseToggle" aria-controls="sidebar" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2" width="16" height="16" rx="2"/><path d="M7 2v16m7-12-4 4 4 4"/></svg></button>
         </div>
         <nav class="sidebar-nav" aria-label="Main navigation">
             <a href="{% url 'dashboard' %}" class="nav-item {% if sidebar_dashboard_active %}active{% endif %}" {% if sidebar_dashboard_active %}aria-current="page"{% endif %}><i class="fas fa-chart-pie" aria-hidden="true"></i><span>Dashboard</span></a>
