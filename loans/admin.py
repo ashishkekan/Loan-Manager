@@ -7,11 +7,20 @@ from loans.models import (
     Investment,
     Loan,
     LoanDisbursement,
+    LoanInterestAccrual,
+    BankInterestPosting,
     LoanDocument,
     LoanNote,
     SupportMessage,
     SupportTicket,
 )
+
+
+@admin.register(BankInterestPosting)
+class BankInterestPostingAdmin(admin.ModelAdmin):
+    list_display = ("loan", "posting_date", "amount", "status", "reference")
+    list_filter = ("status", "posting_date")
+    search_fields = ("loan__loan_name", "reference")
 
 
 class LoanDisbursementInline(admin.TabularInline):
@@ -136,16 +145,36 @@ class LoanDisbursementAdmin(admin.ModelAdmin):
     list_filter = ("status", "purpose", "disbursement_date")
     search_fields = ("loan__loan_name", "loan__user__username")
     ordering = ("loan", "disbursement_number")
+
+
+@admin.register(LoanInterestAccrual)
+class LoanInterestAccrualAdmin(admin.ModelAdmin):
     list_display = (
         "loan",
-        "disbursement_number",
-        "disbursement_date",
-        "amount",
-        "purpose",
+        "disbursement",
+        "accrual_date",
+        "principal_balance",
+        "interest_amount",
+        "recovered_amount",
         "status",
     )
-
-
+    list_filter = ("status", "accrual_date")
+    search_fields = ("loan__loan_name", "loan__user__username")
+    readonly_fields = (
+        "loan",
+        "disbursement",
+        "accrual_date",
+        "principal_balance",
+        "disbursed_amount",
+        "annual_interest_rate",
+        "interest_amount",
+        "recovered_amount",
+        "status",
+        "recovered_on",
+        "payment",
+        "created_at",
+        "updated_at",
+    )
 @admin.register(SupportTicket)
 class SupportTicketAdmin(admin.ModelAdmin):
     list_display = [

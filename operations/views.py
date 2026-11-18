@@ -148,6 +148,12 @@ def create(request, section):
     if "loan" in form.fields:
         form.fields["loan"].queryset = allowed
         form.fields["loan"].initial = request.GET.get("loan")
+    if section == "receipts":
+        if request.GET.get("amount"):
+            form.fields["amount"].initial = request.GET.get("amount")
+        if request.GET.get("kind"):
+            form.fields["kind"].initial = request.GET["kind"]
+        form.fields["received_on"].initial = timezone.localdate()
     if "kind" in form.fields and request.GET.get("kind"):
         form.fields["kind"].initial = request.GET["kind"]
     for field in ("document", "previous_version"):

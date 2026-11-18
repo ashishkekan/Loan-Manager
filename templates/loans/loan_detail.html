@@ -42,7 +42,7 @@
             </button>
         </form>
         {% endif %}
-        <a href="{% url 'operations:create' 'receipts' %}?loan={{ loan.pk }}" class="btn btn-primary">Submit payment</a>
+        <a href="{% url 'operations:create' 'receipts' %}?loan={{ loan.pk }}&kind=emi&amount={{ loan.emi }}" class="btn btn-primary">Manual payment entry</a>
         <a href="{% url 'operations:pdf' 'statement' loan.pk %}" class="btn btn-outline">Statement</a>
         <a href="{% url 'dashboard' %}" class="btn btn-outline">
             <i class="fas fa-chart-line"></i>Dashboard
@@ -154,6 +154,16 @@
         </div>
     </div>
 </div>
+{% if pending_disbursement_count and not total_disbursed_amount %}
+<div class="glass-card" style="padding:18px 24px;margin-bottom:24px;border-left:4px solid #f59e0b;">
+    <strong>Calculations are waiting for disbursement approval.</strong>
+    <p style="margin:6px 0 0;color:var(--text-secondary);">
+        {{ pending_disbursement_count }} disbursement{{ pending_disbursement_count|pluralize }} totalling
+        ₹{{ pending_disbursement_amount|floatformat:2 }} {{ pending_disbursement_count|pluralize:"is,are" }} still pending.
+        Daily interest, principal and outstanding balance begin after release.
+    </p>
+</div>
+{% endif %}
 
 <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -296,16 +306,16 @@
                 {% for item in pending_accrued_interest %}
                     <tr>
                         <td>
-                            #{{ item.disbursement.disbursement_number }}
+                            {% if item.disbursement %}#{{ item.disbursement.disbursement_number }}{% else %}{{ item.label|default:"Bank posted interest" }}{% endif %}
                         </td>
-                        <td>{{ item.from_date }}</td>
-                        <td>{{ item.to_date }}</td>
+                        <td>{{ item.from_date|date:"d M Y" }}</td>
+                        <td>{{ item.to_date|date:"d M Y" }}</td>
                         <td>{{ item.days }}</td>
                         <td>
-                            ₹{{ item.interest_amount }}
+                            ₹{{ item.interest_amount|floatformat:2 }}
                         </td>
                         <td>
-                            {{ item.emi_date }}
+                            {{ item.emi_date|date:"d M Y" }}
                         </td>
                     </tr>
                 {% empty %}

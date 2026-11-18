@@ -121,6 +121,7 @@ def webhook(request):
                         receipt.pk,
                         service_user,
                         remarks="Provider-confirmed captured payment",
+                        payment_mode="provider",
                     )
                     order.provider_payment = event["payment_id"]
                     order.status = "paid"

@@ -1,0 +1,60 @@
+{% extends 'app_layout.html' %}
+{% block title %}Pay EMI — {{ loan.loan_name }}{% endblock %}
+{% block app_content %}
+<div class="glass-card" style="max-width:780px;margin:24px auto;padding:28px;">
+    <div class="card-header">
+        <div>
+            <h1 class="page-title">Pay EMI</h1>
+            <p class="text-muted">{{ loan.loan_name }} · Due {{ due_date|date:"d M Y" }}</p>
+        </div>
+    </div>
+
+    {% if not has_released_disbursement %}
+        <div class="alert alert-warning" role="status" style="margin:18px 0;">
+            <strong>Payment calculation is not available yet.</strong><br>
+            This loan has no released disbursement. {% if pending_disbursement_amount > 0 %}
+            ₹{{ pending_disbursement_amount|floatformat:2 }} is still pending approval/release.
+            {% endif %}
+            Interest and principal calculations will start after disbursement release.
+        </div>
+    {% else %}
+        <div class="summary-grid" style="margin:18px 0;">
+            <div class="summary-card glass-card">
+                <span class="sc-label">Amount payable</span>
+                <span class="sc-value">₹{{ payable_amount|floatformat:2 }}</span>
+            </div>
+            <div class="summary-card glass-card">
+                <span class="sc-label">Accrued interest included</span>
+                <span class="sc-value">₹{{ payable_interest|floatformat:2 }}</span>
+            </div>
+            <div class="summary-card glass-card">
+                <span class="sc-label">Principal after interest</span>
+                <span class="sc-value">₹{{ payable_principal|floatformat:2 }}</span>
+            </div>
+        </div>
+    {% endif %}
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:22px;">
+        <form method="post" style="border:1px solid var(--border);border-radius:12px;padding:20px;">
+            {% csrf_token %}
+            <input type="hidden" name="payment_method" value="provider">
+            <h3>Pay with Configured Provider</h3>
+            <p class="text-muted">Online checkout. Payment is posted only after provider confirmation.</p>
+            {% if provider_configured and has_released_disbursement %}
+                <button class="btn btn-primary" type="submit"><i class="fas fa-credit-card"></i> Continue to Provider</button>
+            {% else %}
+                <button class="btn btn-outline" type="button" disabled>Provider unavailable</button>
+                <small class="text-muted">Configure PAYMENT_ADAPTER and release a disbursement first.</small>
+            {% endif %}
+        </form>
+
+        <div style="border:1px solid var(--border);border-radius:12px;padding:20px;">
+            <h3>Manual In-App Entry</h3>
+            <p class="text-muted">Enter a payment received outside the provider and submit proof for verification.</p>
+            <a class="btn btn-success" href="{% url 'operations:create' 'receipts' %}?loan={{ loan.pk }}&kind=emi&amount={{ payable_amount }}">
+                <i class="fas fa-pen-to-square"></i> Create Manual Entry
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

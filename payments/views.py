@@ -1,8 +1,10 @@
 import math
+import uuid
 from datetime import date
 from decimal import Decimal
 
 import openpyxl
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -20,6 +22,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from dashboard.utils import add_activity
 from loans.models import Loan
+from loans.services import AccruedInterestService
 from loans.utils import (
     add_months,
     add_periods,
@@ -36,8 +39,59 @@ from payments.services import process_emi_payment
 
 @login_required
 def pay_emi(request, loan_id):
-    get_object_or_404(Loan, pk=loan_id, user=request.user)
-    return redirect(f"/operations/receipts/new/?loan={loan_id}&kind=emi")
+    loan = get_object_or_404(Loan, pk=loan_id, user=request.user)
+    provider_configured = bool(getattr(settings, "PAYMENT_ADAPTER", ""))
+    from operations.services import next_due
+
+    due_date = next_due(loan, loan.payments.filter(status="paid").count() + 1)
+    if loan.remaining_balance > 0 and loan.total_disbursed_amount > 0:
+        summary = AccruedInterestService.calculate_total_debit(loan, due_date)
+        payable_amount = summary["total_debit"]
+        payable_interest = summary["regular_interest"]
+    else:
+        payable_amount = Decimal("0.00")
+        payable_interest = Decimal("0.00")
+
+    if request.method == "POST" and request.POST.get("payment_method") == "provider":
+        if not provider_configured:
+            messages.error(
+                request,
+                "No payment provider is configured. Choose Manual In-App Entry.",
+            )
+        elif payable_amount <= 0:
+            messages.error(
+                request,
+                "Payment is unavailable until at least one disbursement is released.",
+            )
+        else:
+            from operations.models import Receipt
+
+            receipt = Receipt.objects.create(
+                loan=loan,
+                submitted_by=request.user,
+                amount=payable_amount,
+                received_on=date.today(),
+                reference=f"APP-{uuid.uuid4().hex}",
+                kind="emi",
+            )
+            return redirect("operations:checkout", pk=receipt.pk)
+
+    return render(
+        request,
+        "payments/payment_options.html",
+        {
+            "loan": loan,
+            "due_date": due_date,
+            "payable_amount": payable_amount,
+            "payable_interest": payable_interest,
+            "payable_principal": max(
+                Decimal("0.00"), payable_amount - payable_interest
+            ),
+            "provider_configured": provider_configured,
+            "has_released_disbursement": loan.total_disbursed_amount > 0,
+            "pending_disbursement_amount": loan.amount - loan.total_disbursed_amount,
+        },
+    )
 
 
 @login_required

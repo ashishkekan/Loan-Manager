@@ -165,7 +165,7 @@ def disbursement_balance(sender, instance, raw=False, **kwargs):
     principal = loan.payments.filter(status__in=["paid", "partial"]).aggregate(
         v=Sum("principal_component")
     )["v"] or Decimal(0)
-    prepaid = loan.prepayments.filter(status="paid").aggregate(v=Sum("amount"))[
+    prepaid = loan.prepayments.filter(status="paid").aggregate(v=Sum("principal_component"))[
         "v"
     ] or Decimal(0)
     loan.remaining_balance = max(

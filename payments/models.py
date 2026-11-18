@@ -17,6 +17,7 @@ class Payment(models.Model):
         ("auto_debit", "Auto Debit"),
         ("upi", "UPI"),
         ("netbanking", "Net Banking"),
+        ("provider", "Configured Provider"),
     ]
 
     PAYMENT_TYPE_CHOICES = [
@@ -84,6 +85,12 @@ class Prepayment(models.Model):
         "loans.Loan", on_delete=models.CASCADE, related_name="prepayments"
     )
     amount = models.DecimalField(max_digits=15, decimal_places=2)
+    interest_component = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
+    )
+    principal_component = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
+    )
     prepayment_date = models.DateField()
     months_reduced = models.PositiveIntegerField(
         default=0, help_text="Estimated number of months reduced from tenure"
@@ -108,3 +115,8 @@ class Prepayment(models.Model):
 
     def __str__(self):
         return f"Prepayment ₹{self.amount} — {self.loan.loan_name}"
+
+    def save(self, *args, **kwargs):
+        if self.principal_component == Decimal("0.00") and self.amount:
+            self.principal_component = self.amount
+        super().save(*args, **kwargs)

@@ -1,7 +1,11 @@
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
+from datetime import timedelta
+
 from django.utils import timezone
 
+from loans.models import Loan
+from loans.services import AccruedInterestService
 from operations.models import LoanRevision
 from operations.reminders import deliver_reminders, queue_reminders
 from operations.services import apply_revision
@@ -12,6 +16,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         failures = 0
+        accruals = 0
+        accrual_until = timezone.localdate() + timedelta(days=1)
+        for loan in Loan.objects.filter(status="active").iterator():
+            before = loan.interest_accruals.count()
+            AccruedInterestService.accrue_until(loan, accrual_until)
+            accruals += loan.interest_accruals.count() - before
         for pk in LoanRevision.objects.filter(
             status="approved", effective_from__lte=timezone.localdate()
         ).values_list("pk", flat=True):
@@ -25,4 +35,7 @@ class Command(BaseCommand):
         queue_recurring_payments()
         queue_reminders()
         deliver_reminders()
-        self.stdout.write(f"Operations processed. Blocked revisions: {failures}.")
+        self.stdout.write(
+            f"Operations processed. Daily accruals: {accruals}. "
+            f"Blocked revisions: {failures}."
+        )

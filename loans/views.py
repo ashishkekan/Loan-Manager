@@ -610,6 +610,21 @@ class LoanDetailView(LoginRequiredMixin, DetailView):
         context["disbursements"] = loan.disbursements.order_by("disbursement_number")
         context["total_disbursed_amount"] = loan.total_disbursed_amount
         context["remaining_sanction_amount"] = loan.remaining_sanction_amount
+        context["pending_disbursement_amount"] = loan.disbursements.filter(
+            status="pending"
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        context["pending_disbursement_count"] = loan.disbursements.filter(
+            status="pending"
+        ).count()
+        context["pending_accrued_interest"] = AccruedInterestService.pending_breakdown(
+            loan,
+            timezone.localdate() + timedelta(days=1),
+            next_emi_date,
+        )
+        context["pending_interest"] = sum(
+            (row["interest_amount"] for row in context["pending_accrued_interest"]),
+            Decimal("0.00"),
+        )
         if loan.status == "active" and next_emi_date:
 
             summary = AccruedInterestService.calculate_total_debit(loan, next_emi_date)
@@ -883,9 +898,14 @@ class LoanDisbursementDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["interest_entries"] = []
-        context["total_interest"] = Decimal("0.00")
-        context["pending_interest"] = Decimal("0.00")
+        entries = self.object.interest_accruals.order_by("-accrual_date", "-id")
+        context["interest_entries"] = entries
+        context["total_interest"] = sum(
+            (entry.interest_amount for entry in entries), Decimal("0.00")
+        )
+        context["pending_interest"] = sum(
+            (entry.outstanding_amount for entry in entries), Decimal("0.00")
+        )
         return context
 
 

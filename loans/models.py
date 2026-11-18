@@ -286,12 +286,24 @@ class Loan(models.Model):
 
     @property
     def total_pending_accrued_interest(self):
-        # Separate accrued-interest records were removed in migration 0007.
-        return Decimal("0.00")
+        return (
+            self.interest_accruals.filter(status__in=["pending", "part_paid"])
+            .aggregate(total=Sum("interest_amount"))
+            .get("total")
+            or Decimal("0.00")
+        ) - (
+            self.interest_accruals.filter(status__in=["pending", "part_paid"])
+            .aggregate(total=Sum("recovered_amount"))
+            .get("total")
+            or Decimal("0.00")
+        )
 
     @property
     def total_recovered_accrued_interest(self):
-        return Decimal("0.00")
+        return (
+            self.interest_accruals.aggregate(total=Sum("recovered_amount"))["total"]
+            or Decimal("0.00")
+        )
 
     @property
     def disbursement_percentage(self):
@@ -307,15 +319,15 @@ class Loan(models.Model):
 
     @property
     def pending_accrued_interest_count(self):
-        return 0
+        return self.interest_accruals.filter(status__in=["pending", "part_paid"]).count()
 
     @property
     def recovered_accrued_interest_count(self):
-        return 0
+        return self.interest_accruals.filter(status="recovered").count()
 
     @property
     def has_pending_accrued_interest(self):
-        return False
+        return self.total_pending_accrued_interest > Decimal("0.00")
 
 
 class LoanNote(models.Model):
@@ -498,14 +510,8 @@ class LoanDisbursement(models.Model):
             previous = (
                 type(self).objects.filter(pk=self.pk).first() if self.pk else None
             )
-            if (
-                loan.status == "closed"
-                or loan.payments.filter(status__in=["paid", "partial"]).exists()
-                or loan.receipts.filter(status="verified").exists()
-            ):
-                raise ValidationError(
-                    "Disbursements are locked once repayments begin or a loan closes."
-                )
+            if loan.status == "closed":
+                raise ValidationError("Disbursements cannot be changed after a loan closes.")
             if (
                 self.amount <= 0
                 or self.disbursement_date < loan.start_date
@@ -535,6 +541,70 @@ class LoanDisbursement(models.Model):
 
     def __str__(self):
         return f"{self.loan.loan_name} - Disbursement #{self.disbursement_number}"
+
+
+class LoanInterestAccrual(models.Model):
+    """One auditable daily interest entry for one released disbursement."""
+
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("part_paid", "Part Paid"),
+        ("recovered", "Recovered"),
+    ]
+
+    loan = models.ForeignKey(
+        Loan, on_delete=models.CASCADE, related_name="interest_accruals"
+    )
+    disbursement = models.ForeignKey(
+        LoanDisbursement, on_delete=models.CASCADE, related_name="interest_accruals"
+    )
+    accrual_date = models.DateField()
+    principal_balance = models.DecimalField(max_digits=15, decimal_places=2)
+    disbursed_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    annual_interest_rate = models.DecimalField(max_digits=7, decimal_places=4)
+    interest_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    recovered_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="pending"
+    )
+    recovered_on = models.DateField(null=True, blank=True)
+    payment = models.ForeignKey(
+        "payments.Payment",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="interest_accruals",
+    )
+    prepayment = models.ForeignKey(
+        "payments.Prepayment",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="interest_accruals",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "loan_interest_accruals"
+        ordering = ["accrual_date", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["loan", "disbursement", "accrual_date"],
+                name="unique_daily_loan_interest_accrual",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["loan", "accrual_date"]),
+            models.Index(fields=["loan", "status"]),
+            models.Index(fields=["disbursement", "accrual_date"]),
+        ]
+
+    @property
+    def outstanding_amount(self):
+        return max(Decimal("0.00"), self.interest_amount - self.recovered_amount)
 
 
 class Notification(models.Model):
@@ -795,3 +865,52 @@ class BankAccount(models.Model):
 
     def __str__(self):
         return f"{self.bank_name} - {self.masked_account_number}"
+
+
+class BankInterestPosting(models.Model):
+    """Interest debit imported from a lender statement.
+
+    These postings override estimated daily accruals for EMI allocation while
+    preserving the daily calculation as the fallback for loans without bank
+    statement entries.
+    """
+
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("part_paid", "Part Paid"),
+        ("recovered", "Recovered"),
+    ]
+    loan = models.ForeignKey(
+        Loan, on_delete=models.CASCADE, related_name="bank_interest_postings"
+    )
+    posting_date = models.DateField()
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    recovered_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
+    )
+    reference = models.CharField(max_length=120, unique=True)
+    remarks = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    payment = models.ForeignKey(
+        "payments.Payment", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="bank_interest_postings"
+    )
+    prepayment = models.ForeignKey(
+        "payments.Prepayment", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="bank_interest_postings"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["posting_date", "id"]
+        indexes = [
+            models.Index(fields=["loan", "posting_date"]),
+            models.Index(fields=["loan", "status"]),
+        ]
+
+    @property
+    def outstanding_amount(self):
+        return max(Decimal("0.00"), self.amount - self.recovered_amount)

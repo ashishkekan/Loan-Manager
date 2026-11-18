@@ -15,6 +15,7 @@ from loans.utils import (
     create_notification,
     get_period_details,
 )
+from loans.services import AccruedInterestService
 from payments.models import Payment, Prepayment
 
 from .access import application_scope, can_operate
@@ -86,7 +87,11 @@ def payment_state(payment):
 
 
 def finish(loan, day):
-    if loan.remaining_balance == 0 and not loan.charges.filter(status="due").exists():
+    if (
+        loan.remaining_balance == 0
+        and not loan.charges.filter(status="due").exists()
+        and not loan.has_pending_accrued_interest
+    ):
         loan.status, loan.closed_date = "closed", day
         create_notification(
             loan.user,
@@ -99,7 +104,7 @@ def finish(loan, day):
 
 
 @transaction.atomic
-def verify_receipt(pk, user, approve=True, remarks=""):
+def verify_receipt(pk, user, approve=True, remarks="", payment_mode="manual"):
     # Always lock the loan first, for consistent ordering between posting/reversal.
     ref = Receipt.objects.get(pk=pk)
     loan = Loan.objects.select_for_update().get(pk=ref.loan_id)
@@ -143,14 +148,22 @@ def verify_receipt(pk, user, approve=True, remarks=""):
     elif receipt.kind == "prepayment":
         if loan.payments.filter(status="partial").exists():
             raise ValidationError("Complete the partial EMI before prepayment.")
-        if receipt.amount > loan.remaining_balance:
-            raise ValidationError("Prepayment exceeds outstanding principal.")
+        # A prepayment is a principal-only reduction for this loan product.
+        # Accrued/unposted interest remains a separate ledger item and is not
+        # deducted from the prepayment amount.  EMI receipts continue to
+        # allocate accrued interest before principal in the EMI branch below.
+        interest = ZERO
+        principal = money(receipt.amount)
+        if principal > loan.remaining_balance:
+            raise ValidationError(
+                "Prepayment exceeds outstanding principal."
+            )
         from loans.utils import calculate_remaining_periods, simulate_extra_emi
 
         old_periods = calculate_remaining_periods(
             loan.remaining_balance, loan.interest_rate, loan.emi, loan.emi_frequency
         )
-        new_balance = money(loan.remaining_balance - receipt.amount)
+        new_balance = money(loan.remaining_balance - principal)
         new_periods = calculate_remaining_periods(
             new_balance, loan.interest_rate, loan.emi, loan.emi_frequency
         )
@@ -181,11 +194,20 @@ def verify_receipt(pk, user, approve=True, remarks=""):
         receipt.prepayment = Prepayment.objects.create(
             loan=loan,
             amount=receipt.amount,
+            interest_component=interest,
+            principal_component=principal,
             prepayment_date=receipt.received_on,
             months_reduced=max(0, months),
             interest_saved=saved,
         )
         loan.remaining_balance = new_balance
+        loan.total_interest_paid = money(loan.total_interest_paid + interest)
+        AccruedInterestService.recover(
+            loan,
+            interest,
+            recovered_on=receipt.received_on,
+            prepayment=receipt.prepayment,
+        )
     else:
         payment = loan.payments.filter(status="partial").first()
         receipt.before["payment"] = payment_state(payment)
@@ -198,12 +220,12 @@ def verify_receipt(pk, user, approve=True, remarks=""):
                 )
             if loan.remaining_balance <= 0:
                 raise ValidationError("No principal remains.")
-            rate = loan.interest_rate / Decimal(
-                100 * get_period_details(loan.emi_frequency)[1]
+            interest_due = AccruedInterestService.pending_interest(
+                loan, receipt.received_on
             )
-            interest = money(loan.remaining_balance * rate)
-            target = min(loan.emi, money(loan.remaining_balance + interest))
-            if target <= interest:
+            target = min(loan.emi, money(loan.remaining_balance + interest_due))
+            target = max(target, interest_due)
+            if target <= interest_due:
                 raise ValidationError("EMI must cover interest and principal.")
             payment = loan.payments.filter(payment_number=number).first()
             if payment and payment.status not in ("pending", "overdue"):
@@ -223,16 +245,20 @@ def verify_receipt(pk, user, approve=True, remarks=""):
             payment.save()
         remaining = money(payment.total_debit_amount - payment.amount)
         if receipt.amount > remaining:
-            raise ValidationError(
-                f"This EMI has {remaining} remaining. Submit excess separately as prepayment."
-            )
-        # Interest-first allocation, retaining the original instalment interest target.
-        original_balance = loan.remaining_balance + payment.principal_component
-        target_interest = money(
-            original_balance
-            * loan.interest_rate
-            / Decimal(100 * get_period_details(loan.emi_frequency)[1])
-        )
+            # Banks commonly round the EMI debit to the nearest rupee.  Keep
+            # the contractual EMI in ``regular_emi_amount`` but allow a small
+            # first-posting rounding difference to be part of this payment.
+            # Larger excess payments must still use the prepayment workflow.
+            rounding_excess = money(receipt.amount - remaining)
+            if payment.amount != ZERO or rounding_excess > Decimal("1.00"):
+                raise ValidationError(
+                    f"This EMI has {remaining} remaining. Submit excess separately as prepayment."
+                )
+            payment.total_debit_amount = receipt.amount
+        # Interest-first allocation against the actual daily accrued ledger.
+        target_interest = AccruedInterestService.pending_interest(
+            loan, receipt.received_on
+        ) + payment.interest_component
         interest = min(
             receipt.amount, max(ZERO, target_interest - payment.interest_component)
         )
@@ -240,8 +266,12 @@ def verify_receipt(pk, user, approve=True, remarks=""):
         payment.amount += receipt.amount
         payment.interest_component += interest
         payment.principal_component += principal
+        payment.payment_mode = payment_mode
         loan.remaining_balance = money(loan.remaining_balance - principal)
         loan.total_interest_paid = money(loan.total_interest_paid + interest)
+        AccruedInterestService.recover(
+            loan, interest, payment, receipt.received_on
+        )
         payment.balance_after = loan.remaining_balance
         payment.payment_date = receipt.received_on
         payment.status = (
@@ -313,6 +343,7 @@ def approve_reversal(pk, user, approve=True):
         setattr(loan, key, value)
     loan.save()
     if receipt.payment:
+        AccruedInterestService.restore_recovery(receipt.payment)
         previous = receipt.before.get("payment")
         if previous:
             for key, value in previous.items():
@@ -326,6 +357,7 @@ def approve_reversal(pk, user, approve=True):
             receipt.payment.status = "pending"
         receipt.payment.save()
     if receipt.prepayment:
+        AccruedInterestService.restore_recovery(prepayment=receipt.prepayment)
         receipt.prepayment.status = "pending"
         receipt.prepayment.save()
     if receipt.charge:

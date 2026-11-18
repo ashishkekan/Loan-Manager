@@ -17,12 +17,14 @@ from loans.models import (
     Investment,
     Loan,
     LoanDisbursement,
+    LoanInterestAccrual,
     LoanDocument,
     Notification,
     SecuritySetting,
 )
 from loans.utils import calculate_emi, calculate_foreclosure, generate_full_schedule
-from payments.models import Payment
+from loans.services import AccruedInterestService
+from payments.models import Payment, Prepayment
 
 from .access import loans_for
 from .advanced import provision_roles, simulate_debts
@@ -88,6 +90,15 @@ class OperationsTests(TestCase):
     def test_disbursement_updates_balance(self):
         self.assertEqual(self.loan.remaining_balance, Decimal(12000))
 
+    def test_daily_interest_is_disbursement_wise(self):
+        AccruedInterestService.accrue_until(self.loan, self.today)
+        entries = LoanInterestAccrual.objects.filter(loan=self.loan)
+        self.assertEqual(entries.count(), 30)
+        self.assertEqual(entries.values_list("disbursement_id", flat=True).distinct().count(), 1)
+        self.assertEqual(
+            sum(entry.interest_amount for entry in entries), Decimal("118.50")
+        )
+
     def test_quarterly_total(self):
         self.loan.emi_frequency = "quarterly"
         self.assertEqual(self.loan.total_payable, self.loan.emi * 4)
@@ -116,11 +127,63 @@ class OperationsTests(TestCase):
         p.refresh_from_db()
         self.loan.refresh_from_db()
         self.assertEqual(p.status, "paid")
-        self.assertEqual(p.interest_component, 120)
-        self.assertEqual(p.principal_component, Decimal("946.19"))
-        self.assertEqual(self.loan.remaining_balance, Decimal("11053.81"))
+        self.assertEqual(p.interest_component, Decimal("118.50"))
+        self.assertEqual(p.principal_component, Decimal("947.69"))
+        self.assertEqual(self.loan.remaining_balance, Decimal("11052.31"))
         self.assertFalse(
             Notification.objects.filter(title="Loan Fully Repaid").exists()
+        )
+
+    def test_emi_allows_nearest_rupee_rounding(self):
+        receipt = self.receipt("1067")
+        verify_receipt(receipt.pk, self.checker)
+        payment = Payment.objects.get()
+        self.assertEqual(payment.status, "paid")
+        self.assertEqual(payment.regular_emi_amount, Decimal("1066.19"))
+        self.assertEqual(payment.total_debit_amount, Decimal("1067.00"))
+        self.assertEqual(payment.amount, Decimal("1067.00"))
+        self.assertEqual(payment.interest_component, Decimal("118.50"))
+        self.assertEqual(payment.principal_component, Decimal("948.50"))
+        self.assertEqual(self.loan.refresh_from_db(), None)
+        self.assertEqual(self.loan.remaining_balance, Decimal("11051.50"))
+
+    def test_construction_disbursement_after_emi_is_allowed(self):
+        emi = self.receipt("1066.19")
+        verify_receipt(emi.pk, self.checker)
+        self.loan.amount = Decimal("13000")
+        self.loan.save(update_fields=["amount"])
+        disbursement = LoanDisbursement.objects.create(
+            loan=self.loan,
+            amount=1000,
+            disbursement_date=self.today - timedelta(days=1),
+        )
+        self.loan.refresh_from_db()
+        self.assertEqual(disbursement.status, "released")
+        self.assertEqual(self.loan.remaining_balance, Decimal("12052.31"))
+
+    def test_prepayment_is_principal_only_and_leaves_interest_pending(self):
+        emi = self.receipt("1066.19")
+        verify_receipt(emi.pk, self.checker)
+        self.loan.amount = Decimal("13000")
+        self.loan.save(update_fields=["amount"])
+        LoanDisbursement.objects.create(
+            loan=self.loan,
+            amount=1000,
+            disbursement_date=self.today - timedelta(days=1),
+        )
+        receipt = self.receipt("1001", kind="prepayment")
+        verify_receipt(receipt.pk, self.checker)
+        receipt.refresh_from_db()
+        prepayment = Prepayment.objects.get(pk=receipt.prepayment_id)
+        self.assertEqual(prepayment.amount, Decimal("1001.00"))
+        self.assertEqual(prepayment.interest_component, Decimal("0.00"))
+        self.assertEqual(prepayment.principal_component, Decimal("1001.00"))
+        self.assertEqual(
+            self.loan.refresh_from_db(), None
+        )
+        self.assertEqual(
+            self.loan.remaining_balance,
+            Decimal("12052.31") - Decimal("1001.00"),
         )
 
     def test_self_approval_forbidden(self):
@@ -182,7 +245,10 @@ class OperationsTests(TestCase):
             approve_reversal(reversal.pk, self.checker)
 
     def test_prepayment_closure_and_noc(self):
-        r = self.receipt("12000", kind="prepayment")
+        emi = self.receipt("1066.19")
+        verify_receipt(emi.pk, self.checker)
+        self.loan.refresh_from_db()
+        r = self.receipt(str(self.loan.remaining_balance), kind="prepayment")
         verify_receipt(r.pk, self.checker)
         self.loan.refresh_from_db()
         self.assertEqual(self.loan.status, "closed")
@@ -456,8 +522,8 @@ class OperationsTests(TestCase):
         r = self.receipt()
         verify_receipt(r.pk, self.checker)
         a = LenderAllocation.objects.get()
-        self.assertEqual(a.principal, Decimal("473.09"))
-        self.assertEqual(a.interest, 60)
+        self.assertEqual(a.principal, Decimal("473.84"))
+        self.assertEqual(a.interest, Decimal("59.25"))
 
     def test_planner_extra_budget_improves_payoff(self):
         baseline = simulate_debts([self.loan], Decimal(0), "avalanche")
@@ -474,12 +540,28 @@ class OperationsTests(TestCase):
         )
         self.assertFalse(Payment.objects.exists())
 
-    def test_get_payment_does_not_mutate(self):
+    def test_get_payment_shows_provider_and_manual_options(self):
         self.client.force_login(self.borrower)
-        self.assertEqual(
-            self.client.get(reverse("pay_emi", args=[self.loan.pk])).status_code, 302
-        )
+        response = self.client.get(reverse("pay_emi", args=[self.loan.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Pay with Configured Provider")
+        self.assertContains(response, "Manual In-App Entry")
         self.assertFalse(Payment.objects.exists())
+
+    def test_configured_provider_creates_pending_receipt(self):
+        self.client.force_login(self.borrower)
+        with override_settings(PAYMENT_ADAPTER="operations.tests.TestAdapter"):
+            response = self.client.post(
+                reverse("pay_emi", args=[self.loan.pk]),
+                {"payment_method": "provider"},
+            )
+        self.assertRedirects(
+            response,
+            reverse("operations:checkout", args=[Receipt.objects.latest("pk").pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(Receipt.objects.latest("pk").status, "pending")
+        self.assertEqual(Receipt.objects.latest("pk").kind, "emi")
 
     def test_audit_preserves_old_and_new(self):
         self.loan.loan_name = "Renamed"
@@ -688,12 +770,13 @@ class OperationsTests(TestCase):
         self.assertEqual(Receipt.objects.get().status, "pending")
         self.assertFalse(Payment.objects.exists())
 
-    def test_posted_disbursement_locked(self):
+    def test_posted_disbursement_reconciles_after_repayment(self):
         verify_receipt(self.receipt().pk, self.checker)
         disbursement = self.loan.disbursements.get()
         disbursement.amount = 10000
-        with self.assertRaises(ValidationError):
-            disbursement.save()
+        disbursement.save()
+        self.loan.refresh_from_db()
+        self.assertEqual(self.loan.remaining_balance, Decimal("9052.31"))
 
     def test_disbursement_checker_flow(self):
         loan = Loan.objects.create(
@@ -898,6 +981,7 @@ class OperationsTests(TestCase):
         r.refresh_from_db()
         self.assertEqual(r.status, "verified")
         self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(Payment.objects.get().payment_mode, "provider")
         self.assertEqual(GatewayEvent.objects.count(), 1)
 
     @override_settings(PAYMENT_ADAPTER="operations.tests.FakeProvider")
